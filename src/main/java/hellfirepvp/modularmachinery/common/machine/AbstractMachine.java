@@ -26,6 +26,7 @@ public abstract class AbstractMachine {
     protected boolean              parallelizable    = Config.machineParallelizeEnabledByDefault;
     protected boolean              hasFactory        = Config.enableFactoryControllerByDefault;
     protected boolean              factoryOnly       = false;
+    protected boolean evenParallelismDistribution = false;
     protected RecipeFailureActions failureAction     = RecipeFailureActions.getDefaultAction();
 
     public AbstractMachine(String registryName) {

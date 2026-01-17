@@ -652,6 +652,10 @@ public class DynamicMachine extends AbstractMachine {
                 machine.setFactoryOnly(DynamicMachinePreDeserializer.getFactoryOnly(root));
             }
 
+            if (root.has("even-parallelism-distribution")) {
+                machine.setEvenParallelismDistribution(DynamicMachinePreDeserializer.getEvenParallelismDistribution(root));
+            }
+
             // Hide Components When Formed
             if (root.has("hide-components-when-formed")) {
                 machine.setHideComponentsWhenFormed(getHideComponentsWhenFormed(root));
@@ -680,5 +684,4 @@ public class DynamicMachine extends AbstractMachine {
             return machine;
         }
     }
-
 }

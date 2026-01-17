@@ -162,7 +162,7 @@ public class FactoryRecipeThread extends RecipeThread {
         searchTask = new FactoryRecipeSearchTask(
             factory,
             factory.getFoundMachine(),
-            factory.getAvailableParallelism(),
+            factory.getThreadParallelism(),
             recipeSet,
             this,
             factory.getActiveRecipeList());
