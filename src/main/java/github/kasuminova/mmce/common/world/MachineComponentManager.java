@@ -1,6 +1,8 @@
 package github.kasuminova.mmce.common.world;
 
 import com.github.bsideup.jabel.Desugar;
+import github.kasuminova.mmce.common.tile.MEPatternMirrorImage;
+import github.kasuminova.mmce.common.tile.MEPatternProvider;
 import github.kasuminova.mmce.common.util.concurrent.ExecuteGroup;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
@@ -9,6 +11,9 @@ import it.unimi.dsi.fastutil.objects.ReferenceSets;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
+import net.minecraftforge.fml.common.Loader;
+import net.minecraftforge.fml.common.Optional;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Collections;
 import java.util.Map;
@@ -16,12 +21,28 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class MachineComponentManager {
-    public static final MachineComponentManager INSTANCE = new MachineComponentManager();
+    public static final MachineComponentManager                  INSTANCE     = new MachineComponentManager();
+    private final       Map<World, Map<BlockPos, ComponentInfo>> componentMap = new ConcurrentHashMap<>();
 
     private MachineComponentManager() {
     }
 
-    private final Map<World, Map<BlockPos, ComponentInfo>> componentMap = new ConcurrentHashMap<>();
+    @Optional.Method(modid = "appliedenergistics2")
+    private static Pair<BlockPos, TileEntity> getResult(TileEntity component, World world) {
+        BlockPos pos = component.getPos();
+        TileEntity te = component;
+
+        if (component instanceof MEPatternMirrorImage mepi) {
+            if (mepi.providerPos != null) {
+                TileEntity tileEntity = world.getTileEntity(mepi.providerPos);
+                if (tileEntity instanceof MEPatternProvider mep) {
+                    te = mep;
+                    pos = mep.getPos();
+                }
+            }
+        }
+        return Pair.of(pos, te);
+    }
 
     public void addWorld(World world) {
         componentMap.put(world, new ConcurrentHashMap<>());
@@ -40,16 +61,26 @@ public class MachineComponentManager {
 
     public void checkComponentShared(TileEntity component, TileMultiblockMachineController ctrl) {
         World world = component.getWorld();
-        BlockPos pos = component.getPos();
+        BlockPos pos;
+        TileEntity te;
+
+        if (Loader.isModLoaded("appliedenergistics2")) {
+            Pair<BlockPos, TileEntity> result = getResult(component, world);
+            pos = result.getLeft();
+            te = result.getRight();
+        } else {
+            te = component;
+            pos = component.getPos();
+        }
 
         Map<BlockPos, ComponentInfo> posComponentMap = componentMap.computeIfAbsent(world, v -> new ConcurrentHashMap<>());
 
-        synchronized (component) {
+        synchronized (te) {
             ComponentInfo info = posComponentMap.computeIfAbsent(pos, v -> new ComponentInfo(
-                    component, pos, ReferenceSets.synchronize(new ReferenceOpenHashSet<>(Collections.singleton(ctrl)))));
+                    te, pos, ReferenceSets.synchronize(new ReferenceOpenHashSet<>(Collections.singleton(ctrl)))));
 
-            if (!info.areTileEntityEquals(component)) {
-                ComponentInfo newInfo = new ComponentInfo(component, pos, ReferenceSets.synchronize(new ReferenceOpenHashSet<>(Collections.singleton(ctrl))));
+            if (!info.areTileEntityEquals(te)) {
+                ComponentInfo newInfo = new ComponentInfo(te, pos, ReferenceSets.synchronize(new ReferenceOpenHashSet<>(Collections.singleton(ctrl))));
                 posComponentMap.put(pos, newInfo);
                 return;
             }
@@ -75,7 +106,17 @@ public class MachineComponentManager {
 
     public void removeOwner(TileEntity component, TileMultiblockMachineController ctrl) {
         World world = component.getWorld();
-        BlockPos pos = component.getPos();
+        BlockPos pos;
+        TileEntity te;
+
+        if (Loader.isModLoaded("appliedenergistics2")) {
+            Pair<BlockPos, TileEntity> result = getResult(component, world);
+            pos = result.getLeft();
+            te = result.getRight();
+        } else {
+            te = component;
+            pos = component.getPos();
+        }
 
         Map<BlockPos, ComponentInfo> posComponentMap = componentMap.computeIfAbsent(world, v -> new ConcurrentHashMap<>());
 
@@ -84,8 +125,8 @@ public class MachineComponentManager {
             return;
         }
 
-        if (!info.areTileEntityEquals(component)) {
-            ComponentInfo newInfo = new ComponentInfo(component, pos, new ObjectArraySet<>());
+        if (!info.areTileEntityEquals(te)) {
+            ComponentInfo newInfo = new ComponentInfo(te, pos, new ObjectArraySet<>());
             posComponentMap.put(pos, newInfo);
         } else {
             Set<TileMultiblockMachineController> owners = info.owners;

@@ -10,6 +10,13 @@ package hellfirepvp.modularmachinery;
 
 import github.kasuminova.mmce.common.concurrent.TaskExecutor;
 import github.kasuminova.mmce.common.network.*;
+import github.kasuminova.mmce.common.network.PktAutoAssemblyRequest;
+import github.kasuminova.mmce.common.network.PktMEInputBusInvAction;
+import github.kasuminova.mmce.common.network.PktMEOutputBusStackSizeChange;
+import github.kasuminova.mmce.common.network.PktMEPatternProviderAction;
+import github.kasuminova.mmce.common.network.PktMEPatternProviderHandlerItems;
+import github.kasuminova.mmce.common.network.PktPerformanceReport;
+import github.kasuminova.mmce.common.network.PktSwitchGuiMEOutputBus;
 import hellfirepvp.modularmachinery.common.CommonProxy;
 import hellfirepvp.modularmachinery.common.base.Mods;
 import hellfirepvp.modularmachinery.common.command.CommandGetBluePrint;
@@ -17,7 +24,13 @@ import hellfirepvp.modularmachinery.common.command.CommandHand;
 import hellfirepvp.modularmachinery.common.command.CommandPerformanceReport;
 import hellfirepvp.modularmachinery.common.command.CommandSyntax;
 import hellfirepvp.modularmachinery.common.integration.crafttweaker.command.CommandCTReload;
-import hellfirepvp.modularmachinery.common.network.*;
+import hellfirepvp.modularmachinery.common.network.PktAssemblyReport;
+import hellfirepvp.modularmachinery.common.network.PktCopyToClipboard;
+import hellfirepvp.modularmachinery.common.network.PktGroupInputConfig;
+import hellfirepvp.modularmachinery.common.network.PktInteractFluidTankGui;
+import hellfirepvp.modularmachinery.common.network.PktParallelControllerUpdate;
+import hellfirepvp.modularmachinery.common.network.PktSmartInterfaceUpdate;
+import hellfirepvp.modularmachinery.common.network.PktSyncSelection;
 import kport.modularmagic.common.event.RegistrationEvent;
 import kport.modularmagic.common.network.StarlightMessage;
 import net.minecraft.launchwrapper.Launch;
@@ -25,7 +38,11 @@ import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fluids.FluidRegistry;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.SidedProxy;
-import net.minecraftforge.fml.common.event.*;
+import net.minecraftforge.fml.common.event.FMLInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLLoadCompleteEvent;
+import net.minecraftforge.fml.common.event.FMLPostInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.eventhandler.EventBus;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
 import net.minecraftforge.fml.common.network.simpleimpl.SimpleNetworkWrapper;
@@ -34,7 +51,7 @@ import org.apache.logging.log4j.Logger;
 
 /**
  * This class is part of the Modular Machinery Mod
- * The complete source code for this mod can be found on GitHub.
+ * The complete source code for this mod can be found on Github.
  * Class: ModularMachinery
  * Created by HellFirePvP
  * Date: 26.06.2017 / 20:26
@@ -50,36 +67,36 @@ import org.apache.logging.log4j.Logger;
                 "after:tconstruct@[1.12.2-2.12.0.157,);" +
                 "after:thermalexpansion@[5.5.0,);",
         acceptedMinecraftVersions = "[1.12, 1.13)",
-        acceptableRemoteVersions = "[2.1.0, 2.2.0)"
+        acceptableRemoteVersions = "[2.1.0, 2.4.0)"
 )
 public class ModularMachinery {
 
-    public static final String MODID = "modularmachinery";
-    public static final String NAME = "Modular Machinery: Community Edition";
-    public static final String VERSION = Tags.VERSION;
-    public static final String CLIENT_PROXY = "hellfirepvp.modularmachinery.client.ClientProxy";
-    public static final String COMMON_PROXY = "hellfirepvp.modularmachinery.common.CommonProxy";
-    public static final SimpleNetworkWrapper NET_CHANNEL = NetworkRegistry.INSTANCE.newSimpleChannel(MODID);
-    public static final TaskExecutor EXECUTE_MANAGER = new TaskExecutor();
-    public static final EventBus EVENT_BUS = new EventBus();
+    public static final String               MODID           = "modularmachinery";
+    public static final String               NAME            = "Modular Machinery: Community Edition";
+    public static final String               VERSION         = Tags.VERSION;
+    public static final String               CLIENT_PROXY    = "hellfirepvp.modularmachinery.client.ClientProxy";
+    public static final String               COMMON_PROXY    = "hellfirepvp.modularmachinery.common.CommonProxy";
+    public static final SimpleNetworkWrapper NET_CHANNEL     = NetworkRegistry.INSTANCE.newSimpleChannel(MODID);
+    public static final TaskExecutor         EXECUTE_MANAGER = new TaskExecutor();
+    public static final EventBus             EVENT_BUS       = new EventBus();
 
     @Mod.Instance(MODID)
-    public static ModularMachinery instance;
-    public static Logger log;
+    public static  ModularMachinery instance;
+    public static  Logger           log;
     @SidedProxy(clientSide = CLIENT_PROXY, serverSide = COMMON_PROXY)
-    public static CommonProxy proxy;
-    private static boolean devEnvCache = false;
+    public static  CommonProxy      proxy;
+    private static boolean          devEnvCache = false;
 
     static {
         FluidRegistry.enableUniversalBucket();
     }
 
-    public static boolean isRunningInDevEnvironment() {
-        return devEnvCache;
-    }
-
     public ModularMachinery() {
         MinecraftForge.EVENT_BUS.register(RegistrationEvent.class);
+    }
+
+    public static boolean isRunningInDevEnvironment() {
+        return devEnvCache;
     }
 
     @Mod.EventHandler
@@ -99,11 +116,13 @@ public class ModularMachinery {
             NET_CHANNEL.registerMessage(StarlightMessage.StarlightMessageHandler.class, StarlightMessage.class, 5, Side.CLIENT);
         }
 
+        NET_CHANNEL.registerMessage(PktGroupInputConfig.class, PktGroupInputConfig.class, 99, Side.SERVER);
         NET_CHANNEL.registerMessage(PktInteractFluidTankGui.class, PktInteractFluidTankGui.class, 100, Side.SERVER);
         NET_CHANNEL.registerMessage(PktSmartInterfaceUpdate.class, PktSmartInterfaceUpdate.class, 101, Side.SERVER);
         NET_CHANNEL.registerMessage(PktParallelControllerUpdate.class, PktParallelControllerUpdate.class, 102, Side.SERVER);
         if (Mods.AE2.isPresent()) {
             NET_CHANNEL.registerMessage(PktMEInputBusInvAction.class, PktMEInputBusInvAction.class, 103, Side.SERVER);
+            NET_CHANNEL.registerMessage(PktMEInputBusRecipeTransfer.class, PktMEInputBusRecipeTransfer.class, 107, Side.SERVER);
         }
         NET_CHANNEL.registerMessage(PktAutoAssemblyRequest.class, PktAutoAssemblyRequest.class, 104, Side.SERVER);
         if (Mods.AE2.isPresent()) {
@@ -111,6 +130,10 @@ public class ModularMachinery {
         }
         if (Mods.ASTRAL_SORCERY.isPresent()) {
             NET_CHANNEL.registerMessage(StarlightMessage.StarlightMessageHandler.class, StarlightMessage.class, 106, Side.SERVER);
+        }
+        if (Mods.AE2.isPresent()) {
+            NET_CHANNEL.registerMessage(PktMEOutputBusStackSizeChange.class, PktMEOutputBusStackSizeChange.class, 107, Side.SERVER);
+            NET_CHANNEL.registerMessage(PktSwitchGuiMEOutputBus.class, PktSwitchGuiMEOutputBus.class, 108, Side.SERVER);
         }
 
         CommonProxy.loadModData(event.getModConfigurationDirectory());

@@ -23,17 +23,31 @@ import hellfirepvp.modularmachinery.common.modifier.SingleBlockModifierReplaceme
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import hellfirepvp.modularmachinery.common.util.Asyncable;
 import hellfirepvp.modularmachinery.common.util.ResultChance;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectLists;
+import net.minecraft.tileentity.TileEntity;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -57,20 +71,22 @@ public class RecipeCraftingContext {
     private final List<ComponentOutputRestrictor> currentRestrictions = new ArrayList<>();
 
     private final List<ComponentRequirement<?, ?>> requirements = new ArrayList<>();
-    private final List<RequirementComponents> requirementComponents = new ArrayList<>();
+    private final Map<Long, List<RequirementComponents>> requirementComponents = new ConcurrentHashMap<>();
+    private boolean isCrafting = false;
+    private long groupId = 0;
+    private final long[][] groupKeys = new long[2][];
 
     private ActiveMachineRecipe activeRecipe;
     private TileMultiblockMachineController controller = null;
     private ControllerCommandSender commandSender = null;
 
-    private Collection<ProcessingComponent<?>> typeComponents = new ArrayList<>();
+    private final Map<Long, Collection<ProcessingComponent<?>>> typeComponents = new ConcurrentHashMap<>();
 
     private int currentIOTickIndex = 0;
 
     public RecipeCraftingContext(final int reloadCounter,
                                  final ActiveMachineRecipe activeRecipe,
-                                 final TileMultiblockMachineController controller)
-    {
+                                 final TileMultiblockMachineController controller) {
         this.reloadCounter = reloadCounter;
         this.activeRecipe = activeRecipe;
         for (ComponentRequirement<?, ?> requirement : getParentRecipe().getCraftingRequirements()) {
@@ -80,12 +96,35 @@ public class RecipeCraftingContext {
         init(activeRecipe, controller);
     }
 
+    public void setCrafting(boolean crafting) {
+        isCrafting = crafting;
+    }
+
+    private static List<ProcessingComponent<?>> getCopiedRequirementComponents(
+        final ReqCompMap reqCompMap,
+        final TaggedReqCompMap taggedReqCompMap,
+        final ComponentRequirement<?, ?> req, final List<ProcessingComponent<?>> compList) {
+        List<ProcessingComponent<?>> copiedCompList;
+        if (req.tag != null) {
+            copiedCompList = taggedReqCompMap.computeIfAbsent(
+                req.actionType, reqTypeMap -> new Object2ObjectArrayMap<>()).computeIfAbsent(
+                req.requirementType, tagMap -> new Object2ObjectOpenHashMap<>()).computeIfAbsent(
+                req.tag, comp -> ((ComponentRequirement.MultiComponent) req).copyComponents(compList));
+        } else {
+            copiedCompList = reqCompMap.computeIfAbsent(
+                req.actionType, reqTypeMap -> new Object2ObjectArrayMap<>()).computeIfAbsent(
+                req.requirementType, comp -> ((ComponentRequirement.MultiComponent) req).copyComponents(compList));
+        }
+        return copiedCompList;
+    }
+
     public RecipeCraftingContext reset() {
         this.modifiers.clear();
         this.modifierAppliers.clear();
         this.chanceModifierAppliers.clear();
         this.permanentModifierList.clear();
         this.currentRestrictions.clear();
+        this.isCrafting = false;
 
         this.currentIOTickIndex = 0;
         return this;
@@ -96,7 +135,7 @@ public class RecipeCraftingContext {
         this.activeRecipe = null;
         this.controller = null;
         this.commandSender = null;
-        this.typeComponents = null;
+        this.typeComponents.clear();
         this.requirementComponents.clear();
 
         return reset();
@@ -108,8 +147,7 @@ public class RecipeCraftingContext {
     }
 
     public RecipeCraftingContext init(final ActiveMachineRecipe activeRecipe,
-                                      final TileMultiblockMachineController ctrl)
-    {
+                                      final TileMultiblockMachineController ctrl) {
         this.controller = ctrl;
         if (this.activeRecipe == null || this.activeRecipe.getRecipe() != activeRecipe.getRecipe()) {
             this.activeRecipe = activeRecipe;
@@ -123,7 +161,7 @@ public class RecipeCraftingContext {
         this.commandSender = new ControllerCommandSender(this.controller);
 
         reset();
-        updateComponents(ctrl.getFoundComponents().values());
+        updateComponents(ctrl.getFoundComponents());
         return this;
     }
 
@@ -151,8 +189,8 @@ public class RecipeCraftingContext {
     @Nonnull
     public RecipeModifier.ModifierApplier getModifierApplier(RequirementType<?, ?> target, boolean isChance) {
         return isChance
-                ? chanceModifierAppliers.getOrDefault(target, RecipeModifier.ModifierApplier.DEFAULT_APPLIER)
-                : modifierAppliers.getOrDefault(target, RecipeModifier.ModifierApplier.DEFAULT_APPLIER);
+            ? chanceModifierAppliers.getOrDefault(target, RecipeModifier.ModifierApplier.DEFAULT_APPLIER)
+            : modifierAppliers.getOrDefault(target, RecipeModifier.ModifierApplier.DEFAULT_APPLIER);
     }
 
     public float getDurationMultiplier() {
@@ -168,23 +206,33 @@ public class RecipeCraftingContext {
         this.currentRestrictions.add(restrictor);
     }
 
-    public List<ProcessingComponent<?>> getComponentsFor(ComponentRequirement<?, ?> requirement, @Nullable ComponentSelectorTag tag) {
-        List<ProcessingComponent<?>> validComponents = new ArrayList<>();
-        for (ProcessingComponent<?> typeComponent : this.typeComponents) {
-            if (!requirement.isValidComponent(typeComponent, this)) {
-                continue;
-            }
+    private static final Map<Long, List<ProcessingComponent<?>>> emptyComponents
+        = Collections.singletonMap(0L, Collections.emptyList());
 
-            if (tag != null) {
-                if (tag.equals(typeComponent.getTag())) {
-                    validComponents.add(typeComponent);
+    private Map<Long, List<ProcessingComponent<?>>> getComponentsFor(ComponentRequirement<?, ?> requirement, @Nullable ComponentSelectorTag tag) {
+        Map<Long, List<ProcessingComponent<?>>> validComponents = new HashMap<>();
+        for (Map.Entry<Long, Collection<ProcessingComponent<?>>> set : this.typeComponents.entrySet()) {
+            final Long groupId = set.getKey();
+            for (var typeComponent : set.getValue()) {
+                if (!requirement.isValidComponent(typeComponent, this)) {
+                    continue;
                 }
-            } else {
-                validComponents.add(typeComponent);
+
+                if (tag != null) {
+                    if (tag.equals(typeComponent.getTag())) {
+                        validComponents
+                            .computeIfAbsent(groupId, i -> new ObjectArrayList<>())
+                            .add(typeComponent);
+                    }
+                } else {
+                    validComponents
+                        .computeIfAbsent(groupId, i -> new ObjectArrayList<>())
+                        .add(typeComponent);
+                }
             }
         }
 
-        return validComponents;
+        return validComponents.isEmpty() ? emptyComponents : validComponents;
     }
 
     public CraftingCheckResult ioTick(int currentTick) {
@@ -192,19 +240,20 @@ public class RecipeCraftingContext {
         CraftingCheckResult checkResult = new CraftingCheckResult();
         float durMultiplier = this.getDurationMultiplier();
 
+        final List<RequirementComponents> components = getCurrentComponents();
+
         //Input / Output tick
-        for (int i = currentIOTickIndex; i < requirementComponents.size(); i++) {
-            final RequirementComponents reqComponent = requirementComponents.get(i);
+        for (int i = currentIOTickIndex; i < components.size(); i++) {
+            final RequirementComponents reqComponent = components.get(i);
 
             ComponentRequirement<?, ?> requirement = reqComponent.requirement();
             if (!(requirement instanceof ComponentRequirement.PerTick<?, ?> perTickReq)) {
-                if (requirement.getTriggerTime() >= 1) {
+                if (requirement.getTriggerTime() <= 0) {
                     checkAndTriggerRequirement(checkResult, currentTick, chance, reqComponent);
                     if (checkResult.isFailure()) {
                         currentIOTickIndex = i;
                         return checkResult;
                     }
-                    continue;
                 }
                 continue;
             }
@@ -250,24 +299,23 @@ public class RecipeCraftingContext {
 
     public List<ComponentRequirement<?, ?>> getRequirementBy(RequirementType<?, ?> type) {
         return requirements.stream()
-                .filter(req -> req.getRequirementType().equals(type))
-                .collect(Collectors.toList());
+                           .filter(req -> req.getRequirementType().equals(type))
+                           .collect(Collectors.toList());
     }
 
     public List<ComponentRequirement<?, ?>> getRequirementBy(RequirementType<?, ?> type, IOType ioType) {
         return requirements.stream()
-                .filter(req -> req.getRequirementType().equals(type) && req.getActionType() == ioType)
-                .collect(Collectors.toList());
+                           .filter(req -> req.getRequirementType().equals(type) && req.getActionType() == ioType)
+                           .collect(Collectors.toList());
     }
 
     private void checkAndTriggerRequirement(final CraftingCheckResult res,
                                             final int currentTick,
                                             final ResultChance chance,
-                                            final RequirementComponents reqComponent)
-    {
+                                            final RequirementComponents reqComponent) {
         ComponentRequirement<?, ?> req = reqComponent.requirement();
         int triggerTime = req.getTriggerTime() * Math.round(RecipeModifier.applyModifiers(
-                this, RequirementTypesMM.REQUIREMENT_DURATION, null, 1, false));
+            this, RequirementTypesMM.REQUIREMENT_DURATION, null, 1, false));
         if (triggerTime <= 0 || triggerTime != currentTick || (req.isTriggered() && !req.isTriggerRepeatable())) {
             return;
         }
@@ -278,6 +326,23 @@ public class RecipeCraftingContext {
         }
     }
 
+    public List<RequirementComponents> getCurrentComponents() {
+        List<RequirementComponents> components;
+        var g = requirementComponents.get(groupId);
+        if (g == null) {
+            for (Long l : this.requirementComponents.keySet()) {
+                if (l >= 0) {
+                    setGroupId(l);
+                    break;
+                }
+            }
+            components = requirementComponents.get(groupId);
+        } else {
+            components = g;
+        }
+        return components;
+    }
+
     public void startCrafting() {
         startCrafting(RAND.nextLong());
     }
@@ -285,7 +350,7 @@ public class RecipeCraftingContext {
     public void startCrafting(long seed) {
         ResultChance chance = new ResultChance(seed);
 
-        for (RequirementComponents reqComponents : requirementComponents) {
+        for (RequirementComponents reqComponents : getCurrentComponents()) {
             if (reqComponents.requirement().getTriggerTime() <= 0) {
                 startCrafting(chance, reqComponents);
             }
@@ -324,11 +389,11 @@ public class RecipeCraftingContext {
 
     public void finishCrafting(long seed) {
         ResultChanceCreateEvent event = new ResultChanceCreateEvent(
-                controller, this, new ResultChance(seed), Phase.END);
+            controller, this, new ResultChance(seed), Phase.END);
         event.postEvent();
         ResultChance chance = event.getResultChance();
 
-        for (RequirementComponents reqComponents : requirementComponents) {
+        for (RequirementComponents reqComponents : getCurrentComponents()) {
             ComponentRequirement<?, ?> requirement = reqComponents.requirement();
             List<ProcessingComponent<?>> components = reqComponents.components();
 
@@ -355,19 +420,18 @@ public class RecipeCraftingContext {
         this.getParentRecipe().getCommandContainer().runFinishCommands(this.commandSender);
     }
 
-    public List<RequirementComponents> getAllParallelizableComponents() {
-        List<RequirementComponents> list = new ArrayList<>();
-        for (RequirementComponents reqComponent : requirementComponents) {
+    public Collection<RequirementComponents> getAllParallelizableComponents() {
+        Collection<RequirementComponents> list = new ObjectArrayList<>();
+        for (RequirementComponents reqComponent : getCurrentComponents()) {
             if (reqComponent.requirement() instanceof ComponentRequirement.Parallelizable parallelizable
-                    && !parallelizable.isParallelizeUnaffected())
-            {
+                && !parallelizable.isParallelizeUnaffected()) {
                 list.add(reqComponent);
             }
         }
         return list;
     }
 
-    public int getMaxParallelism(List<RequirementComponents> parallelizable) {
+    public int getMaxParallelism(Collection<RequirementComponents> parallelizable) {
         int maxParallelism = this.activeRecipe.getMaxParallelism();
 
         ReqCompMap typeCopiedComp = new ReqCompMap();
@@ -391,9 +455,9 @@ public class RecipeCraftingContext {
     }
 
     public void setParallelism(int parallelism) {
-        for (RequirementComponents obj : requirementComponents) {
-            if (obj.requirement() instanceof ComponentRequirement.Parallelizable) {
-                ((ComponentRequirement.Parallelizable) obj.requirement()).setParallelism(parallelism);
+        for (RequirementComponents obj : getCurrentComponents()) {
+            if (obj.requirement() instanceof ComponentRequirement.Parallelizable p) {
+                p.setParallelism(parallelism);
             }
         }
         activeRecipe.setParallelism(parallelism);
@@ -402,15 +466,15 @@ public class RecipeCraftingContext {
     public CraftingCheckResult canStartCrafting() {
         permanentModifierList.clear();
         if (getParentRecipe().isParallelized() && activeRecipe.getMaxParallelism() > 1) {
-            List<RequirementComponents> parallelizable = getAllParallelizableComponents();
+            Collection<RequirementComponents> parallelizable = getAllParallelizableComponents();
             int maxParallelism = getMaxParallelism(parallelizable);
             setParallelism(Math.max(1, maxParallelism));
 
-            if (maxParallelism > 0 && parallelizable.size() >= requirementComponents.size()) {
+            if (maxParallelism > 0 && parallelizable.size() >= getCurrentComponents().size()) {
                 return CraftingCheckResult.SUCCESS;
             }
         }
-        return canStartCrafting(req -> true);
+        return canStartCrafting(true);
     }
 
     public CraftingCheckResult canRestartCrafting() {
@@ -420,7 +484,7 @@ public class RecipeCraftingContext {
 
         if (currentParallelism > maxParallelism) {
             setParallelism(maxParallelism);
-            CraftingCheckResult result = canStartCrafting(req -> true);
+            CraftingCheckResult result = canStartCrafting(true);
             if (!result.isSuccess()) {
                 setParallelism(1);
             } else {
@@ -432,38 +496,76 @@ public class RecipeCraftingContext {
     }
 
     public CraftingCheckResult canFinishCrafting() {
-        return this.canStartCrafting(req -> req.requirement().actionType == IOType.OUTPUT);
+        return this.canStartCrafting(false);
     }
 
-    public CraftingCheckResult canStartCrafting(Predicate<RequirementComponents> filter) {
+    private CraftingCheckResult canStartCrafting(boolean input) {
         currentRestrictions.clear();
-        List<RequirementComponents> requirements = new ArrayList<>();
-        for (RequirementComponents requirementComponent : this.requirementComponents) {
-            if (filter.test(requirementComponent)) {
-                requirements.add(requirementComponent);
-            }
-        }
-        CraftingCheckResult result = new CraftingCheckResult();
-        float successfulRequirements = 0;
 
-        ReqCompMap typeCopiedComp = new ReqCompMap();
-        TaggedReqCompMap taggedTypeCopiedComp = new TaggedReqCompMap();
-        for (RequirementComponents reqEntry : requirements) {
-            if (canStartCrafting(result, reqEntry, typeCopiedComp, taggedTypeCopiedComp)) {
-                successfulRequirements++;
+        CraftingCheckResult result = CraftingCheckResult.FAILURE;
+        float successfulRequirements = 0;
+        boolean success = false;
+        long fkey = 0;
+
+        for (var key : groupKeys[!isCrafting ? 0 : 1]) {
+            if (key < 0) continue;
+            List<RequirementComponents> components = this.requirementComponents.get(key);
+            List<RequirementComponents> requirements = input ? components
+                : components.stream()
+                          .filter(r -> r.requirement().actionType == IOType.OUTPUT)
+                          .collect(Collectors.toCollection(ObjectArrayList::new));
+
+            result = new CraftingCheckResult();
+            ReqCompMap typeCopiedComp = new ReqCompMap();
+            TaggedReqCompMap taggedTypeCopiedComp = new TaggedReqCompMap();
+            for (RequirementComponents reqEntry : requirements) {
+                if (canStartCrafting(result, reqEntry, typeCopiedComp, taggedTypeCopiedComp)) {
+                    ++successfulRequirements;
+                }
+            }
+            final float validity = successfulRequirements / requirements.size();
+            result.setValidity(validity);
+
+            if (!input) {
+                success = true;
+                break;
+            }
+
+            if (result.isSuccess()) {
+                success = true;
+                setGroupId(key);
+                this.isCrafting = true;
+                break;
+            } else {
+                fkey = key;
+                successfulRequirements = 0;
             }
         }
-        result.setValidity(successfulRequirements / requirements.size());
+
+        if (!success) setGroupId(fkey);
 
         currentRestrictions.clear();
         return result;
     }
 
+    public final RecipeCraftingContext setGroupId(long i) {
+        if (!isCrafting) {
+            groupId = i;
+            if (groupKeys[1] == null)
+                groupKeys[1] = new long[]{groupId};
+            else if (groupKeys[1][0] != groupId) groupKeys[1][0] = groupId;
+        }
+        return this;
+    }
+
+    public long getGroupId() {
+        return groupId;
+    }
+
     private boolean canStartCrafting(final CraftingCheckResult result,
                                      final RequirementComponents reqComponent,
                                      final ReqCompMap reqCompMap,
-                                     TaggedReqCompMap taggedReqCompMap)
-    {
+                                     TaggedReqCompMap taggedReqCompMap) {
         ComponentRequirement<?, ?> req = reqComponent.requirement();
         req.startRequirementCheck(ResultChance.GUARANTEED, this);
 
@@ -502,34 +604,38 @@ public class RecipeCraftingContext {
         return false;
     }
 
-    private static List<ProcessingComponent<?>> getCopiedRequirementComponents(
-            final ReqCompMap reqCompMap,
-            final TaggedReqCompMap taggedReqCompMap,
-            final ComponentRequirement<?, ?> req, final List<ProcessingComponent<?>> compList)
-    {
-        List<ProcessingComponent<?>> copiedCompList;
-        if (req.tag != null) {
-            copiedCompList = taggedReqCompMap.computeIfAbsent(
-                    req.actionType, reqTypeMap -> new Object2ObjectArrayMap<>()).computeIfAbsent(
-                    req.requirementType, tagMap -> new Object2ObjectOpenHashMap<>()).computeIfAbsent(
-                            req.tag, comp -> ((ComponentRequirement.MultiComponent) req).copyComponents(compList));
-        } else {
-            copiedCompList = reqCompMap.computeIfAbsent(
-                    req.actionType, reqTypeMap -> new Object2ObjectArrayMap<>()).computeIfAbsent(
-                    req.requirementType, comp -> ((ComponentRequirement.MultiComponent) req).copyComponents(compList));
-        }
-        return copiedCompList;
-    }
-
-    public void updateComponents(Collection<ProcessingComponent<?>> components) {
-        this.typeComponents = components;
+    public void updateComponents(Map<Long, Map<TileEntity, ProcessingComponent<?>>> components) {
+        this.typeComponents.clear();
+        components.forEach((groupId, map)
+            -> this.typeComponents.put(groupId, map.values()));
         updateRequirementComponents();
     }
 
     public void updateRequirementComponents() {
         requirementComponents.clear();
         requirements.forEach(req ->
-                requirementComponents.add(new RequirementComponents(req, getComponentsFor(req, req.tag))));
+            getComponentsFor(req, req.tag)
+                .forEach((groupId, list)
+                    -> requirementComponents
+                    .computeIfAbsent(groupId, i -> new ObjectArrayList<>())
+                    .add(new RequirementComponents(req, list))));
+
+        if (this.requirementComponents.isEmpty()) {
+            this.requirementComponents.put(0L, ObjectLists.emptyList());
+            setGroupId(0);
+        } else {
+            for (Long l : this.requirementComponents.keySet()) {
+                if (l >= 0) {
+                    setGroupId(l);
+                    break;
+                }
+            }
+        }
+
+        groupKeys[0] = this.requirementComponents.keySet().stream().mapToLong(Long::longValue).toArray();
+        Arrays.sort(groupKeys[0]);
+        if (groupKeys[1] == null) groupKeys[1] = new long[]{groupId};
+        else if (groupKeys[1][0] != groupId) groupKeys[1][0] = groupId;
     }
 
     public void addModifier(SingleBlockModifierReplacement replacement) {
@@ -620,22 +726,36 @@ public class RecipeCraftingContext {
             }
 
             @Override
-            public List<String> getUnlocalizedErrorMessages() {
-                return Collections.emptyList();
+            public boolean isFailure() {
+                return false;
             }
 
             @Override
-            public String getFirstErrorMessage(final String defaultMessage) {
-                return defaultMessage;
+            public boolean isSuccess() {
+                return true;
             }
         };
 
-        private final Map<String, Integer> unlocErrorMessagesMap = new HashMap<>();
+        private static final CraftingCheckResult FAILURE = new CraftingCheckResult() {
+
+            @Override
+            public boolean isFailure() {
+                return true;
+            }
+
+            @Override
+            public boolean isSuccess() {
+                return false;
+            }
+
+        };
+
+        private final Object2IntMap<String> unlocErrorMessagesMap = new Object2IntOpenHashMap<>();
         public float validity = 0F;
 
         public void addError(String unlocError) {
             if (!unlocError.isEmpty()) {
-                int count = this.unlocErrorMessagesMap.getOrDefault(unlocError, 0);
+                int count = this.unlocErrorMessagesMap.getInt(unlocError);
                 count++;
                 this.unlocErrorMessagesMap.put(unlocError, count);
             }
@@ -681,7 +801,7 @@ public class RecipeCraftingContext {
     }
 
     public static class TaggedReqCompMap
-            extends EnumMap<IOType, Object2ObjectArrayMap<RequirementType<?, ?>, Map<ComponentSelectorTag, List<ProcessingComponent<?>>>>> {
+        extends EnumMap<IOType, Object2ObjectArrayMap<RequirementType<?, ?>, Map<ComponentSelectorTag, List<ProcessingComponent<?>>>>> {
         public TaggedReqCompMap() {
             super(IOType.class);
         }
@@ -693,7 +813,7 @@ public class RecipeCraftingContext {
     }
 
     public static class ReqCompMap
-            extends EnumMap<IOType, Object2ObjectArrayMap<RequirementType<?, ?>, List<ProcessingComponent<?>>>> {
+        extends EnumMap<IOType, Object2ObjectArrayMap<RequirementType<?, ?>, List<ProcessingComponent<?>>>> {
         public ReqCompMap() {
             super(IOType.class);
         }

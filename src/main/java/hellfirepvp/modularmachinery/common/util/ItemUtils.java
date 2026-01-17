@@ -21,6 +21,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntityFurnace;
+import net.minecraft.util.NonNullList;
 import net.minecraftforge.common.ForgeHooks;
 import net.minecraftforge.items.IItemHandler;
 import net.minecraftforge.items.IItemHandlerModifiable;
@@ -42,9 +43,13 @@ import java.util.List;
 public class ItemUtils {
 
     public static void decrStackInInventory(ItemStackHandler handler, int slot) {
-        if (slot < 0 || slot >= handler.getSlots()) return;
+        if (slot < 0 || slot >= handler.getSlots()) {
+            return;
+        }
         ItemStack st = handler.getStackInSlot(slot);
-        if (st.isEmpty()) return;
+        if (st.isEmpty()) {
+            return;
+        }
         st.setCount(st.getCount() - 1);
         if (st.getCount() <= 0) {
             handler.setStackInSlot(slot, ItemStack.EMPTY);
@@ -94,7 +99,9 @@ public class ItemUtils {
 
     public static boolean consumeFromInventory(IItemHandlerModifiable handler, ItemStack toConsume, boolean simulate, @Nullable NBTTagCompound matchNBTTag) {
         Int2ObjectMap<ItemStack> contents = findItemsIndexedInInventory(handler, toConsume, false, matchNBTTag);
-        if (contents.isEmpty()) return false;
+        if (contents.isEmpty()) {
+            return false;
+        }
 
         int cAmt = toConsume.getCount();
         for (int slot : contents.keySet()) {
@@ -126,7 +133,9 @@ public class ItemUtils {
 
     public static boolean consumeFromInventory(IItemHandlerModifiable handler, ItemStack toConsume, boolean simulate, AdvancedItemChecker itemChecker, TileMultiblockMachineController controller) {
         Int2ObjectMap<ItemStack> contents = findItemsIndexedInInventory(handler, toConsume, false, itemChecker, controller);
-        if (contents.isEmpty()) return false;
+        if (contents.isEmpty()) {
+            return false;
+        }
 
         int cAmt = toConsume.getCount();
         for (int slot : contents.keySet()) {
@@ -188,6 +197,75 @@ public class ItemUtils {
         return consumeAllInternal(handler, contents, amount);
     }
 
+    public static int damageAll(IItemHandlerModifiable handler, ItemStack toDamage, int amount, int damagePerUse, AdvancedItemChecker itemChecker, TileMultiblockMachineController controller) {
+        if (amount <= 0 || damagePerUse <= 0) {
+            return 0;
+        }
+        Int2ObjectMap<ItemStack> contents = findItemsIndexedInInventory(handler, toDamage, false, itemChecker, controller);
+        if (contents.isEmpty()) {
+            return 0;
+        }
+        return damageAllInternal(handler, contents, amount, damagePerUse);
+    }
+
+    public static int damageAll(IItemHandlerModifiable handler, ItemStack toDamage, int amount, int damagePerUse, @Nullable NBTTagCompound matchNBTTag) {
+        if (amount <= 0 || damagePerUse <= 0) {
+            return 0;
+        }
+        Int2ObjectMap<ItemStack> contents = findItemsIndexedInInventory(handler, toDamage, false, matchNBTTag);
+        if (contents.isEmpty()) {
+            return 0;
+        }
+        return damageAllInternal(handler, contents, amount, damagePerUse);
+    }
+
+    public static int damageAll(IItemHandlerModifiable handler, String oreName, int amount, int damagePerUse, AdvancedItemChecker itemChecker, TileMultiblockMachineController controller) {
+        if (amount <= 0 || damagePerUse <= 0) {
+            return 0;
+        }
+        Int2ObjectMap<ItemStack> contents = findItemsIndexedInInventoryOreDict(handler, oreName, itemChecker, controller);
+        if (contents.isEmpty()) {
+            return 0;
+        }
+        return damageAllInternal(handler, contents, amount, damagePerUse);
+    }
+
+    public static int damageAll(IItemHandlerModifiable handler, String oreName, int amount, int damagePerUse, @Nullable NBTTagCompound matchNBTTag) {
+        if (amount <= 0 || damagePerUse <= 0) {
+            return 0;
+        }
+        Int2ObjectMap<ItemStack> contents = findItemsIndexedInInventoryOreDict(handler, oreName, matchNBTTag);
+        if (contents.isEmpty()) {
+            return 0;
+        }
+        return damageAllInternal(handler, contents, amount, damagePerUse);
+    }
+
+    public static boolean hasDamageableEntry(final String oreDictName) {
+        if (oreDictName == null || oreDictName.isEmpty()) {
+            return false;
+        }
+        NonNullList<ItemStack> entries = OreDictionary.getOres(oreDictName);
+        for (ItemStack entry : entries) {
+            if (entry.isEmpty()) {
+                continue;
+            }
+            if (entry.isItemStackDamageable()) {
+                return true;
+            }
+            if (entry.getItemDamage() == OreDictionary.WILDCARD_VALUE && entry.getItem().getCreativeTab() != null) {
+                NonNullList<ItemStack> subItems = NonNullList.create();
+                entry.getItem().getSubItems(entry.getItem().getCreativeTab(), subItems);
+                for (ItemStack subEntry : subItems) {
+                    if (!subEntry.isEmpty() && subEntry.isItemStackDamageable()) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
     public static int insertAll(@Nonnull ItemStack stack, IItemHandlerModifiable handler, int maxInsert) {
         if (stack.getCount() <= 0) {
             return 0;
@@ -196,6 +274,9 @@ public class ItemUtils {
         int inserted = 0;
         for (int i = 0; i < handler.getSlots(); i++) {
             int maxStackSize = handler.getSlotLimit(i);
+            if (maxStackSize <= 64) {
+                maxStackSize = Math.min(maxStackSize, stack.getMaxStackSize());
+            }
             ItemStack in = handler.getStackInSlot(i);
             int count = in.getCount();
             if (count >= maxStackSize) {
@@ -246,16 +327,53 @@ public class ItemUtils {
         return cAmt;
     }
 
+    private static int damageAllInternal(IItemHandlerModifiable handler, Int2ObjectMap<ItemStack> contents, int maxOperations, int damagePerUse) {
+        int operations = 0;
+        if (damagePerUse <= 0) {
+            return 0;
+        }
+        for (final Int2ObjectMap.Entry<ItemStack> content : contents.int2ObjectEntrySet()) {
+            int slot = content.getIntKey();
+            ItemStack stack = content.getValue();
+            if (stack.isEmpty() || !stack.isItemStackDamageable() || stack.getMaxDamage() <= 0) {
+                continue;
+            }
+
+            while (operations < maxOperations && !stack.isEmpty()) {
+                int newDamage = stack.getItemDamage() + damagePerUse;
+                if (newDamage >= stack.getMaxDamage()) {
+                    stack.shrink(1);
+                    if (!stack.isEmpty()) {
+                        stack.setItemDamage(0);
+                    }
+                } else {
+                    stack.setItemDamage(newDamage);
+                }
+                operations++;
+            }
+
+            handler.setStackInSlot(slot, stack);
+
+            if (operations >= maxOperations) {
+                break;
+            }
+        }
+
+        return operations;
+    }
+
     public static boolean stackEqualsNonNBT(@Nonnull ItemStack stack, @Nonnull ItemStack other) {
-        if (stack.isEmpty() && other.isEmpty())
+        if (stack.isEmpty() && other.isEmpty()) {
             return true;
-        if (stack.isEmpty() || other.isEmpty())
+        }
+        if (stack.isEmpty() || other.isEmpty()) {
             return false;
+        }
         Item sItem = stack.getItem();
         Item oItem = other.getItem();
         if (sItem.getHasSubtypes() || oItem.getHasSubtypes()) {
             return sItem.equals(other.getItem()) &&
-                   (stack.getItemDamage() == other.getItemDamage() ||
+                (stack.getItemDamage() == other.getItemDamage() ||
                     stack.getItemDamage() == OreDictionary.WILDCARD_VALUE ||
                     other.getItemDamage() == OreDictionary.WILDCARD_VALUE);
         } else {
@@ -269,7 +387,9 @@ public class ItemUtils {
 
     @Nonnull
     public static ItemStack copyStackWithSize(@Nonnull ItemStack stack, int amount) {
-        if (stack.isEmpty() || amount <= 0) return ItemStack.EMPTY;
+        if (stack.isEmpty() || amount <= 0) {
+            return ItemStack.EMPTY;
+        }
         ItemStack s = stack.copy();
         s.setCount(amount);
         return s;
@@ -278,7 +398,7 @@ public class ItemUtils {
     /**
      * 向指定容器插入指定的物品，返回未插入的物品。
      *
-     * @param external 容器
+     * @param external       容器
      * @param willBeInserted 要插入的物品
      * @return 未被插入的物品，如果全部插入，返回空物品
      */
@@ -325,7 +445,9 @@ public class ItemUtils {
         Int2ObjectMap<ItemStack> stacksOut = new Int2ObjectOpenHashMap<>(handler.getSlots() * 2);
         for (int j = 0; j < handler.getSlots(); j++) {
             ItemStack s = handler.getStackInSlot(j);
-            if (s.isEmpty()) continue;
+            if (s.isEmpty()) {
+                continue;
+            }
             int[] ids = OredictCache.getOreIDsFast(s);
             for (int id : ids) {
                 if (OreDictionary.getOreName(id).equals(oreDict) && NBTMatchingHelper.matchNBTCompound(matchNBTTag, s.getTagCompound())) {
@@ -341,7 +463,9 @@ public class ItemUtils {
         Int2ObjectMap<ItemStack> stacksOut = new Int2ObjectOpenHashMap<>(handler.getSlots() * 2);
         for (int j = 0; j < handler.getSlots(); j++) {
             ItemStack s = handler.getStackInSlot(j);
-            if (s.isEmpty()) continue;
+            if (s.isEmpty()) {
+                continue;
+            }
             int[] ids = OredictCache.getOreIDsFast(s);
             for (int id : ids) {
                 if (OreDictionary.getOreName(id).equals(oreDict) && itemChecker.isMatch(controller, s)) {
@@ -376,12 +500,16 @@ public class ItemUtils {
     }
 
     public static boolean matchStacks(@Nonnull ItemStack stack, @Nonnull ItemStack other) {
-        if (!ItemStack.areItemsEqual(stack, other)) return false;
+        if (!ItemStack.areItemsEqual(stack, other)) {
+            return false;
+        }
         return ItemStack.areItemStackTagsEqual(stack, other);
     }
 
     public static boolean matchStackLoosely(@Nonnull ItemStack stack, @Nonnull ItemStack other) {
-        if (stack.isEmpty()) return other.isEmpty();
+        if (stack.isEmpty()) {
+            return other.isEmpty();
+        }
         return OreDictionary.itemMatches(other, stack, false);
     }
 
@@ -418,7 +546,6 @@ public class ItemUtils {
     }
 
     @Nonnull
-    @SuppressWarnings("unchecked")
     public static List<ProcessingComponent<?>> copyItemHandlerComponents(final List<ProcessingComponent<?>> components) {
         List<ProcessingComponent<?>> list = new ArrayList<>();
         for (ProcessingComponent<?> component : components) {
@@ -433,9 +560,9 @@ public class ItemUtils {
 
             if (handler != null) {
                 list.add(new ProcessingComponent<>(
-                        (MachineComponent<Object>) component.component(),
-                        handler,
-                        component.getTag())
+                    (MachineComponent<Object>) component.component(),
+                    handler,
+                    component.getTag())
                 );
             }
         }
@@ -443,14 +570,13 @@ public class ItemUtils {
     }
 
     @Nonnull
-    @SuppressWarnings("unchecked")
     public static List<ProcessingComponent<?>> fastCopyItemHandlerComponents(final List<ProcessingComponent<?>> components) {
         List<ProcessingComponent<?>> list = new ArrayList<>();
         for (ProcessingComponent<?> component : components) {
             ProcessingComponent<Object> objectProcessingComponent = new ProcessingComponent<>(
-                    (MachineComponent<Object>) component.component(),
-                    ((IItemHandlerImpl) component.getProvidedComponent()).fastCopy(),
-                    component.getTag());
+                (MachineComponent<Object>) component.component(),
+                ((IItemHandlerImpl) component.getProvidedComponent()).fastCopy(),
+                component.getTag());
             list.add(objectProcessingComponent);
         }
         return list;

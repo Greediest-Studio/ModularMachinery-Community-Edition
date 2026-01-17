@@ -10,6 +10,7 @@ import appeng.fluids.util.IAEFluidTank;
 import appeng.me.GridAccessException;
 import appeng.util.Platform;
 import github.kasuminova.mmce.common.tile.base.MEFluidBus;
+import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.lib.ItemsMM;
 import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.machine.MachineComponent;
@@ -21,7 +22,10 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.concurrent.locks.ReadWriteLock;
 
-public class MEFluidInputBus extends MEFluidBus {
+public class MEFluidInputBus extends MEFluidBus implements SettingsTransfer {
+
+    private static final String CONFIG_TAG_KEY = "config";
+
     private final AEFluidInventory config = new AEFluidInventory(this, MEFluidBus.TANK_SLOT_AMOUNT);
 
     @Override
@@ -32,13 +36,13 @@ public class MEFluidInputBus extends MEFluidBus {
     @Override
     public void readCustomNBT(final NBTTagCompound compound) {
         super.readCustomNBT(compound);
-        config.readFromNBT(compound, "config");
+        config.readFromNBT(compound, CONFIG_TAG_KEY);
     }
 
     @Override
     public void writeCustomNBT(final NBTTagCompound compound) {
         super.writeCustomNBT(compound);
-        config.writeToNBT(compound, "config");
+        config.writeToNBT(compound, CONFIG_TAG_KEY);
     }
 
     public IAEFluidTank getConfig() {
@@ -137,7 +141,7 @@ public class MEFluidInputBus extends MEFluidBus {
                     IAEFluidStack stack = extractStackFromAE(inv, invStack.copy().setStackSize(countToReceive));
                     if (stack != null) {
                         tanks.setFluidInSlot(slot, invStack.copy()
-                                .setStackSize(invStack.getStackSize() + stack.getStackSize()));
+                                                           .setStackSize(invStack.getStackSize() + stack.getStackSize()));
                         successAtLeastOnce = true;
                     }
                     continue;
@@ -147,10 +151,10 @@ public class MEFluidInputBus extends MEFluidBus {
                 IAEFluidStack stack = insertStackToAE(inv, invStack.copy().setStackSize(countToExtract));
                 if (stack == null) {
                     tanks.setFluidInSlot(slot, invStack.copy()
-                            .setStackSize(invStack.getStackSize() - countToExtract));
+                                                       .setStackSize(invStack.getStackSize() - countToExtract));
                 } else {
                     tanks.setFluidInSlot(slot, invStack.copy()
-                            .setStackSize(invStack.getStackSize() - countToExtract + stack.getStackSize())
+                                                       .setStackSize(invStack.getStackSize() - countToExtract + stack.getStackSize())
                     );
                 }
                 successAtLeastOnce = true;
@@ -183,12 +187,22 @@ public class MEFluidInputBus extends MEFluidBus {
             public IFluidHandler getContainerProvider() {
                 return tanks;
             }
+
+            @Override
+            public long getGroupID() {
+                return getGroupId();
+            }
         };
     }
 
     @Override
+    public boolean canGroupInput() {
+        return true;
+    }
+
+    @Override
     public void markNoUpdate() {
-        if (proxy.isActive() && needsUpdate()) {
+        if (needsUpdate()) {
             try {
                 proxy.getTick().alertDevice(proxy.getNode());
             } catch (GridAccessException e) {
@@ -197,5 +211,23 @@ public class MEFluidInputBus extends MEFluidBus {
         }
 
         super.markNoUpdate();
+    }
+
+    @Override
+    public NBTTagCompound downloadSettings() {
+        NBTTagCompound tag = new NBTTagCompound();
+        config.writeToNBT(tag, CONFIG_TAG_KEY);
+        return tag;
+    }
+
+    @Override
+    public void uploadSettings(NBTTagCompound settings) {
+        config.readFromNBT(settings, CONFIG_TAG_KEY);
+        this.markForUpdate();
+        try {
+            proxy.getTick().alertDevice(proxy.getNode());
+        } catch (GridAccessException e) {
+            ModularMachinery.log.warn("Error while uploading settings", e);
+        }
     }
 }

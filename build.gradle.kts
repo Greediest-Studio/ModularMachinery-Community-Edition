@@ -3,16 +3,18 @@ import org.jetbrains.gradle.ext.RunConfigurationContainer
 import java.util.*
 
 plugins {
+    kotlin("jvm") version "2.2.0"
+    kotlin("plugin.serialization") version "2.2.0"
     id("java-library")
     id("maven-publish")
     id("org.jetbrains.gradle.plugin.idea-ext") version "1.1.7"
     id("eclipse")
-    id("com.gtnewhorizons.retrofuturagradle") version "1.3.19"
+    id("com.gtnewhorizons.retrofuturagradle") version "1.4.0"
 }
 
 // Project properties
 group = "hellfirepvp.modularmachinery"
-version = "2.1.5"
+version = "2.3.2"
 
 // Set the toolchain version to decouple the Java we run Gradle with from the Java used to compile and run the mod
 java {
@@ -24,6 +26,10 @@ java {
     // Generate sources and javadocs jars when building and publishing
     withSourcesJar()
     withJavadocJar()
+}
+
+kotlin {
+    jvmToolchain(8)
 }
 
 // Most RFG configuration lives here, see the JavaDoc for com.gtnewhorizons.retrofuturagradle.MinecraftExtension
@@ -150,8 +156,7 @@ repositories {
     }
     maven {
         name = "GTNH Maven"
-        url = uri("http://jenkins.usrv.eu:8081/nexus/content/groups/public/")
-        isAllowInsecureProtocol = true
+        url = uri("https://nexus.gtnewhorizons.com/repository/public/")
     }
 }
 
@@ -181,6 +186,13 @@ dependencies {
         isTransitive = false
     }
 
+    // Kotlin Support
+    runtimeOnly("io.github.chaosunity.forgelin:Forgelin-Continuous:2.2.0.0") {
+        isTransitive = false
+    }
+    compileOnly("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
+    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
+
     implementation("CraftTweaker2:CraftTweaker2-MC1120-Main:1.12-4.+")
     implementation(rfg.deobf("curse.maven:had-enough-items-557549:4810661"))
     implementation(rfg.deobf("curse.maven:zenutil-401178:5056679"))
@@ -202,10 +214,11 @@ dependencies {
     implementation(rfg.deobf("curse.maven:thermal-expansion-69163:2926431"))
 
     // AE2 Compat
-//    implementation(rfg.deobf("curse.maven:applied-energistics-2-223794:2747063"))
-    implementation(rfg.deobf("curse.maven:ae2-extended-life-570458:5378163"))
+    // implementation(rfg.deobf("curse.maven:applied-energistics-2-223794:2747063"))
+    implementation(rfg.deobf("curse.maven:ae2-extended-life-570458:6302098"))
     implementation(rfg.deobf("curse.maven:ae2-fluid-crafting-rework-623955:5504001"))
     implementation(rfg.deobf("curse.maven:mekanism-energistics-1027681:5408319"))
+    implementation(rfg.deobf("curse.maven:nae2-884359:5380800"))
 
     // GeckoLib
     implementation("software.bernie.geckolib:geckolib-forge-1.12.2:3.0.31")

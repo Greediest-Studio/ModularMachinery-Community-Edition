@@ -12,9 +12,24 @@ import github.kasuminova.mmce.client.gui.*;
 import github.kasuminova.mmce.client.renderer.MachineControllerRenderer;
 import github.kasuminova.mmce.client.resource.GeoModelExternalLoader;
 import github.kasuminova.mmce.common.handler.ClientHandler;
-import github.kasuminova.mmce.common.tile.*;
+import github.kasuminova.mmce.common.tile.MEFluidInputBus;
+import github.kasuminova.mmce.common.tile.MEFluidOutputBus;
+import github.kasuminova.mmce.common.tile.MEGasInputBus;
+import github.kasuminova.mmce.common.tile.MEGasOutputBus;
+import github.kasuminova.mmce.common.tile.MEItemInputBus;
+import github.kasuminova.mmce.common.tile.MEItemOutputBus;
+import github.kasuminova.mmce.common.tile.MEPatternProvider;
 import hellfirepvp.modularmachinery.ModularMachinery;
-import hellfirepvp.modularmachinery.client.gui.*;
+import hellfirepvp.modularmachinery.client.gui.GuiContainerEnergyHatch;
+import hellfirepvp.modularmachinery.client.gui.GuiContainerFluidHatch;
+import hellfirepvp.modularmachinery.client.gui.GuiContainerGroupInputConfig;
+import hellfirepvp.modularmachinery.client.gui.GuiContainerItemBus;
+import hellfirepvp.modularmachinery.client.gui.GuiContainerParallelController;
+import hellfirepvp.modularmachinery.client.gui.GuiContainerSmartInterface;
+import hellfirepvp.modularmachinery.client.gui.GuiContainerUpgradeBus;
+import hellfirepvp.modularmachinery.client.gui.GuiFactoryController;
+import hellfirepvp.modularmachinery.client.gui.GuiMachineController;
+import hellfirepvp.modularmachinery.client.gui.GuiScreenBlueprint;
 import hellfirepvp.modularmachinery.client.util.BlockArrayPreviewRenderHelper;
 import hellfirepvp.modularmachinery.client.util.DebugOverlayHelper;
 import hellfirepvp.modularmachinery.client.util.SelectionBoxRenderHelper;
@@ -30,7 +45,12 @@ import hellfirepvp.modularmachinery.common.item.ItemDynamicColor;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.registry.RegistryBlocks;
 import hellfirepvp.modularmachinery.common.registry.RegistryItems;
-import hellfirepvp.modularmachinery.common.tiles.*;
+import hellfirepvp.modularmachinery.common.tiles.TileFactoryController;
+import hellfirepvp.modularmachinery.common.tiles.TileMachineController;
+import hellfirepvp.modularmachinery.common.tiles.TileParallelController;
+import hellfirepvp.modularmachinery.common.tiles.TileSmartInterface;
+import hellfirepvp.modularmachinery.common.tiles.TileUpgradeBus;
+import hellfirepvp.modularmachinery.common.tiles.base.MachineGroupInput;
 import hellfirepvp.modularmachinery.common.tiles.base.TileEnergyHatch;
 import hellfirepvp.modularmachinery.common.tiles.base.TileFluidTank;
 import hellfirepvp.modularmachinery.common.tiles.base.TileItemBus;
@@ -81,12 +101,12 @@ import java.util.List;
 @Mod.EventBusSubscriber(value = Side.CLIENT, modid = ModularMachinery.MODID)
 public class ClientProxy extends CommonProxy {
 
-    public static final ClientScheduler clientScheduler = new ClientScheduler();
-    public static final BlockArrayPreviewRenderHelper renderHelper = new BlockArrayPreviewRenderHelper();
+    public static final ClientScheduler               clientScheduler = new ClientScheduler();
+    public static final BlockArrayPreviewRenderHelper renderHelper    = new BlockArrayPreviewRenderHelper();
 
-    private final List<Block> blockModelsToRegister = new LinkedList<>();
-    private final List<Item> itemModelsToRegister = new LinkedList<>();
-    private final List<Item> itemModelsCustomNameToRegister = new LinkedList<>();
+    private final List<Block> blockModelsToRegister          = new LinkedList<>();
+    private final List<Item>  itemModelsToRegister           = new LinkedList<>();
+    private final List<Item>  itemModelsCustomNameToRegister = new LinkedList<>();
 
     private static void registerPendingIBlockColorBlocks() {
         BlockColors colors = Minecraft.getMinecraft().getBlockColors();
@@ -300,6 +320,9 @@ public class ClientProxy extends CommonProxy {
                 }
                 return new GuiMEItemInputBus((MEItemInputBus) present, player);
             }
+            case ME_ITEM_OUTPUT_BUS_STACK_SIZE -> {
+                return new GuiMEItemOutputBusStackSize(player.inventory, (MEItemOutputBus) present);
+            }
             case ME_FLUID_OUTPUT_BUS -> {
                 if (!Mods.AE2.isPresent()) {
                     return null;
@@ -336,9 +359,12 @@ public class ClientProxy extends CommonProxy {
                 }
                 return new GuiContainerLifeEssence((TileLifeEssenceProvider) present, player);
             }
+            case GUI_GROUP_INPUT_CONFIG -> {
+                if (present instanceof MachineGroupInput m && m.canGroupInput()) {
+                    return new GuiContainerGroupInputConfig(present, player);
+                }
+            }
         }
-
         return null;
     }
-
 }

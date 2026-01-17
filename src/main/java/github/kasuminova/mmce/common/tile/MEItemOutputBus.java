@@ -13,12 +13,15 @@ import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.machine.MachineComponent;
 import hellfirepvp.modularmachinery.common.util.IOInventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import java.util.concurrent.locks.ReadWriteLock;
 
-public class MEItemOutputBus extends MEItemBus {
+public class MEItemOutputBus extends MEItemBus implements SettingsTransfer {
+
+    private int configuredStackSize;
 
     @Override
     public IOInventory buildInventory() {
@@ -28,8 +31,9 @@ public class MEItemOutputBus extends MEItemBus {
         for (int slotID = 0; slotID < slotIDs.length; slotID++) {
             slotIDs[slotID] = slotID;
         }
-        IOInventory inv = new IOInventory(this, new int[]{}, slotIDs);
-        inv.setStackLimit(Integer.MAX_VALUE, slotIDs);
+        IOInventory inv = new IOInventory(this, new int[0], slotIDs);
+        configuredStackSize = Integer.MAX_VALUE;
+        inv.setStackLimit(this.configuredStackSize, slotIDs);
         inv.setListener(slot -> {
             synchronized (this) {
                 changedSlots[slot] = true;
@@ -102,9 +106,13 @@ public class MEItemOutputBus extends MEItemBus {
 
                     if (aeStack.getStackSize() != left.getStackSize()) {
                         successAtLeastOnce = true;
+                        failureCounter[slot] = 0;
+                    } else {
+                        failureCounter[slot] = Math.min(failureCounter[slot] + 1, 10);
                     }
                 } else {
                     successAtLeastOnce = true;
+                    failureCounter[slot] = 0;
                 }
             }
 
@@ -121,7 +129,7 @@ public class MEItemOutputBus extends MEItemBus {
 
     @Override
     public void markNoUpdate() {
-        if (proxy.isActive() && hasChangedSlots()) {
+        if (hasChangedSlots()) {
             try {
                 proxy.getTick().alertDevice(proxy.getNode());
             } catch (GridAccessException e) {
@@ -130,5 +138,63 @@ public class MEItemOutputBus extends MEItemBus {
         }
 
         super.markNoUpdate();
+    }
+
+    public int getConfiguredStackSize() {
+        return this.configuredStackSize;
+    }
+
+    public void setConfiguredStackSize(int size) {
+        this.configuredStackSize = Math.max(1, size);
+        this.applyStackSizeToInventory();
+        this.markForUpdate();
+    }
+
+    private void applyStackSizeToInventory() {
+        if (this.inventory != null) {
+            int[] slotIDs = new int[this.inventory.getSlots()];
+            for (int slotID = 0; slotID < slotIDs.length; slotID++) {
+                slotIDs[slotID] = slotID;
+            }
+            this.inventory.setStackLimit(this.configuredStackSize, slotIDs);
+        }
+    }
+
+    @Override
+    public void readCustomNBT(final NBTTagCompound compound) {
+        super.readCustomNBT(compound);
+
+        if (compound.hasKey("configuredStackSize")) {
+            this.configuredStackSize = compound.getInteger("configuredStackSize");
+        }
+
+        this.applyStackSizeToInventory();
+    }
+
+    @Override
+    public void writeCustomNBT(final NBTTagCompound compound) {
+        super.writeCustomNBT(compound);
+
+        compound.setInteger("configuredStackSize", this.configuredStackSize);
+    }
+
+    @Override
+    public NBTTagCompound downloadSettings() {
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setInteger("configuredStackSize", this.configuredStackSize);
+        return tag;
+    }
+
+    @Override
+    public void uploadSettings(NBTTagCompound settings) {
+        if (settings.hasKey("configuredStackSize")) {
+            setConfiguredStackSize(settings.getInteger("configuredStackSize"));
+
+            try {
+                proxy.getTick().alertDevice(proxy.getNode());
+            } catch (GridAccessException e) {
+                // NO-OP
+            }
+        }
     }
 }

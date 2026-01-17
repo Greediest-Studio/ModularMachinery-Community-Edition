@@ -3,6 +3,7 @@ package hellfirepvp.modularmachinery.common.util;
 import com.google.common.collect.Lists;
 import github.kasuminova.mmce.common.concurrent.Sync;
 import github.kasuminova.mmce.common.util.IExtendedGasHandler;
+import github.kasuminova.mmce.common.util.IOneToOneFluidHandler;
 import github.kasuminova.mmce.common.util.MultiFluidTank;
 import github.kasuminova.mmce.common.util.MultiGasTank;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
@@ -12,6 +13,7 @@ import mekanism.api.gas.GasStack;
 import mekanism.api.gas.IGasHandler;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.capability.IFluidHandler;
+import net.minecraftforge.fluids.capability.IFluidTankProperties;
 import net.minecraftforge.fml.common.Optional;
 
 import javax.annotation.Nonnull;
@@ -135,6 +137,20 @@ public class HybridFluidUtils {
         }
     }
 
+    public static int findSlotWithFluid(final IOneToOneFluidHandler handler, final IFluidTankProperties[] props, final FluidStack fluid) {
+        int found = -1;
+        if (handler.isOneFluidOneSlot()) {
+            for (int i = 0; i < props.length; i++) {
+                FluidStack fluidInSlot = props[i].getContents();
+                if (fluidInSlot != null && fluidInSlot.getFluid() == fluid.getFluid()) {
+                    found = i;
+                    break;
+                }
+            }
+        }
+        return found;
+    }
+
     @Nonnull
     public static List<IFluidHandler> castFluidHandlerComponents(final List<ProcessingComponent<?>> components) {
         if (components.size() == 1) {
@@ -165,9 +181,9 @@ public class HybridFluidUtils {
             Object providedComponent = component.getProvidedComponent();
             if (providedComponent instanceof IFluidHandler) {
                 ProcessingComponent<Object> objectProcessingComponent = new ProcessingComponent<>(
-                        (MachineComponent<Object>) component.component(),
-                        new MultiFluidTank((IFluidHandler) providedComponent),
-                        component.getTag());
+                    (MachineComponent<Object>) component.component(),
+                    new MultiFluidTank((IFluidHandler) providedComponent),
+                    component.getTag());
                 list.add(objectProcessingComponent);
             }
         }
@@ -182,9 +198,9 @@ public class HybridFluidUtils {
             Object providedComponent = component.getProvidedComponent();
             if (providedComponent instanceof IGasHandler) {
                 ProcessingComponent<Object> objectProcessingComponent = new ProcessingComponent<>(
-                        (MachineComponent<Object>) component.component(),
-                        new MultiGasTank((IGasHandler) providedComponent),
-                        component.getTag());
+                    (MachineComponent<Object>) component.component(),
+                    new MultiGasTank((IGasHandler) providedComponent),
+                    component.getTag());
                 list.add(objectProcessingComponent);
             }
         }

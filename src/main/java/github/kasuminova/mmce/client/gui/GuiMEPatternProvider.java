@@ -18,10 +18,12 @@ import github.kasuminova.mmce.common.tile.MEPatternProvider;
 import github.kasuminova.mmce.common.util.InfItemFluidHandler;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.base.Mods;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
@@ -34,7 +36,7 @@ import java.util.List;
 public class GuiMEPatternProvider extends AEBaseGuiContainerDynamic {
 
     public static final ResourceLocation GUI_TEXTURE =
-            new ResourceLocation(ModularMachinery.MODID, "textures/gui/mepatternprovider.png");
+        new ResourceLocation(ModularMachinery.MODID, "textures/gui/mepatternprovider.png");
 
     protected final MEPatternProvider owner;
 
@@ -53,28 +55,28 @@ public class GuiMEPatternProvider extends AEBaseGuiContainerDynamic {
 
         // Titles...
         this.widgetController.addWidget(
-                new MultiLineLabel(Collections.singletonList(I18n.format("gui.mepatternprovider.title")))
-                        .setAutoWrap(false)
-                        .setMargin(0)
-                        .setAbsXY(7, 11)
+            new MultiLineLabel(Collections.singletonList(I18n.format("gui.mepatternprovider.title")))
+                .setAutoWrap(false)
+                .setMargin(0)
+                .setAbsXY(7, 11)
         );
         this.widgetController.addWidget(
-                new MultiLineLabel(Collections.singletonList(I18n.format("gui.mepatternprovider.cached")))
-                        .setAutoWrap(false)
-                        .setMargin(0)
-                        .setAbsXY(180, 11)
+            new MultiLineLabel(Collections.singletonList(I18n.format("gui.mepatternprovider.cached")))
+                .setAutoWrap(false)
+                .setMargin(0)
+                .setAbsXY(180, 11)
         );
         this.widgetController.addWidget(
-                new MultiLineLabel(Collections.singletonList(I18n.format("gui.mepatternprovider.inventory")))
-                        .setAutoWrap(false)
-                        .setMargin(0)
-                        .setAbsXY(7, 101)
+            new MultiLineLabel(Collections.singletonList(I18n.format("gui.mepatternprovider.inventory")))
+                .setAutoWrap(false)
+                .setMargin(0)
+                .setAbsXY(7, 101)
         );
         this.widgetController.addWidget(
-                new MultiLineLabel(Collections.singletonList(I18n.format("gui.mepatternprovider.single_inv")))
-                        .setAutoWrap(false)
-                        .setMargin(0)
-                        .setAbsXY(180, 158)
+            new MultiLineLabel(Collections.singletonList(I18n.format("gui.mepatternprovider.single_inv")))
+                .setAutoWrap(false)
+                .setMargin(0)
+                .setAbsXY(180, 158)
         );
 
         // Init StackList...
@@ -85,77 +87,86 @@ public class GuiMEPatternProvider extends AEBaseGuiContainerDynamic {
         // Init ReturnItems...
         Button4State returnItems = new Button4State();
         returnItems
-                .setMouseDownTexture(176 + 18 + 18, 214)
-                .setHoveredTexture(176 + 18, 214)
-                .setTexture(176, 214)
-                .setTextureLocation(GuiMEPatternProvider.GUI_TEXTURE)
-                .setTooltipFunction((btn) -> {
-                    List<String> tooltips = new ArrayList<>();
-                    tooltips.add(I18n.format("gui.mepatternprovider.return_items"));
-                    tooltips.add(I18n.format("gui.mepatternprovider.return_items.desc"));
-                    return tooltips;
-                })
-                .setOnClickedListener((btn) -> ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.RETURN_ITEMS)))
-                .setWidthHeight(16, 16);
+            .setMouseDownTexture(176 + 18 + 18, 214)
+            .setHoveredTexture(176 + 18, 214)
+            .setTexture(176, 214)
+            .setTextureLocation(GuiMEPatternProvider.GUI_TEXTURE)
+            .setTooltipFunction((btn) -> {
+                List<String> tooltips = new ArrayList<>();
+                tooltips.add(I18n.format("gui.mepatternprovider.return_items"));
+                tooltips.add(I18n.format("gui.mepatternprovider.return_items.desc"));
+                return tooltips;
+            })
+            .setOnClickedListener((btn) -> ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.RETURN_ITEMS)))
+            .setWidthHeight(16, 16);
 
         // Init WorkModeSetting...
         workModeSetting
-                // ButtonTexture 1
-                .addElement(MEPatternProvider.WorkModeSetting.DEFAULT, TextureProperties.of(140, 196, 16, 16))
-                // ButtonTexture 2
-                .addElement(MEPatternProvider.WorkModeSetting.BLOCKING_MODE, TextureProperties.of(140 + 18, 196, 16, 16))
-                // ButtonTexture 3
-                .addElement(MEPatternProvider.WorkModeSetting.CRAFTING_LOCK_MODE, TextureProperties.of(140 + 18 + 18, 196, 16, 16))
-                // ButtonTexture 0
-                .addElement(MEPatternProvider.WorkModeSetting.ENHANCED_BLOCKING_MODE, TextureProperties.of(140 - 18, 196, 16, 16))
-                // ButtonTexture 5
-                .setMouseDownTexture(140 + 18 + 18 + 18 + 18 + 18, 196)
-                // ButtonTexture 5
-                .setHoveredTexture(140 + 18 + 18 + 18 + 18, 196)
-                // ButtonTexture 4
-                .setTexture(140 + 18 + 18 + 18, 196)
-                .setTextureLocation(GuiMEPatternProvider.GUI_TEXTURE)
-                .setTooltipFunction((btn) -> {
-                    MEPatternProvider.WorkModeSetting current = workModeSetting.getCurrentSelection();
-                    List<String> tooltips = new ArrayList<>();
-                    tooltips.add(I18n.format("gui.mepatternprovider.work_mode.desc"));
-                    tooltips.add((current == MEPatternProvider.WorkModeSetting.DEFAULT ? I18n.format("gui.mepatternprovider.current") : "") 
-                                 + I18n.format("gui.mepatternprovider.default.desc"));
-                    tooltips.add((current == MEPatternProvider.WorkModeSetting.BLOCKING_MODE ? I18n.format("gui.mepatternprovider.current") : "")
-                                 + I18n.format("gui.mepatternprovider.blocking_mode.desc"));
-                    tooltips.add((current == MEPatternProvider.WorkModeSetting.CRAFTING_LOCK_MODE ? I18n.format("gui.mepatternprovider.current") : "") 
-                                 + I18n.format("gui.mepatternprovider.crafting_lock_mode.desc"));
-                    tooltips.add((current == MEPatternProvider.WorkModeSetting.ENHANCED_BLOCKING_MODE ? I18n.format("gui.mepatternprovider.current") : "")
-                                 + I18n.format("gui.mepatternprovider.enhanced_blocking_mode.desc"));
-                    return tooltips;
-                })
-                .setOnClickedListener((btn) -> {
-                    MEPatternProvider.WorkModeSetting current = workModeSetting.getCurrentSelection();
-                    if (current == null) {
-                        return;
-                    }
-                    switch (current) {
-                        case DEFAULT -> ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.ENABLE_DEFAULT_MODE));
-                        case BLOCKING_MODE -> ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.ENABLE_BLOCKING_MODE));
-                        case CRAFTING_LOCK_MODE -> ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.ENABLE_CRAFTING_LOCK_MODE));
-                        case ENHANCED_BLOCKING_MODE -> ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.ENABLE_ENHANCED_BLOCKING_MODE));
-                    }
-                })
-                .setWidthHeight(16, 16);
+            // ButtonTexture 1
+            .addElement(MEPatternProvider.WorkModeSetting.DEFAULT, TextureProperties.of(140, 196, 16, 16))
+            // ButtonTexture 2
+            .addElement(MEPatternProvider.WorkModeSetting.BLOCKING_MODE, TextureProperties.of(140 + 18, 196, 16, 16))
+            // ButtonTexture 3
+            .addElement(MEPatternProvider.WorkModeSetting.CRAFTING_LOCK_MODE, TextureProperties.of(140 + 18 + 18, 196, 16, 16))
+            // ButtonTexture 0
+            .addElement(MEPatternProvider.WorkModeSetting.ENHANCED_BLOCKING_MODE, TextureProperties.of(140 - 18, 196, 16, 16))
+            .addElement(MEPatternProvider.WorkModeSetting.ISOLATION_INPUT, TextureProperties.of(140 - 18 - 18, 196, 16, 16))
+            // ButtonTexture 5
+            .setMouseDownTexture(140 + 18 + 18 + 18 + 18 + 18, 196)
+            // ButtonTexture 5
+            .setHoveredTexture(140 + 18 + 18 + 18 + 18, 196)
+            // ButtonTexture 4
+            .setTexture(140 + 18 + 18 + 18, 196)
+            .setTextureLocation(GuiMEPatternProvider.GUI_TEXTURE)
+            .setTooltipFunction((btn) -> {
+                MEPatternProvider.WorkModeSetting current = workModeSetting.getCurrentSelection();
+                List<String> tooltips = new ArrayList<>();
+                tooltips.add(I18n.format("gui.mepatternprovider.work_mode.desc"));
+                tooltips.add((current == MEPatternProvider.WorkModeSetting.DEFAULT ? I18n.format("gui.mepatternprovider.current") : "")
+                    + I18n.format("gui.mepatternprovider.default.desc"));
+                tooltips.add((current == MEPatternProvider.WorkModeSetting.BLOCKING_MODE ? I18n.format("gui.mepatternprovider.current") : "")
+                    + I18n.format("gui.mepatternprovider.blocking_mode.desc"));
+                tooltips.add((current == MEPatternProvider.WorkModeSetting.CRAFTING_LOCK_MODE ? I18n.format("gui.mepatternprovider.current") : "")
+                    + I18n.format("gui.mepatternprovider.crafting_lock_mode.desc"));
+                tooltips.add((current == MEPatternProvider.WorkModeSetting.ENHANCED_BLOCKING_MODE ? I18n.format("gui.mepatternprovider.current") : "")
+                    + I18n.format("gui.mepatternprovider.enhanced_blocking_mode.desc"));
+                tooltips.add((current == MEPatternProvider.WorkModeSetting.ISOLATION_INPUT ? I18n.format("gui.mepatternprovider.current") : "")
+                    + I18n.format("gui.mepatternprovider.isolation_input.desc"));
+                return tooltips;
+            })
+            .setOnClickedListener((btn) -> {
+                MEPatternProvider.WorkModeSetting current = workModeSetting.getCurrentSelection();
+                if (current == null) {
+                    return;
+                }
+                switch (current) {
+                    case DEFAULT ->
+                        ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.ENABLE_DEFAULT_MODE));
+                    case BLOCKING_MODE ->
+                        ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.ENABLE_BLOCKING_MODE));
+                    case CRAFTING_LOCK_MODE ->
+                        ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.ENABLE_CRAFTING_LOCK_MODE));
+                    case ENHANCED_BLOCKING_MODE ->
+                        ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.ENABLE_ENHANCED_BLOCKING_MODE));
+                    case ISOLATION_INPUT ->
+                        ModularMachinery.NET_CHANNEL.sendToServer(new PktMEPatternProviderAction(PktMEPatternProviderAction.Action.ENABLE_ENHANCED_ISOLATION_INPUT));
+                }
+            })
+            .setWidthHeight(16, 16);
 
         // Init Single Inv Tip Button...
         Button singleInvTip = new Button();
         singleInvTip
-                .setTextureLocation(GuiMEPatternProvider.GUI_TEXTURE)
-                .setTexture(230, 214)
-                .setHoveredTexture(230 + 11, 214)
-                .setTooltipFunction((btn) -> {
-                    List<String> tooltips = new ArrayList<>();
-                    tooltips.add(I18n.format("gui.mepatternprovider.single_inv.desc"));
-                    return tooltips;
-                })
-                .setWidthHeight(9, 11)
-                .setAbsXY(240, 157);
+            .setTextureLocation(GuiMEPatternProvider.GUI_TEXTURE)
+            .setTexture(230, 214)
+            .setHoveredTexture(230 + 11, 214)
+            .setTooltipFunction((btn) -> {
+                List<String> tooltips = new ArrayList<>();
+                tooltips.add(I18n.format("gui.mepatternprovider.single_inv.desc"));
+                return tooltips;
+            })
+            .setWidthHeight(9, 11)
+            .setAbsXY(240, 157);
 
         // Init Widget Containers...
         Row stackListButtons = new Row();
@@ -174,7 +185,7 @@ public class GuiMEPatternProvider extends AEBaseGuiContainerDynamic {
         super.initGui();
 
         final GuiFullCapFluidTank guiTank = new GuiFullCapFluidTank(owner.getSubFluidHandler(),
-                0, 0, 232, 172, 16, 16
+            0, 0, 232, 172, 16, 16
         );
 
         // AE2 Unofficial Extended Life Check
@@ -218,12 +229,25 @@ public class GuiMEPatternProvider extends AEBaseGuiContainerDynamic {
 
     public void updateGUIState() {
         InfItemFluidHandler infHandler = owner.getInfHandler();
-        stackList.setStackList(infHandler.getItemStackList(), infHandler.getFluidStackList(), infHandler.getGasStackList());
+
+        List<ItemStack> itemStacks = new ObjectArrayList<>(infHandler.getItemStackList());
+        List<FluidStack> fluids = new ObjectArrayList<>(infHandler.getFluidStackList());
+        List<Object> gass = new ObjectArrayList<>(infHandler.getGasStackList());
+
+        for (var component : owner.getCombinationComponents()) {
+            var h = (InfItemFluidHandler) component.getContainerProvider();
+            itemStacks.addAll(h.getItemStackList());
+            fluids.addAll(h.getFluidStackList());
+            gass.addAll(h.getGasStackList());
+        }
+
+        stackList.setStackList(itemStacks, fluids, gass);
         workModeSetting.setCurrentSelection(owner.getWorkMode());
     }
 
-    public void setStackList(final List<ItemStack> itemStackList, final List<FluidStack> fluidStackList, final List<?> gasStackList) {
-        stackList.setStackList(itemStackList, fluidStackList, gasStackList);
+    public void setStackList(final NBTTagCompound tagCompound) {
+        owner.readProviderHandlerNBT(tagCompound, true);
+        updateGUIState();
     }
 
 }

@@ -1,59 +1,15 @@
 package hellfirepvp.modularmachinery.common.machine;
 
-import com.google.gson.*;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParseException;
 import net.minecraft.util.JsonUtils;
 
 import java.lang.reflect.Type;
 
 public class DynamicMachinePreDeserializer implements JsonDeserializer<DynamicMachine> {
-    @Override
-    public DynamicMachine deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
-        JsonObject root = json.getAsJsonObject();
-
-        String registryName = getRegistryName(root);
-        String localized = getLocalizedName(root);
-
-        DynamicMachine machine = new DynamicMachine(registryName);
-        machine.setLocalizedName(localized);
-
-        // Prefix
-        if (root.has("prefix")) {
-            machine.setPrefix(getPrefix(root));
-        }
-
-        // Failure Action
-        if (root.has("failure-action")) {
-            machine.setFailureAction(getFailureActions(root));
-        }
-
-        // Requires Blueprint
-        if (root.has("requires-blueprint")) {
-            machine.setRequiresBlueprint(getRequireBlueprint(root));
-        }
-
-        // Color
-        if (root.has("color")) {
-            machine.setDefinedColor(getColor(root));
-        }
-
-        // Has Factory
-        if (root.has("has-factory")) {
-            machine.setHasFactory(getHasFactory(root));
-        }
-
-        // Factory Only
-        if (root.has("factory-only")) {
-            machine.setFactoryOnly(getFactoryOnly(root));
-        }
-
-        // Even Parallelism Distribution
-        if (root.has("even-parallelism-distribution")) {
-            machine.setEvenParallelismDistribution(getEvenParallelismDistribution(root));
-        }
-
-        return machine;
-    }
-
     public static String getRegistryName(JsonObject root) throws JsonParseException {
         String registryName = JsonUtils.getString(root, "registryname", "");
         if (registryName.isEmpty()) {
@@ -133,11 +89,46 @@ public class DynamicMachinePreDeserializer implements JsonDeserializer<DynamicMa
         return elementFactoryOnly.getAsJsonPrimitive().getAsBoolean();
     }
 
-    public static boolean getEvenParallelismDistribution(JsonObject root) throws JsonParseException {
-        JsonElement elementEvenParallelismDistribution = root.get("even-parallelism-distribution");
-        if (!elementEvenParallelismDistribution.isJsonPrimitive() || !elementEvenParallelismDistribution.getAsJsonPrimitive().isBoolean()) {
-            throw new JsonParseException("'even-parallelism-distribution' has to be either 'true' or 'false'!");
+    @Override
+    public DynamicMachine deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context) throws JsonParseException {
+        JsonObject root = json.getAsJsonObject();
+
+        String registryName = getRegistryName(root);
+        String localized = getLocalizedName(root);
+
+        DynamicMachine machine = new DynamicMachine(registryName);
+        machine.setLocalizedName(localized);
+
+        // Prefix
+        if (root.has("prefix")) {
+            machine.setPrefix(getPrefix(root));
         }
-        return elementEvenParallelismDistribution.getAsJsonPrimitive().getAsBoolean();
+
+        // Failure Action
+        if (root.has("failure-action")) {
+            machine.setFailureAction(getFailureActions(root));
+        }
+
+        // Requires Blueprint
+        if (root.has("requires-blueprint")) {
+            machine.setRequiresBlueprint(getRequireBlueprint(root));
+        }
+
+        // Color
+        if (root.has("color")) {
+            machine.setDefinedColor(getColor(root));
+        }
+
+        // Has Factory
+        if (root.has("has-factory")) {
+            machine.setHasFactory(getHasFactory(root));
+        }
+
+        // Factory Only
+        if (root.has("factory-only")) {
+            machine.setFactoryOnly(getFactoryOnly(root));
+        }
+
+        return machine;
     }
 }

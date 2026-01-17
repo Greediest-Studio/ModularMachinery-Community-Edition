@@ -11,17 +11,38 @@ package hellfirepvp.modularmachinery.common;
 import appeng.me.helpers.IGridProxyable;
 import github.kasuminova.mmce.common.capability.CapabilityUpgrade;
 import github.kasuminova.mmce.common.concurrent.TaskExecutor;
-import github.kasuminova.mmce.common.container.*;
+import github.kasuminova.mmce.common.container.ContainerMEFluidInputBus;
+import github.kasuminova.mmce.common.container.ContainerMEFluidOutputBus;
+import github.kasuminova.mmce.common.container.ContainerMEGasInputBus;
+import github.kasuminova.mmce.common.container.ContainerMEGasOutputBus;
+import github.kasuminova.mmce.common.container.ContainerMEItemInputBus;
+import github.kasuminova.mmce.common.container.ContainerMEItemOutputBus;
+import github.kasuminova.mmce.common.container.ContainerMEItemOutputBusStackSize;
+import github.kasuminova.mmce.common.container.ContainerMEPatternProvider;
 import github.kasuminova.mmce.common.handler.EventHandler;
 import github.kasuminova.mmce.common.handler.UpgradeEventHandler;
 import github.kasuminova.mmce.common.integration.ModIntegrationAE2;
 import github.kasuminova.mmce.common.integration.gregtech.ModIntegrationGTCEU;
-import github.kasuminova.mmce.common.tile.*;
+import github.kasuminova.mmce.common.tile.MEFluidInputBus;
+import github.kasuminova.mmce.common.tile.MEFluidOutputBus;
+import github.kasuminova.mmce.common.tile.MEGasInputBus;
+import github.kasuminova.mmce.common.tile.MEGasOutputBus;
+import github.kasuminova.mmce.common.tile.MEItemInputBus;
+import github.kasuminova.mmce.common.tile.MEItemOutputBus;
+import github.kasuminova.mmce.common.tile.MEPatternProvider;
 import github.kasuminova.mmce.common.util.concurrent.Action;
 import github.kasuminova.mmce.common.world.MMWorldEventListener;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.base.Mods;
-import hellfirepvp.modularmachinery.common.container.*;
+import hellfirepvp.modularmachinery.common.container.ContainerController;
+import hellfirepvp.modularmachinery.common.container.ContainerEnergyHatch;
+import hellfirepvp.modularmachinery.common.container.ContainerFactoryController;
+import hellfirepvp.modularmachinery.common.container.ContainerFluidHatch;
+import hellfirepvp.modularmachinery.common.container.ContainerGroupInputConfig;
+import hellfirepvp.modularmachinery.common.container.ContainerItemBus;
+import hellfirepvp.modularmachinery.common.container.ContainerParallelController;
+import hellfirepvp.modularmachinery.common.container.ContainerSmartInterface;
+import hellfirepvp.modularmachinery.common.container.ContainerUpgradeBus;
 import hellfirepvp.modularmachinery.common.crafting.IntegrationTypeHelper;
 import hellfirepvp.modularmachinery.common.crafting.RecipeRegistry;
 import hellfirepvp.modularmachinery.common.crafting.adapter.RecipeAdapterRegistry;
@@ -38,7 +59,12 @@ import hellfirepvp.modularmachinery.common.machine.MachineRegistry;
 import hellfirepvp.modularmachinery.common.machine.factory.FactoryRecipeThread;
 import hellfirepvp.modularmachinery.common.registry.internal.InternalRegistryPrimer;
 import hellfirepvp.modularmachinery.common.registry.internal.PrimerEventHandler;
-import hellfirepvp.modularmachinery.common.tiles.*;
+import hellfirepvp.modularmachinery.common.tiles.TileFactoryController;
+import hellfirepvp.modularmachinery.common.tiles.TileMachineController;
+import hellfirepvp.modularmachinery.common.tiles.TileParallelController;
+import hellfirepvp.modularmachinery.common.tiles.TileSmartInterface;
+import hellfirepvp.modularmachinery.common.tiles.TileUpgradeBus;
+import hellfirepvp.modularmachinery.common.tiles.base.MachineGroupInput;
 import hellfirepvp.modularmachinery.common.tiles.base.TileEnergyHatch;
 import hellfirepvp.modularmachinery.common.tiles.base.TileFluidTank;
 import hellfirepvp.modularmachinery.common.tiles.base.TileItemBus;
@@ -63,6 +89,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fml.common.network.IGuiHandler;
 import net.minecraftforge.fml.common.network.NetworkRegistry;
+import org.jetbrains.annotations.NotNull;
 
 import javax.annotation.Nullable;
 import java.io.File;
@@ -77,9 +104,9 @@ import java.util.concurrent.CompletableFuture;
  */
 public class CommonProxy implements IGuiHandler {
 
-    public static final ModDataHolder dataHolder = new ModDataHolder();
-    public static CreativeTabs creativeTabModularMachinery;
-    public static InternalRegistryPrimer registryPrimer;
+    public static final ModDataHolder          dataHolder = new ModDataHolder();
+    public static       CreativeTabs           creativeTabModularMachinery;
+    public static       InternalRegistryPrimer registryPrimer;
 
     public CommonProxy() {
         registryPrimer = new InternalRegistryPrimer();
@@ -103,6 +130,7 @@ public class CommonProxy implements IGuiHandler {
 
     public void preInit() {
         creativeTabModularMachinery = new CreativeTabs(ModularMachinery.MODID) {
+            @NotNull
             @Override
             public ItemStack createIcon() {
                 return new ItemStack(BlocksMM.blockController);
@@ -148,7 +176,7 @@ public class CommonProxy implements IGuiHandler {
         IntegrationTypeHelper.filterModIdRequirementTypes();
 
         if (Mods.TOP.isPresent()) {
-            ModIntegrationTOP.registerProvider();
+            ModIntegrationTOP.registerProviders();
             ModularMachinery.log.info("[ModularMachinery-CE] TheOneProbe integration is enabled! Stop looking at the dark controller gui!");
         }
         if (Mods.GREGTECHCEU.isPresent()) {
@@ -279,6 +307,17 @@ public class CommonProxy implements IGuiHandler {
                 }
                 return new ContainerLifeEssence((TileLifeEssenceProvider) present, player);
             }
+            case ME_ITEM_OUTPUT_BUS_STACK_SIZE -> {
+                if (aeSecurityCheck(player, present)) {
+                    return null;
+                }
+                return new ContainerMEItemOutputBusStackSize(player.inventory, (MEItemOutputBus) present);
+            }
+            case GUI_GROUP_INPUT_CONFIG -> {
+                if (present instanceof MachineGroupInput m && m.canGroupInput()) {
+                    return new ContainerGroupInputConfig(present, player);
+                }
+            }
         }
 
         return null;
@@ -302,6 +341,7 @@ public class CommonProxy implements IGuiHandler {
         UPGRADE_BUS(TileUpgradeBus.class),
         BLUEPRINT_PREVIEW(null),
         ME_ITEM_OUTPUT_BUS(Mods.AE2.isPresent() ? MEItemOutputBus.class : null),
+        ME_ITEM_OUTPUT_BUS_STACK_SIZE(Mods.AE2.isPresent() ? MEItemOutputBus.class : null),
         ME_ITEM_INPUT_BUS(Mods.AE2.isPresent() ? MEItemInputBus.class : null),
         ME_FLUID_OUTPUT_BUS(Mods.AE2.isPresent() ? MEFluidOutputBus.class : null),
         ME_FLUID_INPUT_BUS(Mods.AE2.isPresent() ? MEFluidInputBus.class : null),
@@ -309,6 +349,7 @@ public class CommonProxy implements IGuiHandler {
         ME_GAS_INPUT_BUS(Mods.AE2EL.isPresent() && Mods.MEKENG.isPresent() ? MEGasInputBus.class : null),
         ME_PATTERN_PROVIDER(Mods.AE2.isPresent() ? MEPatternProvider.class : null),
         GUI_ESSENCE_PROVIDER(Mods.BM2.isPresent() ? TileLifeEssenceProvider.class : null),
+        GUI_GROUP_INPUT_CONFIG(TileEntity.class)
         ;
 
         public final Class<? extends TileEntity> requiredTileEntity;

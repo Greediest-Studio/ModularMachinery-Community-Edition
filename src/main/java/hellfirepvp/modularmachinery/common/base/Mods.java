@@ -112,7 +112,7 @@ public enum Mods {
     DRAGON_RESEARCH("dragonresearch"),
     ;
 
-    public final String modid;
+    public final  String  modid;
     private final boolean loaded;
 
     Mods(String modName) {

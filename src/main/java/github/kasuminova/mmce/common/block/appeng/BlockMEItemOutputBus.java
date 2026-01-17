@@ -1,5 +1,6 @@
 package github.kasuminova.mmce.common.block.appeng;
 
+import appeng.api.implementations.items.IMemoryCard;
 import github.kasuminova.mmce.common.tile.MEItemOutputBus;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.CommonProxy;
@@ -22,17 +23,23 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class BlockMEItemOutputBus extends BlockMEItemBus {
-
     @Override
     public boolean onBlockActivated(
             @Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull IBlockState state,
             @Nonnull EntityPlayer playerIn, @Nonnull EnumHand hand,
             @Nonnull EnumFacing facing,
-            float hitX, float hitY, float hitZ)
-    {
+            float hitX, float hitY, float hitZ) {
         if (!worldIn.isRemote) {
             TileEntity te = worldIn.getTileEntity(pos);
-            if (te instanceof MEItemOutputBus) {
+            if (te instanceof MEItemOutputBus outputBus) {
+                ItemStack heldItem = playerIn.getHeldItem(hand);
+                if (heldItem.getItem() instanceof IMemoryCard memoryCard) {
+                    boolean handled = handleSettingsTransfer(outputBus, memoryCard, playerIn, heldItem);
+                    if (handled) {
+                        return true;
+                    }
+                }
+
                 playerIn.openGui(ModularMachinery.MODID, CommonProxy.GuiType.ME_ITEM_OUTPUT_BUS.ordinal(), worldIn, pos.getX(), pos.getY(), pos.getZ());
             }
         }
@@ -56,8 +63,7 @@ public class BlockMEItemOutputBus extends BlockMEItemBus {
     @Override
     public void breakBlock(final World worldIn,
                            @Nonnull final BlockPos pos,
-                           @Nonnull final IBlockState state)
-    {
+                           @Nonnull final IBlockState state) {
         TileEntity te = worldIn.getTileEntity(pos);
         ItemStack dropped = new ItemStack(ItemsMM.meItemOutputBus);
 
@@ -96,8 +102,7 @@ public class BlockMEItemOutputBus extends BlockMEItemBus {
                                 @Nonnull final BlockPos pos,
                                 @Nonnull final IBlockState state,
                                 @Nonnull final EntityLivingBase placer,
-                                @Nonnull final ItemStack stack)
-    {
+                                @Nonnull final ItemStack stack) {
         super.onBlockPlacedBy(worldIn, pos, state, placer, stack);
 
         TileEntity te = worldIn.getTileEntity(pos);
