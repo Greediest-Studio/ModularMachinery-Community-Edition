@@ -244,21 +244,31 @@ public class InfItemFluidHandler implements IItemHandlerModifiable, IFluidHandle
         }
         ItemStack stackInSlot = itemStackList.get(slot);
         if (stackInSlot.isEmpty()) {
+            int maxPerStack = stack.getMaxStackSize() <= 1 ? 1 : Integer.MAX_VALUE;
+            int toInsert = Math.min(stack.getCount(), maxPerStack);
             if (!simulate) {
-                itemStackList.set(slot, stack.copy());
+                ItemStack inserted = stack.copy();
+                inserted.setCount(toInsert);
+                itemStackList.set(slot, inserted);
                 if (onItemChanged != null) {
                     onItemChanged.accept(slot);
                 }
             }
-            return ItemStack.EMPTY;
+            if (toInsert >= stack.getCount()) {
+                return ItemStack.EMPTY;
+            }
+            return ItemUtils.copyStackWithSize(stack, stack.getCount() - toInsert);
         } else if (stackInSlot.isItemEqual(stack) && ItemStack.areItemStackTagsEqual(stackInSlot, stack)) {
             int maxToInsert = stack.getCount();
-            int toInsert = Math.min(maxToInsert, Integer.MAX_VALUE - stackInSlot.getCount());
+            int slotLimit = (Math.min(stackInSlot.getMaxStackSize(), stack.getMaxStackSize()) <= 1) ? 1 : Integer.MAX_VALUE;
+            int toInsert = Math.min(maxToInsert, Math.max(0, slotLimit - stackInSlot.getCount()));
 
             if (!simulate) {
-                stackInSlot.grow(toInsert);
-                if (onItemChanged != null) {
-                    onItemChanged.accept(slot);
+                if (toInsert > 0) {
+                    stackInSlot.grow(toInsert);
+                    if (onItemChanged != null) {
+                        onItemChanged.accept(slot);
+                    }
                 }
             }
 
@@ -276,30 +286,45 @@ public class InfItemFluidHandler implements IItemHandlerModifiable, IFluidHandle
         for (int i = 0; i < itemStackList.size(); i++) {
             final ItemStack stackInSlot = itemStackList.get(i);
             if (stackInSlot.isEmpty()) {
-                itemStackList.set(i, stack.copy());
+                int maxPerStack = stack.getMaxStackSize() <= 1 ? 1 : Integer.MAX_VALUE;
+                int toInsert = Math.min(toAppend, maxPerStack);
+                ItemStack inserted = stack.copy();
+                inserted.setCount(toInsert);
+                itemStackList.set(i, inserted);
                 if (onItemChanged != null) {
                     onItemChanged.accept(i);
                 }
-                return;
-            } else if (stackInSlot.isItemEqual(stack) && ItemStack.areItemStackTagsEqual(stackInSlot, stack)) {
-                int maxToAppend = Math.min(stack.getCount(), Integer.MAX_VALUE - stackInSlot.getCount());
-                stackInSlot.grow(maxToAppend);
-                if (onItemChanged != null) {
-                    onItemChanged.accept(i);
-                }
-                toAppend -= maxToAppend;
+                toAppend -= toInsert;
                 if (toAppend <= 0) {
                     return;
+                }
+            } else if (stackInSlot.isItemEqual(stack) && ItemStack.areItemStackTagsEqual(stackInSlot, stack)) {
+                int maxPerStack = (Math.min(stackInSlot.getMaxStackSize(), stack.getMaxStackSize()) <= 1) ? 1 : Integer.MAX_VALUE;
+                int maxToAppend = Math.min(toAppend, Math.max(0, maxPerStack - stackInSlot.getCount()));
+                if (maxToAppend > 0) {
+                    stackInSlot.grow(maxToAppend);
+                    if (onItemChanged != null) {
+                        onItemChanged.accept(i);
+                    }
+                    toAppend -= maxToAppend;
+                    if (toAppend <= 0) {
+                        return;
+                    }
                 }
             }
         }
 
         if (toAppend > 0) {
-            var item = stack.copy();
-            item.setCount(toAppend);
-            itemStackList.add(item);
-            if (onItemChanged != null) {
-                onItemChanged.accept(itemStackList.size() - 1);
+            int maxPerStack = stack.getMaxStackSize() <= 1 ? 1 : Integer.MAX_VALUE;
+            while (toAppend > 0) {
+                int toInsert = Math.min(toAppend, maxPerStack);
+                var item = stack.copy();
+                item.setCount(toInsert);
+                itemStackList.add(item);
+                if (onItemChanged != null) {
+                    onItemChanged.accept(itemStackList.size() - 1);
+                }
+                toAppend -= toInsert;
             }
         }
     }
