@@ -35,6 +35,8 @@ import hellfirepvp.modularmachinery.common.crafting.PreparedRecipe;
 import hellfirepvp.modularmachinery.common.crafting.RecipeRegistry;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentSelectorTag;
+import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
+import hellfirepvp.modularmachinery.common.crafting.helper.RequirementComponents;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementCatalyst;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementEnergy;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementFluid;
@@ -47,10 +49,13 @@ import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementItem;
 import hellfirepvp.modularmachinery.common.data.Config;
 import hellfirepvp.modularmachinery.common.integration.crafttweaker.helper.AdvancedItemCheckerCT;
 import hellfirepvp.modularmachinery.common.integration.crafttweaker.helper.AdvancedItemModifierCT;
+import hellfirepvp.modularmachinery.common.integration.crafttweaker.helper.DynamicOutputAdder;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.machine.MachineRegistry;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
+import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
+import hellfirepvp.modularmachinery.common.util.ResultChance;
 import hellfirepvp.modularmachinery.common.util.SmartInterfaceType;
 import mekanism.api.gas.Gas;
 import mekanism.api.gas.GasRegistry;
@@ -89,6 +94,7 @@ public class RecipePrimer implements PreparedRecipe {
     private final List<Action>                                    needAfterInitActions = new LinkedList<>();
     private final List<String>                                    toolTipList          = new ArrayList<>();
     private final Map<Class<?>, List<IEventHandler<RecipeEvent>>> recipeEventHandlers  = new HashMap<>();
+    private final List<DynamicOutputAdder>                        dynamicOutputAdders  = new ArrayList<>();
 
     private boolean                    parallelized  = Config.recipeParallelizeEnabledByDefault;
     private boolean                    loadJEI       = true;
@@ -174,6 +180,55 @@ public class RecipePrimer implements PreparedRecipe {
             CraftTweakerAPI.logWarning("[ModularMachinery] addItemModifier(AdvancedItemModifier checker) only can be applied to `Item`!");
         }
         return this;
+    }
+
+    @ZenMethod
+    public RecipePrimer addDynamicOutput(DynamicOutputAdder outputAdder) {
+        this.dynamicOutputAdders.add(outputAdder);
+
+        addFinishHandler(event -> {
+            handleDynamicOutput(event.getController(), event.getContext(), outputAdder);
+        });
+
+        addFactoryFinishHandler(event -> {
+            handleDynamicOutput(event.getController(), event.getContext(), outputAdder);
+        });
+
+        return this;
+    }
+
+    private void handleDynamicOutput(TileMultiblockMachineController controller,
+                                     RecipeCraftingContext context,
+                                     DynamicOutputAdder outputAdder) {
+        IItemStack[] additionalOutputs = outputAdder.getAdditionalOutputs(controller);
+
+        if (additionalOutputs == null || additionalOutputs.length == 0) {
+            return;
+        }
+
+        RequirementComponents itemOutputComp = null;
+        for (RequirementComponents reqComp : context.getCurrentComponents()) {
+            if (reqComp.requirement() instanceof RequirementItem reqItem &&
+                    reqItem.getActionType() == IOType.OUTPUT) {
+                itemOutputComp = reqComp;
+                break;
+            }
+        }
+
+        if (itemOutputComp == null) {
+            return;
+        }
+
+        for (IItemStack output : additionalOutputs) {
+            if (output != null) {
+                ItemStack itemStack = CraftTweakerMC.getItemStack(output);
+                if (!itemStack.isEmpty()) {
+                    RequirementItem tempReq = new RequirementItem(IOType.OUTPUT, itemStack);
+                    tempReq.setIgnoreOutputCheck(true);
+                    tempReq.finishCrafting(itemOutputComp.components(), context, ResultChance.GUARANTEED);
+                }
+            }
+        }
     }
 
     @ZenMethod
