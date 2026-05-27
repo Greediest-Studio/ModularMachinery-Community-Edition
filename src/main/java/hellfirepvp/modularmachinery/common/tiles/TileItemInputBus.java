@@ -55,7 +55,7 @@ public class TileItemInputBus extends TileItemBus implements MachineComponentTil
         for (EnumFacing facing : EnumFacing.VALUES) {
             BlockPos offset = getPos().offset(facing);
             TileEntity te = getWorld().getTileEntity(offset);
-            if (te == null || te instanceof TileItemBus) {
+            if (te == null || te instanceof TileItemBus || te instanceof TileUpgradeBus) {
                 continue;
             }
 
