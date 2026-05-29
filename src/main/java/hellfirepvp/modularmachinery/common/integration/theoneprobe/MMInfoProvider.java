@@ -141,10 +141,11 @@ public class MMInfoProvider implements IProbeInfoProvider {
         }
 
         int trueMaxParallelism = factory.getMaxParallelism();
-        if (factory.getAvailableParallelism() != trueMaxParallelism) {
+        int runningParallelism = factory.getRunningParallelism();
+        if (runningParallelism > 1) {
             IProbeInfo parallelismBox = threadBox == null ? newVertical(probeInfo) : threadBox;
             parallelismBox.text(TextFormatting.AQUA + "{*top.parallelism*}" +
-                TextFormatting.GREEN + ((trueMaxParallelism - factory.getAvailableParallelism()) + 1));
+                TextFormatting.GREEN + runningParallelism);
             parallelismBox.text(TextFormatting.GOLD + "{*top.max_parallelism*}" +
                 TextFormatting.YELLOW + trueMaxParallelism);
         }

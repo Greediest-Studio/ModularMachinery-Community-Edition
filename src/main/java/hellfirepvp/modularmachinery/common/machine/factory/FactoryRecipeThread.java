@@ -141,7 +141,7 @@ public class FactoryRecipeThread extends RecipeThread {
 
     public void tryRestartRecipe() {
         activeRecipe.reset();
-        activeRecipe.setMaxParallelism(factory.getThreadParallelism());
+        activeRecipe.setMaxParallelism(factory.getThreadParallelism(this));
         RecipeCraftingContext context = getContext().reset();
         flushContextModifier();
 
@@ -162,7 +162,7 @@ public class FactoryRecipeThread extends RecipeThread {
         searchTask = new FactoryRecipeSearchTask(
             factory,
             factory.getFoundMachine(),
-            factory.getThreadParallelism(),
+            factory.getThreadParallelism(this),
             recipeSet,
             this,
             factory.getActiveRecipeList());

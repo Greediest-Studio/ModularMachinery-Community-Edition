@@ -277,23 +277,10 @@ public class GuiFactoryController extends GuiContainerBase<ContainerFactoryContr
     private int drawParallelismInfo(int offsetX, int y, FontRenderer fr) {
         int offsetY = y;
 
-        int parallelism = 1;
+        int parallelism = factory.getRunningParallelism();
         int maxParallelism = factory.getTotalParallelism();
         if (maxParallelism <= 1) {
             return offsetY;
-        }
-
-        for (FactoryRecipeThread thread : factory.getFactoryRecipeThreadList()) {
-            ActiveMachineRecipe activeRecipe = thread.getActiveRecipe();
-            if (activeRecipe != null) {
-                parallelism += (activeRecipe.getParallelism() - 1);
-            }
-        }
-        for (final FactoryRecipeThread thread : factory.getCoreRecipeThreads().values()) {
-            ActiveMachineRecipe activeRecipe = thread.getActiveRecipe();
-            if (activeRecipe != null) {
-                parallelism += (activeRecipe.getParallelism() - 1);
-            }
         }
 
         if (parallelism <= 1) {

@@ -400,9 +400,9 @@ public class TileFactoryController extends TileMultiblockMachineController {
     public int getAvailableParallelism() {
         int maxParallelism = getMaxParallelism();
         if (foundMachine != null && foundMachine.isEvenParallelismDistribution()) {
-            return getEvenDistributedParallelism();
+            return getEvenDistributedParallelism(null);
         }
-            for (FactoryRecipeThread thread : recipeThreadList) {
+        for (FactoryRecipeThread thread : recipeThreadList) {
             ActiveMachineRecipe activeRecipe = thread.getActiveRecipe();
             if (activeRecipe == null) {
                 continue;
@@ -419,28 +419,83 @@ public class TileFactoryController extends TileMultiblockMachineController {
 
         return Math.max(1, maxParallelism);
     }
+
     public int getThreadParallelism() {
+        return getThreadParallelism(null);
+    }
+
+    public int getThreadParallelism(@Nullable FactoryRecipeThread targetThread) {
         if (foundMachine != null && foundMachine.isEvenParallelismDistribution()) {
-            return getEvenDistributedParallelism();
+            return getEvenDistributedParallelism(targetThread == null ? getNextIdleThread() : targetThread);
         }
         return getAvailableParallelism();
     }
 
-    private int getEvenDistributedParallelism() {
+    private int getEvenDistributedParallelism(@Nullable FactoryRecipeThread targetThread) {
         int totalMaxParallelism = getMaxParallelism();
+        FactoryRecipeThread target = targetThread;
+        List<FactoryRecipeThread> distributionThreads = new ArrayList<>();
 
-        // 计算总的可能线程数（包括活跃和潜在的线程）
-        int totalPossibleThreads = coreRecipeThreads.size() + Math.max(getMaxThreads() - coreRecipeThreads.size(), 0);
+        addEvenDistributionThreads(distributionThreads, coreRecipeThreads.values(), target);
+        addEvenDistributionThreads(distributionThreads, recipeThreadList, target);
 
-        // 如果没有线程，返回总并行数
-        if (totalPossibleThreads == 0) {
-            return totalMaxParallelism;
+        int targetIndex = distributionThreads.indexOf(target);
+        if (target != null && targetIndex < 0) {
+            targetIndex = distributionThreads.size();
+            distributionThreads.add(target);
         }
 
-        // 将总并行数均分给所有可能的线程，每个线程至少获得1个并行
-        int evenParallelism = Math.max(1, totalMaxParallelism / totalPossibleThreads);
+        return getDistributedParallelism(totalMaxParallelism, distributionThreads.size(), targetIndex);
+    }
 
-        return evenParallelism;
+    @Nullable
+    private FactoryRecipeThread getNextIdleThread() {
+        for (FactoryRecipeThread thread : recipeThreadList) {
+            if (thread.getActiveRecipe() == null) {
+                return thread;
+            }
+        }
+        return recipeThreadList.size() < getMaxThreads() ? new FactoryRecipeThread(this) : null;
+    }
+
+    private static void addEvenDistributionThreads(final List<FactoryRecipeThread> result,
+                                                   final Iterable<FactoryRecipeThread> threads,
+                                                   @Nullable final FactoryRecipeThread targetThread) {
+        for (FactoryRecipeThread thread : threads) {
+            if (thread.getActiveRecipe() != null || thread == targetThread) {
+                result.add(thread);
+            }
+        }
+    }
+
+    private static int getDistributedParallelism(final int totalParallelism, final int threadCount, final int threadIndex) {
+        if (threadCount <= 0) {
+            return Math.max(1, totalParallelism);
+        }
+
+        int baseParallelism = totalParallelism / threadCount;
+        int remainingParallelism = totalParallelism % threadCount;
+        if (threadIndex < 0) {
+            return Math.max(1, baseParallelism + (remainingParallelism > 0 ? 1 : 0));
+        }
+        return Math.max(1, baseParallelism + (threadIndex < remainingParallelism ? 1 : 0));
+    }
+
+    public int getRunningParallelism() {
+        int parallelism = 0;
+        for (FactoryRecipeThread thread : recipeThreadList) {
+            ActiveMachineRecipe activeRecipe = thread.getActiveRecipe();
+            if (activeRecipe != null) {
+                parallelism += activeRecipe.getParallelism();
+            }
+        }
+        for (FactoryRecipeThread thread : coreRecipeThreads.values()) {
+            ActiveMachineRecipe activeRecipe = thread.getActiveRecipe();
+            if (activeRecipe != null) {
+                parallelism += activeRecipe.getParallelism();
+            }
+        }
+        return Math.max(1, parallelism);
     }
 
     /**
@@ -491,7 +546,7 @@ public class TileFactoryController extends TileMultiblockMachineController {
         searchTask = new FactoryRecipeSearchTask(
             this,
             getFoundMachine(),
-            getAvailableParallelism(),
+            getThreadParallelism(),
             RecipeRegistry.getRecipesFor(foundMachine),
             null, getActiveRecipeList());
         waitToExecute.add(searchTask);
@@ -610,7 +665,7 @@ public class TileFactoryController extends TileMultiblockMachineController {
 
         parentController = BlockFactoryController.FACTORY_CONTROLLERS.get(parentMachine);
 
-        if (compound.hasKey("status")) {
+        if (compound.hasKey("status", Constants.NBT.TAG_COMPOUND)) {
             controllerStatus = CraftingStatus.deserialize(compound.getCompoundTag("status"));
         }
 
