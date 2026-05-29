@@ -1,7 +1,6 @@
 package hellfirepvp.modularmachinery.common.tiles;
 
 import github.kasuminova.mmce.common.capability.CapabilityUpgrade;
-import github.kasuminova.mmce.common.event.machine.MachineUpgradeChangeEvent;
 import github.kasuminova.mmce.common.upgrade.DynamicMachineUpgrade;
 import github.kasuminova.mmce.common.upgrade.MachineUpgrade;
 import github.kasuminova.mmce.common.upgrade.UpgradeType;
@@ -115,21 +114,6 @@ public class TileUpgradeBus extends TileEntityRestrictedTick implements MachineC
             updateUpgrades(upgrades, stackInSlot);
             if (changedSlot == i || changedSlot == -1) {
                 updateDynamicUpgrades(upgrades, stackInSlot, i);
-            }
-        }
-
-        if (changedSlot != -1 && !boundedMachine.isEmpty() && !world.isRemote) {
-            postUpgradeChangeEvent();
-        }
-    }
-
-    private void postUpgradeChangeEvent() {
-        for (Map.Entry<BlockPos, DynamicMachine> entry : boundedMachine.entrySet()) {
-            BlockPos pos = entry.getKey();
-            TileEntity te = world.getTileEntity(pos);
-            if (te instanceof TileMultiblockMachineController controller) {
-                MachineUpgradeChangeEvent event = new MachineUpgradeChangeEvent(controller);
-                event.postEvent();
             }
         }
     }

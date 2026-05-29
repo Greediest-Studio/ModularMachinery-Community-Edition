@@ -7,7 +7,11 @@ import github.kasuminova.mmce.common.event.Phase;
 import github.kasuminova.mmce.common.event.client.ControllerGUIRenderEvent;
 import github.kasuminova.mmce.common.event.client.ControllerModelAnimationEvent;
 import github.kasuminova.mmce.common.event.client.ControllerModelGetEvent;
-import github.kasuminova.mmce.common.event.machine.*;
+import github.kasuminova.mmce.common.event.machine.MachineEvent;
+import github.kasuminova.mmce.common.event.machine.MachineStructureFormedEvent;
+import github.kasuminova.mmce.common.event.machine.MachineStructureUpdateEvent;
+import github.kasuminova.mmce.common.event.machine.MachineTickEvent;
+import github.kasuminova.mmce.common.event.machine.SmartInterfaceUpdateEvent;
 import github.kasuminova.mmce.common.event.recipe.FactoryRecipeFailureEvent;
 import github.kasuminova.mmce.common.event.recipe.FactoryRecipeFinishEvent;
 import github.kasuminova.mmce.common.event.recipe.FactoryRecipeStartEvent;
@@ -159,18 +163,6 @@ public class MMEvents {
         });
     }
 
-    @ZenMethod
-    public static void onUpgradeChange(String machineRegistryName, IEventHandler<MachineUpgradeChangeEvent> function) {
-        WAIT_FOR_MODIFY.add(() -> {
-            DynamicMachine machine = MachineRegistry.getRegistry().getMachine(new ResourceLocation(ModularMachinery.MODID, machineRegistryName));
-            if (machine != null) {
-                machine.addMachineEventHandler(MachineUpgradeChangeEvent.class, function);
-            } else {
-                CraftTweakerAPI.logError("Could not find machine `" + machineRegistryName + "`!");
-            }
-        });
-    }
-
     //----------------------------------------------------------------------------------------------
     // 让我们谈谈这段转换的问题...
     // ZenScript 的强制转换存在问题，即时目标类能够转换，它依然会抛出错误。
@@ -230,11 +222,6 @@ public class MMEvents {
     @ZenMethod
     public static SmartInterfaceUpdateEvent castToSmartInterfaceUpdateEvent(MachineEvent event) {
         return event instanceof SmartInterfaceUpdateEvent ? (SmartInterfaceUpdateEvent) event : null;
-    }
-
-    @ZenMethod
-    public static MachineUpgradeChangeEvent castToMachineUpgradeChangeEvent(MachineEvent event) {
-        return event instanceof MachineUpgradeChangeEvent ? (MachineUpgradeChangeEvent) event : null;
     }
 
     @ZenMethod
