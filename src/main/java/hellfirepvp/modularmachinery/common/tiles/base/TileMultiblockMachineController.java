@@ -73,6 +73,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.nbt.NBTTagList;
+import net.minecraft.nbt.NBTTagString;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumFacing;
@@ -134,6 +135,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
     protected final Map<TileSmartInterface.SmartInterfaceProvider, String>  foundSmartInterfaces     = new ConcurrentHashMap<>();
     protected final Map<String, List<MachineUpgrade>>                       foundUpgrades            = new ConcurrentHashMap<>();
+    protected final Set<String>                                             syncedUpgradeNames       = ConcurrentHashMap.newKeySet();
     protected final List<TileUpgradeBus.UpgradeBusProvider>                 foundUpgradeBuses        = new ArrayList<>();
     protected final List<TileParallelController.ParallelControllerProvider> foundParallelControllers = new ArrayList<>();
     protected final Map<TileEntity, ProcessingComponent<?>>                 generalComponents        = new ConcurrentHashMap<>();
@@ -851,7 +853,18 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         upgradeBus.boundMachine(this);
         foundUpgradeBuses.add(upgradeBus);
 
-        Map<UpgradeType, List<MachineUpgrade>> found = upgradeBus.getUpgrades(this);
+        addMachineUpgrades(upgradeBus.getUpgrades(this));
+    }
+
+    public void refreshMachineUpgrades() {
+        foundUpgrades.clear();
+        for (final TileUpgradeBus.UpgradeBusProvider upgradeBus : foundUpgradeBuses) {
+            addMachineUpgrades(upgradeBus.getUpgrades(this));
+        }
+        syncMachineUpgradeNames();
+    }
+
+    protected void addMachineUpgrades(final Map<UpgradeType, List<MachineUpgrade>> found) {
         found.forEach((type, newUpgrades) -> {
             List<MachineUpgrade> upgrades = foundUpgrades.computeIfAbsent(type.getName(), v -> new ArrayList<>());
             add:
@@ -868,6 +881,19 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
                 upgrades.add(newUpgrade);
             }
         });
+        syncMachineUpgradeNames();
+    }
+
+    protected void syncMachineUpgradeNames() {
+        Set<String> names = new ObjectOpenHashSet<>(foundUpgrades.keySet());
+        if (syncedUpgradeNames.equals(names)) {
+            return;
+        }
+        syncedUpgradeNames.clear();
+        syncedUpgradeNames.addAll(names);
+        if (world != null && !world.isRemote) {
+            markForUpdateSync();
+        }
     }
 
 
@@ -1148,7 +1174,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     @Override
     public boolean hasMachineUpgrade(final String upgradeName) {
         List<MachineUpgrade> upgrades = foundUpgrades.get(upgradeName);
-        return upgrades != null && !upgrades.isEmpty();
+        return upgrades != null && !upgrades.isEmpty() || world != null && world.isRemote && syncedUpgradeNames.contains(upgradeName);
     }
 
     @Nullable
@@ -1394,6 +1420,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         }
 
         readMachineNBT(compound);
+        readSyncedUpgradeNames(compound);
 
         if (loaded && world.isRemote) {
             ClientProxy.clientScheduler.addRunnable(() -> {
@@ -1404,6 +1431,24 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
                 }
             }, 0);
         }
+    }
+
+    @Override
+    public void readNetNBT(NBTTagCompound compound) {
+        super.readNetNBT(compound);
+        readSyncedUpgradeNames(compound);
+    }
+
+    protected void readSyncedUpgradeNames(NBTTagCompound compound) {
+        syncedUpgradeNames.clear();
+        if (!compound.hasKey("machineUpgrades", Constants.NBT.TAG_LIST)) {
+            return;
+        }
+
+        NBTTagList tagList = compound.getTagList("machineUpgrades", Constants.NBT.TAG_STRING);
+        IntStream.range(0, tagList.tagCount())
+                 .mapToObj(tagList::getStringTagAt)
+                 .forEach(syncedUpgradeNames::add);
     }
 
     @Override
@@ -1453,6 +1498,23 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
                 compound.setTag("customModifier", tagList);
             }
         }
+        writeSyncedUpgradeNames(compound);
+    }
+
+    @Override
+    public void writeNetNBT(NBTTagCompound compound) {
+        super.writeNetNBT(compound);
+        writeSyncedUpgradeNames(compound);
+    }
+
+    protected void writeSyncedUpgradeNames(NBTTagCompound compound) {
+        if (syncedUpgradeNames.isEmpty()) {
+            return;
+        }
+
+        NBTTagList tagList = new NBTTagList();
+        syncedUpgradeNames.forEach(upgradeName -> tagList.appendTag(new NBTTagString(upgradeName)));
+        compound.setTag("machineUpgrades", tagList);
     }
 
     protected void readMachineNBT(NBTTagCompound compound) {

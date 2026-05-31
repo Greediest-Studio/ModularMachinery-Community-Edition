@@ -116,6 +116,21 @@ public class TileUpgradeBus extends TileEntityRestrictedTick implements MachineC
                 updateDynamicUpgrades(upgrades, stackInSlot, i);
             }
         }
+
+        refreshBoundedControllers();
+    }
+
+    private void refreshBoundedControllers() {
+        if (world == null || world.isRemote) {
+            return;
+        }
+
+        for (final BlockPos pos : boundedMachine.keySet()) {
+            TileEntity te = world.getTileEntity(pos);
+            if (te instanceof final TileMultiblockMachineController controller) {
+                controller.refreshMachineUpgrades();
+            }
+        }
     }
 
     public void removeDynamicUpgrades(int slotID) {
