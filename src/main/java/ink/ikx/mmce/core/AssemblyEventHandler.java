@@ -18,6 +18,7 @@ import ink.ikx.mmce.common.assembly.MachineAssembly;
 import ink.ikx.mmce.common.assembly.MachineAssemblyManager;
 import ink.ikx.mmce.common.utils.StructureIngredient;
 import net.minecraft.block.Block;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
@@ -50,7 +51,11 @@ public class AssemblyEventHandler {
                                                                                           .expireAfterWrite(1, TimeUnit.SECONDS)
                                                                                           .build();
 
-    private static void assemblyBefore(DynamicMachine machine, EntityPlayer player, BlockPos pos, int dynamicPatternSize) {
+    private static void assemblyBefore(final DynamicMachine machine,
+                                       final EntityPlayer player,
+                                       final BlockPos pos,
+                                       int dynamicPatternSize,
+                                       final EnumFacing controllerFacing) {
         if (machine == null) {
             player.sendMessage(new TextComponentTranslation("message.assembly.tip.no_machine"));
             return;
@@ -61,7 +66,6 @@ public class AssemblyEventHandler {
             return;
         }
 
-        EnumFacing controllerFacing = player.world.getBlockState(pos).getValue(BlockController.FACING);
         BlockArray machinePattern = new BlockArray(BlockArrayCache.getBlockArrayCache(machine.getPattern(), controllerFacing));
 
         Map<String, DynamicPattern> dynamicPatterns = machine.getDynamicPatterns();
@@ -102,6 +106,27 @@ public class AssemblyEventHandler {
 
     private static ItemStack getBlueprint(TileMultiblockMachineController controller) {
         return controller.getInventory().getStackInSlot(TileMultiblockMachineController.BLUEPRINT_SLOT);
+    }
+
+    private static EnumFacing getAutoAssemblyFacing(final World world,
+                                                    final BlockPos pos,
+                                                    final TileMultiblockMachineController ctrl) {
+        EnumFacing controllerFacing = ctrl.getControllerRotation();
+        IBlockState state = world.getBlockState(pos);
+
+        if ((controllerFacing == null || !controllerFacing.getAxis().isHorizontal()) && state.getBlock() instanceof BlockController) {
+            controllerFacing = state.getValue(BlockController.FACING);
+        }
+
+        if (controllerFacing == null || !controllerFacing.getAxis().isHorizontal()) {
+            controllerFacing = EnumFacing.NORTH;
+        }
+
+        // Keep visual facing synchronized with machine logic facing.
+        if (state.getBlock() instanceof BlockController && state.getValue(BlockController.FACING) != controllerFacing) {
+            world.setBlockState(pos, state.withProperty(BlockController.FACING, controllerFacing), 3);
+        }
+        return controllerFacing;
     }
 
     @SubscribeEvent
@@ -207,7 +232,8 @@ public class AssemblyEventHandler {
                 }
             }
 
-            assemblyBefore(machine, player, pos, dynamicPatternSize);
+            EnumFacing controllerFacing = getAutoAssemblyFacing(world, pos, ctrl);
+            assemblyBefore(machine, player, pos, dynamicPatternSize, controllerFacing);
         }
     }
 

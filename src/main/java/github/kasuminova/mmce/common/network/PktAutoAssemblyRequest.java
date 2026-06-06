@@ -46,11 +46,14 @@ public class PktAutoAssemblyRequest implements IMessage, IMessageHandler<PktAuto
         short patternSize = message.dynamicPatternSize;
         EntityPlayerMP player = ctx.getServerHandler().player;
 
-        if (isOutOfRange(player, target)) {
-            return null;
-        }
-
-        AssemblyEventHandler.INSTANCE.processAutoAssembly(player, player.getHeldItem(EnumHand.MAIN_HAND), target, patternSize);
+        // Schedule onto the server thread, world modifications (e.g. placing the
+        // controller and its facing) must not run on the Netty IO thread.
+        player.getServerWorld().addScheduledTask(() -> {
+            if (isOutOfRange(player, target)) {
+                return;
+            }
+            AssemblyEventHandler.INSTANCE.processAutoAssembly(player, player.getHeldItem(EnumHand.MAIN_HAND), target, patternSize);
+        });
         return null;
     }
 
