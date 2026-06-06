@@ -50,6 +50,7 @@ import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -65,7 +66,7 @@ import java.util.UUID;
  */
 @SuppressWarnings("deprecation")
 public class BlockController extends BlockMachineComponent implements ItemDynamicColor {
-    public static final PropertyEnum<EnumFacing> FACING = PropertyEnum.create("facing", EnumFacing.class, EnumFacing.HORIZONTALS);
+    public static final PropertyEnum<EnumFacing> FACING = PropertyEnum.create("facing", EnumFacing.class, Arrays.asList(EnumFacing.HORIZONTALS));
     public static final PropertyBool             FORMED = PropertyBool.create("formed");
 
     public static final Map<DynamicMachine, BlockController> MACHINE_CONTROLLERS     = new HashMap<>();
@@ -78,7 +79,6 @@ public class BlockController extends BlockMachineComponent implements ItemDynami
         setHardness(5F);
         setResistance(10F);
         setSoundType(SoundType.METAL);
-        setHarvestLevel("pickaxe", 1);
         setCreativeTab(CommonProxy.creativeTabModularMachinery);
         setDefaultState(this.blockState.getBaseState().withProperty(FACING, EnumFacing.NORTH).withProperty(FORMED, false));
     }
@@ -202,6 +202,16 @@ public class BlockController extends BlockMachineComponent implements ItemDynami
         return true;
     }
 
+    @Override
+    public String getHarvestTool(@Nonnull IBlockState state) {
+        return "pickaxe";
+    }
+
+    @Override
+    public int getHarvestLevel(@Nonnull IBlockState state) {
+        return 1;
+    }
+
     @Nonnull
     @Override
     public EnumBlockRenderType getRenderType(@Nonnull IBlockState state) {
@@ -287,13 +297,13 @@ public class BlockController extends BlockMachineComponent implements ItemDynami
     @Nullable
     @Override
     public TileEntity createTileEntity(World world, IBlockState state) {
-        return new TileMachineController(state);
+        return new TileMachineController(this, state);
     }
 
     @Nullable
     @Override
     public TileEntity createNewTileEntity(World worldIn, int meta) {
-        return new TileMachineController(getStateFromMeta(meta));
+        return new TileMachineController(this, getStateFromMeta(meta));
     }
 
     @Nonnull

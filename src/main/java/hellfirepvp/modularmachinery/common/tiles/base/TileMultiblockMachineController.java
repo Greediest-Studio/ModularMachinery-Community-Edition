@@ -638,16 +638,22 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
             return;
         }
         IBlockState state = world.getBlockState(getPos());
-        if (controllerRotation == null || !(state.getBlock() instanceof BlockController)) {
+        if (!(state.getBlock() instanceof BlockController)) {
             // Where is the controller?
             return;
         }
-        if (state.getValue(BlockController.FORMED) == formed) {
+        EnumFacing rotation = controllerRotation != null ? controllerRotation : state.getValue(BlockController.FACING);
+        if (rotation == null) {
+            return;
+        }
+        if (controllerRotation == null) {
+            controllerRotation = rotation;
+        }
+        if (state.getValue(BlockController.FORMED) == formed && state.getValue(BlockController.FACING) == rotation) {
             return;
         }
 
-        IBlockState newState = state.getBlock().getDefaultState()
-                                    .withProperty(BlockController.FACING, controllerRotation)
+        IBlockState newState = state.withProperty(BlockController.FACING, rotation)
                                     .withProperty(BlockController.FORMED, formed);
 
         if (world.isRemote) {

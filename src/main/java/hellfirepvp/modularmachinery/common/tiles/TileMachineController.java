@@ -49,15 +49,24 @@ public class TileMachineController extends TileMultiblockMachineController {
     }
 
     public TileMachineController(IBlockState state) {
+        this(null, state);
+    }
+
+    public TileMachineController(BlockController parentController, IBlockState state) {
         this();
-        if (state.getBlock() instanceof BlockController) {
-            this.parentController = (BlockController) state.getBlock();
+        this.parentController = parentController;
+        if (parentController != null) {
             this.parentMachine = parentController.getParentMachine();
+        }
+        if (state != null) {
             this.controllerRotation = state.getValue(BlockController.FACING);
-        } else {
+        }
+        if (this.parentController == null) {
             // wtf, where is the controller?
             ModularMachinery.log.warn("Invalid controller block at {} !", getPos());
-            controllerRotation = EnumFacing.NORTH;
+            if (controllerRotation == null) {
+                controllerRotation = EnumFacing.NORTH;
+            }
         }
     }
 
@@ -245,7 +254,9 @@ public class TileMachineController extends TileMultiblockMachineController {
         } else {
             // wtf, where is the controller?
             ModularMachinery.log.warn("Invalid controller block at {} !", getPos());
-            controllerRotation = EnumFacing.NORTH;
+            if (controllerRotation == null) {
+                controllerRotation = EnumFacing.NORTH;
+            }
         }
     }
 

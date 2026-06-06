@@ -71,13 +71,13 @@ public class BlockFactoryController extends BlockController {
     @Nullable
     @Override
     public TileEntity createTileEntity(World world, IBlockState state) {
-        return new TileFactoryController(state);
+        return new TileFactoryController(this, state);
     }
 
     @Nullable
     @Override
     public TileEntity createNewTileEntity(World worldIn, int meta) {
-        return new TileFactoryController(getStateFromMeta(meta));
+        return new TileFactoryController(this, getStateFromMeta(meta));
     }
 
 }
