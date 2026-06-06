@@ -146,6 +146,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     protected final Long2ObjectMap<Set<InfItemFluidHandler>> componentSet               = new Long2ObjectOpenHashMap<>();
     protected       boolean                                  searchRecipeImmediately    = false;
     protected       EnumFacing                               controllerRotation         = null;
+    protected       EnumFacing                               placementFacingLock        = null;
     protected       DynamicMachine.ModifierReplacementMap    foundReplacements          = null;
     protected       IOInventory                              inventory;
     protected       NBTTagCompound                           customData                 = new NBTTagCompound();
@@ -233,6 +234,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         if (getWorld().isRemote) {
             return;
         }
+        enforcePlacementFacingLockTick();
         timeRecorder.updateUsedTime(tickExecutor);
 
         final long tickStart = System.nanoTime();
@@ -348,6 +350,74 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
     public EnumFacing getControllerRotation() {
         return controllerRotation;
+    }
+
+    public void setPlacementFacingLock(@Nullable final EnumFacing facing) {
+        if (facing == null || !facing.getAxis().isHorizontal()) {
+            return;
+        }
+        this.placementFacingLock = facing;
+        this.controllerRotation = facing;
+        if (world != null) {
+            ModularMachinery.log.info("[MMCE][ControllerPlace] stage=setPlacementFacingLock side={} dim={} pos={} lockFacing={}",
+                world.isRemote ? "CLIENT" : "SERVER",
+                world.provider.getDimension(),
+                getPos(),
+                facing);
+        }
+        markDirty();
+    }
+
+    protected void enforceLockedFacing(@Nonnull final IBlockState state) {
+        EnumFacing stateFacing = state.getValue(BlockController.FACING);
+        EnumFacing expectedFacing = placementFacingLock;
+
+        if (expectedFacing == null || !expectedFacing.getAxis().isHorizontal()) {
+            if (controllerRotation != null && controllerRotation.getAxis().isHorizontal()) {
+                expectedFacing = controllerRotation;
+            } else {
+                expectedFacing = stateFacing;
+            }
+            placementFacingLock = expectedFacing;
+        }
+
+        controllerRotation = expectedFacing;
+        if (stateFacing != expectedFacing) {
+            ModularMachinery.log.warn("[MMCE][ControllerPlace] stage=enforceLockedFacing side={} dim={} pos={} stateFacing={} expectedFacing={} lockFacing={} ctrlRotation={} -> correcting",
+                world.isRemote ? "CLIENT" : "SERVER",
+                world.provider.getDimension(),
+                getPos(),
+                stateFacing,
+                expectedFacing,
+                placementFacingLock,
+                controllerRotation);
+            IBlockState lockedState = state.withProperty(BlockController.FACING, expectedFacing);
+            world.setBlockState(getPos(), lockedState, world.isRemote ? 8 : 3);
+        }
+    }
+
+    protected void enforcePlacementFacingLockTick() {
+        if (placementFacingLock == null || !placementFacingLock.getAxis().isHorizontal()) {
+            IBlockState state = world.getBlockState(getPos());
+            if (!(state.getBlock() instanceof BlockController)) {
+                return;
+            }
+            placementFacingLock = state.getValue(BlockController.FACING);
+            if (controllerRotation == null || !controllerRotation.getAxis().isHorizontal()) {
+                controllerRotation = placementFacingLock;
+            }
+            markDirty();
+        }
+
+        if (placementFacingLock == null || !placementFacingLock.getAxis().isHorizontal()) {
+            return;
+        }
+
+        IBlockState state = world.getBlockState(getPos());
+        if (!(state.getBlock() instanceof BlockController)) {
+            return;
+        }
+        enforceLockedFacing(state);
     }
 
     protected boolean canCheckStructure() {
@@ -1403,6 +1473,9 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     @Override
     public void onLoad() {
         super.onLoad();
+        if (!world.isRemote) {
+            enforcePlacementFacingLockTick();
+        }
     }
 
     @Override
@@ -1415,6 +1488,13 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         super.readCustomNBT(compound);
         this.inventory = IOInventory.deserialize(this, compound.getCompoundTag("items"));
         this.inventory.setStackLimit(1, BLUEPRINT_SLOT);
+
+        if (compound.hasKey("placementFacingLock", Constants.NBT.TAG_BYTE)) {
+            EnumFacing lock = EnumFacing.byHorizontalIndex(compound.getByte("placementFacingLock"));
+            if (lock != null && lock.getAxis().isHorizontal()) {
+                this.placementFacingLock = lock;
+            }
+        }
 
         if (compound.hasKey("owner")) {
             String ownerUUIDStr = compound.getString("owner");
@@ -1475,6 +1555,9 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         }
         if (this.controllerRotation != null) {
             compound.setByte("rotation", (byte) this.controllerRotation.getHorizontalIndex());
+        }
+        if (this.placementFacingLock != null) {
+            compound.setByte("placementFacingLock", (byte) this.placementFacingLock.getHorizontalIndex());
         }
         if (this.foundMachine != null) {
             compound.setString("machine", this.foundMachine.getRegistryName().toString());

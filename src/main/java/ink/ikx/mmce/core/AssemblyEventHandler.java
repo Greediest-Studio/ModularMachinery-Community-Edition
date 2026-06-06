@@ -111,21 +111,21 @@ public class AssemblyEventHandler {
     private static EnumFacing getAutoAssemblyFacing(final World world,
                                                     final BlockPos pos,
                                                     final TileMultiblockMachineController ctrl) {
-        EnumFacing controllerFacing = ctrl.getControllerRotation();
         IBlockState state = world.getBlockState(pos);
+        EnumFacing controllerFacing = null;
 
-        if ((controllerFacing == null || !controllerFacing.getAxis().isHorizontal()) && state.getBlock() instanceof BlockController) {
+        if (state.getBlock() instanceof BlockController) {
             controllerFacing = state.getValue(BlockController.FACING);
+        }
+
+        if (controllerFacing == null || !controllerFacing.getAxis().isHorizontal()) {
+            controllerFacing = ctrl.getControllerRotation();
         }
 
         if (controllerFacing == null || !controllerFacing.getAxis().isHorizontal()) {
             controllerFacing = EnumFacing.NORTH;
         }
 
-        // Keep visual facing synchronized with machine logic facing.
-        if (state.getBlock() instanceof BlockController && state.getValue(BlockController.FACING) != controllerFacing) {
-            world.setBlockState(pos, state.withProperty(BlockController.FACING, controllerFacing), 3);
-        }
         return controllerFacing;
     }
 
