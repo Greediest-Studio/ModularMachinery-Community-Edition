@@ -84,6 +84,7 @@ import net.minecraft.util.math.Vec3i;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.util.text.translation.I18n;
 import net.minecraft.world.World;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.capabilities.Capability;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.util.Constants;
@@ -146,7 +147,6 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     protected final Long2ObjectMap<Set<InfItemFluidHandler>> componentSet               = new Long2ObjectOpenHashMap<>();
     protected       boolean                                  searchRecipeImmediately    = false;
     protected       EnumFacing                               controllerRotation         = null;
-    protected       EnumFacing                               placementFacingLock        = null;
     protected       DynamicMachine.ModifierReplacementMap    foundReplacements          = null;
     protected       IOInventory                              inventory;
     protected       NBTTagCompound                           customData                 = new NBTTagCompound();
@@ -234,7 +234,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         if (getWorld().isRemote) {
             return;
         }
-        enforcePlacementFacingLockTick();
+        syncControllerRotationTick();
         timeRecorder.updateUsedTime(tickExecutor);
 
         final long tickStart = System.nanoTime();
@@ -352,64 +352,103 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         return controllerRotation;
     }
 
-    public void setPlacementFacingLock(@Nullable final EnumFacing facing) {
-        if (facing == null || !facing.getAxis().isHorizontal()) {
+    public void setControllerRotation(@Nullable final EnumFacing facing) {
+        if (!isHorizontalFacing(facing)) {
             return;
         }
-        this.placementFacingLock = facing;
         this.controllerRotation = facing;
-        if (world != null) {
-            ModularMachinery.log.info("[MMCE][ControllerPlace] stage=setPlacementFacingLock side={} dim={} pos={} lockFacing={}",
-                world.isRemote ? "CLIENT" : "SERVER",
-                world.provider.getDimension(),
-                getPos(),
-                facing);
-        }
+        syncControllerBlockState(isStructureFormed());
         markDirty();
     }
 
-    protected void enforceLockedFacing(@Nonnull final IBlockState state) {
-        EnumFacing stateFacing = state.getValue(BlockController.FACING);
-        EnumFacing expectedFacing = placementFacingLock;
+    protected static boolean isHorizontalFacing(@Nullable final EnumFacing facing) {
+        return facing != null && facing.getAxis().isHorizontal();
+    }
 
-        if (expectedFacing == null || !expectedFacing.getAxis().isHorizontal()) {
-            if (controllerRotation != null && controllerRotation.getAxis().isHorizontal()) {
-                expectedFacing = controllerRotation;
-            } else {
-                expectedFacing = stateFacing;
-            }
-            placementFacingLock = expectedFacing;
+    protected boolean isMMCEAsyncThread() {
+        String threadName = Thread.currentThread().getName();
+        return threadName.startsWith("MMCE-TaskExecutor") || threadName.startsWith("MMCE-ForkJoinPool");
+    }
+
+    protected IBlockState setControllerBlockState(@Nonnull final IBlockState newState,
+                                                  final int flags) {
+        world.setBlockState(getPos(), newState, flags);
+        IBlockState afterState = world.getBlockState(getPos());
+        if (world.isRemote || !(newState.getBlock() instanceof BlockController)) {
+            return afterState;
         }
 
-        controllerRotation = expectedFacing;
-        if (stateFacing != expectedFacing) {
-            ModularMachinery.log.warn("[MMCE][ControllerPlace] stage=enforceLockedFacing side={} dim={} pos={} stateFacing={} expectedFacing={} lockFacing={} ctrlRotation={} -> correcting",
-                world.isRemote ? "CLIENT" : "SERVER",
-                world.provider.getDimension(),
-                getPos(),
-                stateFacing,
-                expectedFacing,
-                placementFacingLock,
-                controllerRotation);
-            IBlockState lockedState = state.withProperty(BlockController.FACING, expectedFacing);
-            world.setBlockState(getPos(), lockedState, world.isRemote ? 8 : 3);
+        EnumFacing expectedFacing = newState.getValue(BlockController.FACING);
+        boolean expectedFormed = newState.getValue(BlockController.FORMED);
+        boolean needsForcedWrite = !(afterState.getBlock() instanceof BlockController)
+            || afterState.getValue(BlockController.FACING) != expectedFacing
+            || afterState.getValue(BlockController.FORMED) != expectedFormed;
+        if (!needsForcedWrite) {
+            return afterState;
+        }
+
+        IBlockState beforeForcedState = afterState;
+        Chunk chunk = world.getChunk(getPos());
+        IBlockState chunkOldState = chunk.setBlockState(getPos(), newState);
+        if (chunkOldState != null) {
+            world.markAndNotifyBlock(getPos(), chunk, beforeForcedState, newState, flags);
+        } else {
+            world.notifyBlockUpdate(getPos(), beforeForcedState, newState, flags);
+            world.markBlockRangeForRenderUpdate(getPos(), getPos());
+            chunk.markDirty();
+        }
+
+        return world.getBlockState(getPos());
+    }
+
+    protected void syncControllerRotationTick() {
+        if (world == null || getPos() == null || world.isRemote) {
+            return;
+        }
+        IBlockState state = world.getBlockState(getPos());
+        if (!(state.getBlock() instanceof BlockController)) {
+            return;
+        }
+        syncControllerRotation(state);
+    }
+
+    protected void syncControllerRotation(@Nonnull final IBlockState state) {
+        if (!(state.getBlock() instanceof BlockController)) {
+            return;
+        }
+        if (!isHorizontalFacing(controllerRotation)) {
+            controllerRotation = state.getValue(BlockController.FACING);
+            markDirty();
+        }
+        boolean formed = isStructureFormed();
+        if (needsControllerBlockStateSync(state, formed)) {
+            syncControllerBlockState(formed);
         }
     }
 
-    protected void enforcePlacementFacingLockTick() {
-        if (placementFacingLock == null || !placementFacingLock.getAxis().isHorizontal()) {
+    protected boolean needsControllerBlockStateSync(@Nonnull final IBlockState state,
+                                                    final boolean formed) {
+        return state.getBlock() instanceof BlockController
+            && (state.getValue(BlockController.FACING) != controllerRotation
+                || state.getValue(BlockController.FORMED) != formed);
+    }
+
+    protected void syncControllerBlockState(final boolean formed) {
+        if (world == null || getPos() == null) {
+            return;
+        }
+        if (!world.isRemote && isMMCEAsyncThread()) {
             IBlockState state = world.getBlockState(getPos());
-            if (!(state.getBlock() instanceof BlockController)) {
+            if (!needsControllerBlockStateSync(state, formed)) {
                 return;
             }
-            placementFacingLock = state.getValue(BlockController.FACING);
-            if (controllerRotation == null || !controllerRotation.getAxis().isHorizontal()) {
-                controllerRotation = placementFacingLock;
-            }
-            markDirty();
-        }
-
-        if (placementFacingLock == null || !placementFacingLock.getAxis().isHorizontal()) {
+            final BlockPos syncPos = getPos();
+            ModularMachinery.EXECUTE_MANAGER.addSyncTask(() -> {
+                if (world == null || isInvalid() || !Objects.equals(getPos(), syncPos)) {
+                    return;
+                }
+                syncControllerBlockState(isStructureFormed());
+            });
             return;
         }
 
@@ -417,7 +456,18 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         if (!(state.getBlock() instanceof BlockController)) {
             return;
         }
-        enforceLockedFacing(state);
+        if (!isHorizontalFacing(controllerRotation)) {
+            controllerRotation = state.getValue(BlockController.FACING);
+            markDirty();
+        }
+        IBlockState newState = state.withProperty(BlockController.FACING, controllerRotation)
+                                    .withProperty(BlockController.FORMED, formed);
+        if (state.getValue(BlockController.FACING) == controllerRotation
+            && state.getValue(BlockController.FORMED) == formed) {
+            return;
+        }
+        setControllerBlockState(newState, world.isRemote ? 8 : 3);
+        markForUpdate();
     }
 
     protected boolean canCheckStructure() {
@@ -702,35 +752,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     }
 
     public void notifyStructureFormedState(boolean formed) {
-        //noinspection ConstantValue
-        if (world == null || getPos() == null) {
-            // Where is the controller?
-            return;
-        }
-        IBlockState state = world.getBlockState(getPos());
-        if (!(state.getBlock() instanceof BlockController)) {
-            // Where is the controller?
-            return;
-        }
-        EnumFacing rotation = controllerRotation != null ? controllerRotation : state.getValue(BlockController.FACING);
-        if (rotation == null) {
-            return;
-        }
-        if (controllerRotation == null) {
-            controllerRotation = rotation;
-        }
-        if (state.getValue(BlockController.FORMED) == formed && state.getValue(BlockController.FACING) == rotation) {
-            return;
-        }
-
-        IBlockState newState = state.withProperty(BlockController.FACING, rotation)
-                                    .withProperty(BlockController.FORMED, formed);
-
-        if (world.isRemote) {
-            world.setBlockState(getPos(), newState, 8);
-        } else {
-            world.setBlockState(getPos(), newState, 3);
-        }
+        syncControllerBlockState(formed);
     }
 
     private void addDynamicPatternToBlockArray() {
@@ -1474,7 +1496,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     public void onLoad() {
         super.onLoad();
         if (!world.isRemote) {
-            enforcePlacementFacingLockTick();
+            syncControllerRotationTick();
         }
     }
 
@@ -1488,13 +1510,6 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         super.readCustomNBT(compound);
         this.inventory = IOInventory.deserialize(this, compound.getCompoundTag("items"));
         this.inventory.setStackLimit(1, BLUEPRINT_SLOT);
-
-        if (compound.hasKey("placementFacingLock", Constants.NBT.TAG_BYTE)) {
-            EnumFacing lock = EnumFacing.byHorizontalIndex(compound.getByte("placementFacingLock"));
-            if (lock != null && lock.getAxis().isHorizontal()) {
-                this.placementFacingLock = lock;
-            }
-        }
 
         if (compound.hasKey("owner")) {
             String ownerUUIDStr = compound.getString("owner");
@@ -1556,9 +1571,6 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         if (this.controllerRotation != null) {
             compound.setByte("rotation", (byte) this.controllerRotation.getHorizontalIndex());
         }
-        if (this.placementFacingLock != null) {
-            compound.setByte("placementFacingLock", (byte) this.placementFacingLock.getHorizontalIndex());
-        }
         if (this.foundMachine != null) {
             compound.setString("machine", this.foundMachine.getRegistryName().toString());
 
@@ -1607,7 +1619,11 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     }
 
     protected void readMachineNBT(NBTTagCompound compound) {
-        if (!compound.hasKey("machine") || !compound.hasKey("rotation")) {
+        if (compound.hasKey("rotation")) {
+            this.controllerRotation = EnumFacing.byHorizontalIndex(compound.getByte("rotation"));
+        }
+
+        if (!compound.hasKey("machine") || !isHorizontalFacing(this.controllerRotation)) {
             resetMachine(true);
             return;
         }
@@ -1620,7 +1636,6 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
             return;
         }
         this.foundMachine = machine;
-        this.controllerRotation = EnumFacing.byHorizontalIndex(compound.getByte("rotation"));
 
         if (compound.hasKey("prevMachine")) {
             this.prevMachine = MachineRegistry.getRegistry().getMachine(new ResourceLocation(compound.getString("prevMachine")));
@@ -1650,7 +1665,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         EnumFacing offset = EnumFacing.NORTH;
         while (offset != this.controllerRotation) {
             replacements = replacements.rotateYCCW();
-            offset = offset.rotateY();
+            offset = offset.rotateYCCW();
         }
         this.foundReplacements = replacements;
 

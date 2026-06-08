@@ -50,3 +50,4 @@ gradle.properties
 
 /libs/*
 .gradle
+docs

@@ -11,6 +11,7 @@ package hellfirepvp.modularmachinery.common.item;
 import hellfirepvp.modularmachinery.common.CommonProxy;
 import hellfirepvp.modularmachinery.common.block.BlockController;
 import hellfirepvp.modularmachinery.common.selection.PlayerStructureSelectionHelper;
+import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.resources.I18n;
@@ -55,7 +56,7 @@ public class ItemConstructTool extends Item {
             IBlockState clicked = worldIn.getBlockState(pos);
             Block block = clicked.getBlock();
             if (block instanceof BlockController) {
-                PlayerStructureSelectionHelper.finalizeSelection(clicked.getValue(BlockController.FACING), worldIn, pos, player);
+                PlayerStructureSelectionHelper.finalizeSelection(resolveControllerFacing(worldIn, pos, clicked), worldIn, pos, player);
 
                 PlayerStructureSelectionHelper.purgeSelection(player);
                 PlayerStructureSelectionHelper.sendSelection(player);
@@ -65,6 +66,16 @@ public class ItemConstructTool extends Item {
             }
         }
         return EnumActionResult.SUCCESS;
+    }
+
+    private static EnumFacing resolveControllerFacing(World world, BlockPos pos, IBlockState state) {
+        if (world.getTileEntity(pos) instanceof TileMultiblockMachineController ctrl) {
+            EnumFacing rotation = ctrl.getControllerRotation();
+            if (rotation != null && rotation.getAxis().isHorizontal()) {
+                return rotation;
+            }
+        }
+        return state.getValue(BlockController.FACING);
     }
 
 }

@@ -11,6 +11,7 @@ import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineContr
 import io.netty.util.internal.ThrowableUtil;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BufferBuilder;
+import net.minecraft.util.EnumFacing;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -46,6 +47,7 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
     protected boolean available = true;
 
     protected MachineControllerModel currentModel = null;
+    protected EnumFacing             renderedControllerRotation = null;
 
     public GeoModelRenderTask(final MachineControllerRenderer renderer, final TileMultiblockMachineController ctrl) {
         this.renderer = renderer;
@@ -188,8 +190,13 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
     }
 
     public boolean shouldReRenderStatic() {
-        if (currentModel != ctrl.getCurrentModel()) {
-            currentModel = ctrl.getCurrentModel();
+        MachineControllerModel nextModel = ctrl.getCurrentModel();
+        EnumFacing currentRotation = ctrl.getControllerRotation();
+
+        if (currentModel != nextModel
+            || renderedControllerRotation != currentRotation) {
+            currentModel = nextModel;
+            renderedControllerRotation = currentRotation;
             return true;
         }
         return false;

@@ -11,6 +11,7 @@ package hellfirepvp.modularmachinery.client.util;
 import hellfirepvp.modularmachinery.common.block.BlockController;
 import hellfirepvp.modularmachinery.common.block.BlockFactoryController;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
+import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import hellfirepvp.modularmachinery.common.util.BlockArray;
 import hellfirepvp.modularmachinery.common.util.MiscUtils;
 import net.minecraft.block.Block;
@@ -106,7 +107,7 @@ public class BlockArrayPreviewRenderHelper {
                 IBlockState lookState = Minecraft.getMinecraft().world.getBlockState(attachPos);
                 Block block = lookState.getBlock();
                 if (block instanceof BlockController || block instanceof BlockFactoryController) {
-                    EnumFacing rotate = lookState.getValue(BlockController.FACING);
+                    EnumFacing rotate = resolveControllerFacing(Minecraft.getMinecraft().world, attachPos, lookState);
 
                     BlockPos moveDir = MiscUtils.rotateYCCWNorthUntil(new BlockPos(this.renderHelperOffset), rotate);
                     attachPos = attachPos.subtract(moveDir);
@@ -233,7 +234,7 @@ public class BlockArrayPreviewRenderHelper {
             IBlockState lookState = Minecraft.getMinecraft().world.getBlockState(move);
             Block block = lookState.getBlock();
             if (block instanceof BlockController || block instanceof BlockFactoryController) {
-                EnumFacing rotate = lookState.getValue(BlockController.FACING);
+                EnumFacing rotate = resolveControllerFacing(Minecraft.getMinecraft().world, move, lookState);
 
                 BlockPos moveDir = MiscUtils.rotateYCCWNorthUntil(new BlockPos(this.renderHelperOffset), rotate);
                 move = move.subtract(moveDir);
@@ -362,6 +363,16 @@ public class BlockArrayPreviewRenderHelper {
 
     public DynamicMachineRenderContext getContext() {
         return context;
+    }
+
+    private static EnumFacing resolveControllerFacing(World world, BlockPos pos, IBlockState state) {
+        if (world.getTileEntity(pos) instanceof TileMultiblockMachineController ctrl) {
+            EnumFacing rotation = ctrl.getControllerRotation();
+            if (rotation != null && rotation.getAxis().isHorizontal()) {
+                return rotation;
+            }
+        }
+        return state.getValue(BlockController.FACING);
     }
 
 }

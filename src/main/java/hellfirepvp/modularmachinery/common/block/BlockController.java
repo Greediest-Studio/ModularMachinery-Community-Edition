@@ -227,9 +227,7 @@ public class BlockController extends BlockMachineComponent implements ItemDynami
     @Override
     @SuppressWarnings("deprecation")
     public IBlockState getStateForPlacement(@Nonnull World worldIn, @Nonnull BlockPos pos, @Nonnull EnumFacing facing, float hitX, float hitY, float hitZ, int meta, EntityLivingBase placer) {
-        EnumFacing placementFacing = resolvePlacementFacing(placer);
-        logPlacementDebug("getStateForPlacement", worldIn, pos, placer, facing, hitX, hitY, hitZ, placementFacing, null);
-        return this.getDefaultState().withProperty(FACING, placementFacing);
+        return this.getDefaultState().withProperty(FACING, resolvePlacementFacing(placer));
     }
 
     @Override
@@ -241,61 +239,10 @@ public class BlockController extends BlockMachineComponent implements ItemDynami
         super.onBlockPlacedBy(worldIn, pos, state, placer, stack);
 
         EnumFacing placementFacing = resolvePlacementFacing(placer);
-        logPlacementDebug("onBlockPlacedBy.beforeFix", worldIn, pos, placer, state.getValue(FACING), 0.5F, 0.5F, 0.5F, placementFacing, worldIn.getBlockState(pos));
-
-        IBlockState currentState = worldIn.getBlockState(pos);
-        if (currentState.getPropertyKeys().contains(FACING) && currentState.getValue(FACING) != placementFacing) {
-            worldIn.setBlockState(pos, currentState.withProperty(FACING, placementFacing), worldIn.isRemote ? 8 : 3);
-            currentState = worldIn.getBlockState(pos);
-        }
-
         TileEntity te = worldIn.getTileEntity(pos);
         if (te instanceof TileMultiblockMachineController ctrl) {
-            ctrl.setPlacementFacingLock(placementFacing);
-            if (!worldIn.isRemote) {
-                ctrl.notifyStructureFormedState(ctrl.isStructureFormed());
-            }
+            ctrl.setControllerRotation(placementFacing);
         }
-
-        logPlacementDebug("onBlockPlacedBy.afterFix", worldIn, pos, placer, state.getValue(FACING), 0.5F, 0.5F, 0.5F, placementFacing, currentState);
-    }
-
-    private static void logPlacementDebug(final String stage,
-                                          final World world,
-                                          final BlockPos pos,
-                                          @Nullable final EntityLivingBase placer,
-                                          final EnumFacing clickedFace,
-                                          final float hitX,
-                                          final float hitY,
-                                          final float hitZ,
-                                          final EnumFacing resolvedFacing,
-                                          @Nullable final IBlockState stateAfter) {
-        String placerInfo;
-        if (placer == null) {
-            placerInfo = "null";
-        } else {
-            placerInfo = placer.getName() + " yaw=" + placer.rotationYaw + " pitch=" + placer.rotationPitch;
-        }
-
-        String stateInfo;
-        if (stateAfter == null || !(stateAfter.getBlock() instanceof BlockController)) {
-            stateInfo = "n/a";
-        } else {
-            stateInfo = String.valueOf(stateAfter.getValue(FACING));
-        }
-
-        ModularMachinery.log.info("[MMCE][ControllerPlace] stage={} side={} dim={} pos={} placer={} clickedFace={} hit=({},{},{}) resolvedFacing={} stateFacing={}",
-            stage,
-            world.isRemote ? "CLIENT" : "SERVER",
-            world.provider.getDimension(),
-            pos,
-            placerInfo,
-            clickedFace,
-            hitX,
-            hitY,
-            hitZ,
-            resolvedFacing,
-            stateInfo);
     }
 
     private static EnumFacing resolvePlacementFacing(@Nullable final EntityLivingBase placer) {

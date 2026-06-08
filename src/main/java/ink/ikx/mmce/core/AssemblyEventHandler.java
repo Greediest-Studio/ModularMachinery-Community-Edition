@@ -112,14 +112,11 @@ public class AssemblyEventHandler {
                                                     final BlockPos pos,
                                                     final TileMultiblockMachineController ctrl) {
         IBlockState state = world.getBlockState(pos);
-        EnumFacing controllerFacing = null;
+        EnumFacing controllerFacing = ctrl.getControllerRotation();
 
-        if (state.getBlock() instanceof BlockController) {
+        if ((controllerFacing == null || !controllerFacing.getAxis().isHorizontal())
+            && state.getBlock() instanceof BlockController) {
             controllerFacing = state.getValue(BlockController.FACING);
-        }
-
-        if (controllerFacing == null || !controllerFacing.getAxis().isHorizontal()) {
-            controllerFacing = ctrl.getControllerRotation();
         }
 
         if (controllerFacing == null || !controllerFacing.getAxis().isHorizontal()) {

@@ -50,18 +50,19 @@ public class ItemDebugStruct extends Item {
             return EnumActionResult.SUCCESS;
         }
         TileEntity te = worldIn.getTileEntity(pos);
-        if (te instanceof TileMachineController) {
-            DynamicMachine dm = ((TileMachineController) te).getBlueprintMachine();
+        if (te instanceof TileMachineController ctrl) {
+            DynamicMachine dm = ctrl.getBlueprintMachine();
             if (dm != null) {
                 BlockArray pattern = dm.getPattern();
                 if (pattern != null) {
 
                     EnumFacing face = EnumFacing.NORTH;
+                    EnumFacing controllerFacing = resolveControllerFacing(worldIn, pos, ctrl);
                     player.sendMessage(new TextComponentString("Attempting structure matching:"));
-                    player.sendMessage(new TextComponentString("Structure is facing: " + worldIn.getBlockState(pos).getValue(BlockController.FACING).name()));
+                    player.sendMessage(new TextComponentString("Structure is facing: " + controllerFacing.name()));
                     DynamicMachine.ModifierReplacementMap replacements = dm.getModifiersAsMatchingReplacements();
                     do {
-                        if (face == worldIn.getBlockState(pos).getValue(BlockController.FACING)) {
+                        if (face == controllerFacing) {
                             BlockPos mismatch = pattern.getRelativeMismatchPosition(worldIn, pos, replacements);
                             if (mismatch != null) {
                                 player.sendMessage(new TextComponentString("Failed at relative position: " + mismatch));
@@ -75,6 +76,14 @@ public class ItemDebugStruct extends Item {
             }
         }
         return EnumActionResult.SUCCESS;
+    }
+
+    private static EnumFacing resolveControllerFacing(World world, BlockPos pos, TileMachineController ctrl) {
+        EnumFacing rotation = ctrl.getControllerRotation();
+        if (rotation != null && rotation.getAxis().isHorizontal()) {
+            return rotation;
+        }
+        return world.getBlockState(pos).getValue(BlockController.FACING);
     }
 
 }

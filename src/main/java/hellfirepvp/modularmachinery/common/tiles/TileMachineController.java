@@ -250,7 +250,7 @@ public class TileMachineController extends TileMultiblockMachineController {
         if (state.getBlock() instanceof BlockController) {
             this.parentController = (BlockController) state.getBlock();
             this.parentMachine = parentController.getParentMachine();
-            enforceLockedFacing(state);
+            syncControllerRotation(state);
         } else {
             // wtf, where is the controller?
             ModularMachinery.log.warn("Invalid controller block at {} !", getPos());
