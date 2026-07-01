@@ -201,6 +201,9 @@ public class TileFactoryController extends TileMultiblockMachineController {
         }
 
         for (FactoryRecipeThread thread : recipeThreadList) {
+            if (thread.getActiveRecipe() == null && thread.hasRecipeSearchTask()) {
+                thread.searchAndStartRecipe();
+            }
             doThreadRecipeTick(thread);
         }
     }
@@ -344,12 +347,10 @@ public class TileFactoryController extends TileMultiblockMachineController {
                 ModularMachinery.log.warn(ThrowableUtil.stackTraceToString(e));
             }
 
+            boolean shouldContinueSearch = false;
             if (context != null) {
                 if (context.canStartCrafting().isSuccess()) {
-                    offerRecipe(context);
-                    if (hasIdleThread()) {
-                        createRecipeSearchTask();
-                    }
+                    shouldContinueSearch = offerRecipe(context) && hasIdleThread();
                 } else {
                     RecipeCraftingContextPool.returnCtx(context);
                 }
@@ -362,6 +363,9 @@ public class TileFactoryController extends TileMultiblockMachineController {
                 }
             }
             searchTask = null;
+            if (shouldContinueSearch) {
+                createRecipeSearchTask();
+            }
         } else if (searchRecipeImmediately || (this.ticksExisted % currentRecipeSearchDelay() == 0)) {
             createRecipeSearchTask();
         }
@@ -460,11 +464,13 @@ public class TileFactoryController extends TileMultiblockMachineController {
     @Nullable
     private FactoryRecipeThread getNextIdleThread() {
         for (FactoryRecipeThread thread : recipeThreadList) {
-            if (thread.getActiveRecipe() == null) {
+            if (thread.getActiveRecipe() == null && !thread.hasRecipeSearchTask()) {
                 return thread;
             }
         }
-        return recipeThreadList.size() < getMaxThreads() ? new FactoryRecipeThread(this) : null;
+        return getRegularThreadUsage() < getMaxThreads() && recipeThreadList.size() < getMaxThreads()
+            ? new FactoryRecipeThread(this)
+            : null;
     }
 
     private static void addEvenDistributionThreads(final List<FactoryRecipeThread> result,
@@ -519,19 +525,26 @@ public class TileFactoryController extends TileMultiblockMachineController {
         return waitToExecute;
     }
 
-    public void offerRecipe(RecipeCraftingContext context) {
+    public boolean offerRecipe(RecipeCraftingContext context) {
+        int maxThreads = getMaxThreads();
+        if (maxThreads <= 0 || getRegularThreadUsage() >= maxThreads) {
+            RecipeCraftingContextPool.returnCtx(context);
+            return false;
+        }
+
         for (FactoryRecipeThread thread : recipeThreadList) {
-            if (thread.getActiveRecipe() == null) {
+            if (thread.getActiveRecipe() == null && !thread.hasRecipeSearchTask()) {
                 thread.setContext(context)
                       .setActiveRecipe(context.getActiveRecipe())
                       .setStatus(CraftingStatus.SUCCESS);
                 onThreadRecipeStart(thread);
-                return;
+                return true;
             }
         }
 
-        if (recipeThreadList.size() > getMaxThreads()) {
-            return;
+        if (recipeThreadList.size() >= maxThreads) {
+            RecipeCraftingContextPool.returnCtx(context);
+            return false;
         }
 
         FactoryRecipeThread thread = new FactoryRecipeThread(this);
@@ -540,6 +553,7 @@ public class TileFactoryController extends TileMultiblockMachineController {
               .setStatus(CraftingStatus.SUCCESS);
         recipeThreadList.add(thread);
         onThreadRecipeStart(thread);
+        return true;
     }
 
     public int getMaxThreads() {
@@ -605,21 +619,32 @@ public class TileFactoryController extends TileMultiblockMachineController {
         if (ticksExisted % 20 != 0) {
             return;
         }
-        recipeThreadList.removeIf(thread -> thread.isIdle() && thread.idleTime >= FactoryRecipeThread.IDLE_TIME_OUT);
+        recipeThreadList.removeIf(thread -> !thread.hasRecipeSearchTask() && thread.isIdle() && thread.idleTime >= FactoryRecipeThread.IDLE_TIME_OUT);
     }
 
     public boolean hasIdleThread() {
-        if (recipeThreadList.size() < getMaxThreads()) {
-            return true;
+        int maxThreads = getMaxThreads();
+        if (maxThreads <= 0 || getRegularThreadUsage() >= maxThreads) {
+            return false;
         }
 
         for (FactoryRecipeThread thread : recipeThreadList) {
-            if (thread.getActiveRecipe() == null) {
+            if (thread.getActiveRecipe() == null && !thread.hasRecipeSearchTask()) {
                 return true;
             }
         }
 
-        return false;
+        return recipeThreadList.size() < maxThreads;
+    }
+
+    private int getRegularThreadUsage() {
+        int usage = 0;
+        for (FactoryRecipeThread thread : recipeThreadList) {
+            if (thread.getActiveRecipe() != null || thread.hasRecipeSearchTask()) {
+                usage++;
+            }
+        }
+        return usage;
     }
 
     @Override

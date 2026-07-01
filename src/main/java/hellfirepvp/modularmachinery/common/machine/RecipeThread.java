@@ -141,6 +141,10 @@ public abstract class RecipeThread {
         return ctrl.isSearchRecipeImmediately() || (ctrl.getTicksExisted() % ctrl.currentRecipeSearchDelay() == 0);
     }
 
+    public boolean hasRecipeSearchTask() {
+        return searchTask != null;
+    }
+
     public void invalidate() {
         if (context != null) context.setCrafting(false);
         setActiveRecipe(null).setContext(null);
