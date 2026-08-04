@@ -54,7 +54,7 @@ gui.parallelcontroller.current_value=Current Parallelism: %s
 gui.upgradebus.title=Upgrade Bus
 gui.upgradebus.bounded.empty=No binding machinery.
 gui.upgradebus.bounded=Bound %s machinery
-gui.upgradebus.incompatible=§eWarning: %s is not compatible with this machinery.
+gui.upgradebus.applied=§aApplied: %s
 
 gui.groupinputconfig.title=Group ID Settings
 gui.groupinputconfig.tooltip=In different groups, recipe checks are performed independently

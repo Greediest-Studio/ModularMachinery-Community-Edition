@@ -55,34 +55,16 @@ public class GuiContainerUpgradeBus extends GuiContainerBase<ContainerUpgradeBus
         boundedMachine.forEach((pos, machine) -> {
             desc.add(String.format("%s (%s)", machine.getLocalizedName(), MiscUtils.posToString(pos)));
             founded.forEach((type, upgrades) -> {
-                for (final MachineUpgrade upgrade : upgrades) {
-                    if (type.isCompatible(machine)) {
-                        return;
-                    }
+                if (!type.isCompatible(machine)) {
+                    return;
+                }
 
-                    desc.add("   " + I18n.format(
-                        "gui.upgradebus.incompatible", upgrade.getType().getLocalizedName()));
+                for (final MachineUpgrade upgrade : upgrades) {
+                    desc.add(I18n.format("gui.upgradebus.applied", upgrade.getType().getLocalizedName()));
                 }
             });
         });
         desc.add("");
-    }
-
-    private static void collectUpgradeDescriptions(final TileUpgradeBus.UpgradeBusProvider component, final List<String> desc, final Map<UpgradeType, List<MachineUpgrade>> founded) {
-        founded.values().forEach(upgrades -> upgrades.forEach(upgrade -> {
-            upgrade.readNBT(component.getUpgradeCustomData(upgrade));
-
-            int stackSize = upgrade.getStackSize();
-            desc.add(stackSize + "x " + upgrade.getType().getLocalizedName());
-
-            List<String> busDesc = upgrade.getBusGUIDescriptions();
-            if (busDesc.isEmpty()) {
-                return;
-            }
-
-            desc.addAll(busDesc);
-            desc.add("");
-        }));
     }
 
     @Override
@@ -104,7 +86,6 @@ public class GuiContainerUpgradeBus extends GuiContainerBase<ContainerUpgradeBus
         Map<UpgradeType, List<MachineUpgrade>> upgrades = component.getUpgrades(null);
 
         collectBoundedMachineDescriptions(description, boundedMachine, upgrades);
-        collectUpgradeDescriptions(component, description, upgrades);
 
         //noinspection SimplifyStreamApiCallChains
         List<String> wrappedDesc = description.stream()

@@ -54,7 +54,7 @@ gui.parallelcontroller.current_value=当前并行数：%s
 gui.upgradebus.title=升级总线
 gui.upgradebus.bounded.empty=无绑定机械。
 gui.upgradebus.bounded=已绑定 %s 个机械
-gui.upgradebus.incompatible=§e警告：%s 与此机械不兼容。
+gui.upgradebus.applied=§a已应用: %s
 
 gui.groupinputconfig.title=组ID配置
 gui.groupinputconfig.tooltip=不同的组中，配方检查独立进行
