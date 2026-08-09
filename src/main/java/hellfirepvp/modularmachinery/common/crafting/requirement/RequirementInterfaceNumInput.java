@@ -6,7 +6,6 @@ import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeInterfaceNumInput;
-import hellfirepvp.modularmachinery.common.lib.ComponentTypesMM;
 import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
 import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.machine.MachineComponent;
@@ -60,20 +59,28 @@ public class RequirementInterfaceNumInput extends ComponentRequirement<Float, Re
 
     @Override
     public boolean isValidComponent(ProcessingComponent<?> component, RecipeCraftingContext ctx) {
-        MachineComponent<?> cmp = component.component();
-        if (cmp.getComponentType().equals(ComponentTypesMM.COMPONENT_SMART_INTERFACE) &&
-            cmp instanceof final TileSmartInterface.SmartInterfaceProvider provider) {
+        MachineComponent<?> machineComponent = component.component();
+        return machineComponent instanceof TileSmartInterface.SmartInterfaceProvider
+            && ctx.getMachineController().isSmartInterfaceInGroup(
+                (TileSmartInterface.SmartInterfaceProvider) machineComponent,
+                ctx.getGroupId())
+            && ((TileSmartInterface.SmartInterfaceProvider) machineComponent)
+                .getMachineData(type.getType()) != null;
+    }
 
-            return provider.getMachineData(type.getType()) != null;
-        } else {
-            return false;
-        }
+    @Override
+    public boolean isRequiredForAllGroups() {
+        return true;
     }
 
     @Nonnull
     @Override
     public CraftCheck canStartCrafting(ProcessingComponent<?> component, RecipeCraftingContext context, List<ComponentOutputRestrictor> restrictions) {
-        TileSmartInterface.SmartInterfaceProvider provider = (TileSmartInterface.SmartInterfaceProvider) component.getProvidedComponent();
+        if (!(component.component() instanceof TileSmartInterface.SmartInterfaceProvider)) {
+            return CraftCheck.failure("component.missing.modularmachinery.interface.number");
+        }
+        TileSmartInterface.SmartInterfaceProvider provider =
+            (TileSmartInterface.SmartInterfaceProvider) component.component();
         SmartInterfaceData data = provider.getMachineData(type.getType());
         if (data == null) {
             return CraftCheck.failure("component.missing.modularmachinery.interface.number");

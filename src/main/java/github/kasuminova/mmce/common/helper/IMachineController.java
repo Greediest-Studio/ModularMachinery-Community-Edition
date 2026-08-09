@@ -203,7 +203,9 @@ public interface IMachineController {
     void overrideStatusInfo(String newInfo);
 
     /**
-     * 获取控制器绑定的指定智能数据接口数据。
+     * 获取成型结构中指定类型的智能数据接口数据。
+     * 同类型接口的数值相同时返回该数值，不同时返回该类型的默认值。
+    * 在配方检查期间，只遍历当前正在检查的配方组。
      *
      * @param type 类型过滤
      * @return 智能数据接口的内部数据，如果没有则为 null
@@ -213,7 +215,7 @@ public interface IMachineController {
     SmartInterfaceData getSmartInterfaceData(String type);
 
     /**
-     * 获取控制器绑定的所有智能数据接口数据。
+     * 获取成型结构中的所有智能数据接口数据。
      *
      * @return 一组智能数据接口的内部数据，如果没有则为空数组，但不会为 null
      */

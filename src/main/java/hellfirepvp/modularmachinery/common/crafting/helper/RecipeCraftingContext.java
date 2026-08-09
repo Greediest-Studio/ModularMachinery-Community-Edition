@@ -211,25 +211,34 @@ public class RecipeCraftingContext {
 
     private Map<Long, List<ProcessingComponent<?>>> getComponentsFor(ComponentRequirement<?, ?> requirement, @Nullable ComponentSelectorTag tag) {
         Map<Long, List<ProcessingComponent<?>>> validComponents = new HashMap<>();
-        for (Map.Entry<Long, Collection<ProcessingComponent<?>>> set : this.typeComponents.entrySet()) {
-            final Long groupId = set.getKey();
-            for (var typeComponent : set.getValue()) {
-                if (!requirement.isValidComponent(typeComponent, this)) {
-                    continue;
+        long previousGroupId = this.groupId;
+        try {
+            for (Map.Entry<Long, Collection<ProcessingComponent<?>>> set : this.typeComponents.entrySet()) {
+                final Long groupId = set.getKey();
+                this.groupId = groupId;
+                if (requirement.isRequiredForAllGroups()) {
+                    validComponents.computeIfAbsent(groupId, i -> new ObjectArrayList<>());
                 }
+                for (var typeComponent : set.getValue()) {
+                    if (!requirement.isValidComponent(typeComponent, this)) {
+                        continue;
+                    }
 
-                if (tag != null) {
-                    if (tag.equals(typeComponent.getTag())) {
+                    if (tag != null) {
+                        if (tag.equals(typeComponent.getTag())) {
+                            validComponents
+                                .computeIfAbsent(groupId, i -> new ObjectArrayList<>())
+                                .add(typeComponent);
+                        }
+                    } else {
                         validComponents
                             .computeIfAbsent(groupId, i -> new ObjectArrayList<>())
                             .add(typeComponent);
                     }
-                } else {
-                    validComponents
-                        .computeIfAbsent(groupId, i -> new ObjectArrayList<>())
-                        .add(typeComponent);
                 }
             }
+        } finally {
+            this.groupId = previousGroupId;
         }
 
         return validComponents.isEmpty() ? emptyComponents : validComponents;
@@ -509,36 +518,42 @@ public class RecipeCraftingContext {
 
         for (var key : groupKeys[!isCrafting ? 0 : 1]) {
             if (key < 0) continue;
-            List<RequirementComponents> components = this.requirementComponents.get(key);
-            List<RequirementComponents> requirements = input ? components
-                : components.stream()
-                          .filter(r -> r.requirement().actionType == IOType.OUTPUT)
-                          .collect(Collectors.toCollection(ObjectArrayList::new));
+            setGroupId(key);
+            controller.beginSmartInterfaceRecipeCheck(key);
+            try {
+                List<RequirementComponents> components = this.requirementComponents.get(key);
+                List<RequirementComponents> requirements = input ? components
+                    : components.stream()
+                              .filter(r -> r.requirement().actionType == IOType.OUTPUT)
+                              .collect(Collectors.toCollection(ObjectArrayList::new));
 
-            result = new CraftingCheckResult();
-            ReqCompMap typeCopiedComp = new ReqCompMap();
-            TaggedReqCompMap taggedTypeCopiedComp = new TaggedReqCompMap();
-            for (RequirementComponents reqEntry : requirements) {
-                if (canStartCrafting(result, reqEntry, typeCopiedComp, taggedTypeCopiedComp)) {
-                    ++successfulRequirements;
+                result = new CraftingCheckResult();
+                ReqCompMap typeCopiedComp = new ReqCompMap();
+                TaggedReqCompMap taggedTypeCopiedComp = new TaggedReqCompMap();
+                for (RequirementComponents reqEntry : requirements) {
+                    if (canStartCrafting(result, reqEntry, typeCopiedComp, taggedTypeCopiedComp)) {
+                        ++successfulRequirements;
+                    }
                 }
-            }
-            final float validity = successfulRequirements / requirements.size();
-            result.setValidity(validity);
+                final float validity = successfulRequirements / requirements.size();
+                result.setValidity(validity);
 
-            if (!input) {
-                success = true;
-                break;
-            }
+                if (!input) {
+                    success = true;
+                    break;
+                }
 
-            if (result.isSuccess()) {
-                success = true;
-                setGroupId(key);
-                this.isCrafting = true;
-                break;
-            } else {
-                fkey = key;
-                successfulRequirements = 0;
+                if (result.isSuccess()) {
+                    success = true;
+                    setGroupId(key);
+                    this.isCrafting = true;
+                    break;
+                } else {
+                    fkey = key;
+                    successfulRequirements = 0;
+                }
+            } finally {
+                controller.endSmartInterfaceRecipeCheck();
             }
         }
 

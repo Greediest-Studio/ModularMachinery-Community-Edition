@@ -113,7 +113,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 
@@ -135,6 +134,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     protected final Map<String, RecipeModifier>       customModifiers = new ConcurrentHashMap<>();
 
     protected final Map<TileSmartInterface.SmartInterfaceProvider, String>  foundSmartInterfaces     = new ConcurrentHashMap<>();
+    private final ThreadLocal<Long> smartInterfaceRecipeGroup = new ThreadLocal<>();
     protected final Map<String, List<MachineUpgrade>>                       foundUpgrades            = new ConcurrentHashMap<>();
     protected final Set<String>                                             syncedUpgradeNames       = ConcurrentHashMap.newKeySet();
     protected final List<TileUpgradeBus.UpgradeBusProvider>                 foundUpgradeBuses        = new ArrayList<>();
@@ -1040,7 +1040,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         if (data != null) {
             String type = data.getType();
 
-            if (notFoundInterface.containsKey(type)) {
+            if (foundMachine.hasSmartInterfaceType(type)) {
                 foundSmartInterfaces.put(smartInterface, type);
             } else {
                 smartInterface.removeMachineData(realPos);
@@ -1235,24 +1235,76 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
     @Nullable
     public SmartInterfaceData getSmartInterfaceData(String requiredType) {
-        AtomicReference<TileSmartInterface.SmartInterfaceProvider> reference = new AtomicReference<>(null);
-        foundSmartInterfaces.forEach((provider, type) -> {
-            if (type.equals(requiredType)) {
-                reference.set(provider);
+        SmartInterfaceData result = null;
+        BlockPos ctrlPos = getPos();
+        Long recipeGroup = smartInterfaceRecipeGroup.get();
+        for (Map.Entry<TileSmartInterface.SmartInterfaceProvider, String> entry : foundSmartInterfaces.entrySet()) {
+            if (!entry.getValue().equals(requiredType)) {
+                continue;
             }
-        });
-        TileSmartInterface.SmartInterfaceProvider smartInterface = reference.get();
-        if (smartInterface != null) {
-            return smartInterface.getMachineData(getPos());
-        } else {
-            return null;
+            if (recipeGroup != null && !isSmartInterfaceInGroup(entry.getKey(), recipeGroup)) {
+                continue;
+            }
+            SmartInterfaceData data = entry.getKey().getMachineData(ctrlPos);
+            if (data == null) {
+                continue;
+            }
+            if (result == null) {
+                result = data;
+            } else if (Float.compare(result.getValue(), data.getValue()) != 0) {
+                SmartInterfaceType type = foundMachine.getSmartInterfaceType(requiredType);
+                return type == null
+                    ? null
+                    : new SmartInterfaceData(ctrlPos, foundMachine.getRegistryName(), requiredType, type.getDefaultValue());
+            }
         }
+        return result;
+    }
+
+    public void beginSmartInterfaceRecipeCheck(long groupId) {
+        smartInterfaceRecipeGroup.set(groupId);
+    }
+
+    public void endSmartInterfaceRecipeCheck() {
+        smartInterfaceRecipeGroup.remove();
     }
 
     public SmartInterfaceData[] getSmartInterfaceDataList() {
+        return getSmartInterfaceDataList(-1, false);
+    }
+
+    /**
+     * 获取指定配方组中的所有智能数据接口数据。
+     * 智能数据接口应与同一仓室的其他组件返回相同的组号。结构中存在分组接口时，
+     * 未分组接口不会参与配方组检查；只有完全没有分组接口时才使用未分组接口。
+     */
+    public SmartInterfaceData[] getSmartInterfaceDataList(long groupId) {
+        return getSmartInterfaceDataList(groupId, true);
+    }
+
+    public boolean isSmartInterfaceInGroup(TileSmartInterface.SmartInterfaceProvider provider, long groupId) {
+        if (!foundSmartInterfaces.containsKey(provider)) {
+            return false;
+        }
+        boolean hasGroupedInterface = foundSmartInterfaces.keySet().stream()
+            .anyMatch(foundProvider -> foundProvider.getGroupID() >= 0);
+        return hasGroupedInterface
+            ? provider.getGroupID() == groupId
+            : provider.getGroupID() < 0;
+    }
+
+    private SmartInterfaceData[] getSmartInterfaceDataList(long groupId, boolean filterGroup) {
         List<SmartInterfaceData> dataList = new ArrayList<>();
         BlockPos ctrlPos = getPos();
+        boolean hasGroupedInterface = filterGroup && foundSmartInterfaces.keySet().stream()
+            .anyMatch(provider -> provider.getGroupID() >= 0);
         foundSmartInterfaces.forEach((provider, type) -> {
+            long interfaceGroupId = provider.getGroupID();
+            if (filterGroup && (hasGroupedInterface
+                ? interfaceGroupId != groupId
+                : interfaceGroupId >= 0)) {
+                return;
+            }
             SmartInterfaceData data = provider.getMachineData(ctrlPos);
             if (data != null) {
                 dataList.add(data);

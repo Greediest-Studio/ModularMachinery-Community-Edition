@@ -134,6 +134,14 @@ public abstract class ComponentRequirement<T, V extends RequirementType<T, ? ext
     public abstract boolean isValidComponent(ProcessingComponent<?> component, RecipeCraftingContext ctx);
 
     /**
+     * Whether this requirement must be represented in every recipe group even
+     * when that group has no matching component.
+     */
+    public boolean isRequiredForAllGroups() {
+        return false;
+    }
+
+    /**
      * True if the requirement could be fulfilled by the given component.
      */
     public boolean startCrafting(ProcessingComponent<?> component, RecipeCraftingContext context, ResultChance chance) {
