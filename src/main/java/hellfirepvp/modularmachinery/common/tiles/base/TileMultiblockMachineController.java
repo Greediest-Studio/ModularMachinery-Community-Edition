@@ -340,6 +340,48 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         return null;
     }
 
+    /**
+     * Returns the machine whose completed structure is waiting for its blueprint.
+     * Blueprint-required machines remain unformed until their blueprint is inserted;
+     * this lookup lets status displays distinguish that state from an incomplete structure.
+     */
+    @Nullable
+    public DynamicMachine getMachineRequiringBlueprint() {
+        if (isStructureFormed() || !isHorizontalFacing(controllerRotation)) {
+            return null;
+        }
+
+        DynamicMachine blueprint = getBlueprintMachine();
+        if (parentMachine != null) {
+            return parentMachine.isRequiresBlueprint() && !parentMachine.equals(blueprint) &&
+                matchesRotationWithoutForming(
+                    BlockArrayCache.getBlockArrayCache(parentMachine.getPattern(), controllerRotation),
+                    parentMachine,
+                    controllerRotation
+                ) ? parentMachine : null;
+        }
+
+        BlockPos ctrlPos = getPos();
+        for (DynamicMachine machine : MachineRegistry.getRegistry()) {
+            if (!machine.isRequiresBlueprint() || !canDetectMachineWithoutBlueprint(machine)) {
+                continue;
+            }
+
+            TaggedPositionBlockArray pattern = BlockArrayCache.getBlockArrayCache(machine.getPattern(), controllerRotation);
+            if (!getWorld().isAreaLoaded(pattern.getPatternBoundingBox(ctrlPos))) {
+                continue;
+            }
+            if (matchesRotationWithoutForming(pattern, machine, controllerRotation)) {
+                return machine;
+            }
+        }
+        return null;
+    }
+
+    protected boolean canDetectMachineWithoutBlueprint(DynamicMachine machine) {
+        return true;
+    }
+
     public abstract CraftingStatus getControllerStatus();
 
     public abstract void setControllerStatus(CraftingStatus status);
@@ -563,6 +605,22 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         return false;
     }
 
+    private boolean matchesRotationWithoutForming(TaggedPositionBlockArray pattern, DynamicMachine machine, EnumFacing ctrlRotation) {
+        if (pattern == null || !getWorld().isAreaLoaded(pattern.getPatternBoundingBox(getPos()))) {
+            return false;
+        }
+
+        DynamicMachine.ModifierReplacementMap replacements = machine.getModifiersAsMatchingReplacements();
+        EnumFacing rotation = EnumFacing.NORTH;
+        while (rotation != ctrlRotation) {
+            rotation = rotation.rotateYCCW();
+            replacements = replacements.rotateYCCW();
+        }
+
+        return pattern.matches(getWorld(), getPos(), false, replacements) &&
+            matchesDynamicPatternWithoutForming(machine, rotation);
+    }
+
     protected boolean matchesDynamicPattern(final DynamicMachine machine) {
         for (final DynamicPattern.Status status : foundDynamicPatterns.values()) {
             DynamicPattern pattern = status.pattern();
@@ -597,6 +655,15 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
         for (final DynamicPattern.Status pattern : foundDynamicPatterns) {
             this.foundDynamicPatterns.put(pattern.pattern().getName(), pattern);
+        }
+        return true;
+    }
+
+    private boolean matchesDynamicPatternWithoutForming(final DynamicMachine machine, final EnumFacing rotation) {
+        for (final DynamicPattern dynamicPattern : machine.getDynamicPatterns().values()) {
+            if (!dynamicPattern.matches(this, false, rotation).isMatched()) {
+                return false;
+            }
         }
         return true;
     }

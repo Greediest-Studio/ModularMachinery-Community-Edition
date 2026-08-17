@@ -331,6 +331,11 @@ public class TileMachineController extends TileMultiblockMachineController {
     }
 
     @Override
+    protected boolean canDetectMachineWithoutBlueprint(DynamicMachine machine) {
+        return !machine.isFactoryOnly();
+    }
+
+    @Override
     public void invalidate() {
         super.invalidate();
         recipeThread.invalidate();

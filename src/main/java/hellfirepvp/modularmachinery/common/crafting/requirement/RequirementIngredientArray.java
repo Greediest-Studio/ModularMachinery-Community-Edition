@@ -201,7 +201,10 @@ public class RequirementIngredientArray extends ComponentRequirement.MultiCompPa
     private CraftCheck doItemIO(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
         int mul = doItemIOInternal(components, context, parallelism, chance);
         if (mul < parallelism) {
-            return CraftCheck.failure("craftcheck.failure.item.input");
+            return switch (actionType) {
+                case INPUT -> CraftCheck.failure("craftcheck.failure.item.input");
+                case OUTPUT -> CraftCheck.failure("craftcheck.failure.item.output.space");
+            };
         }
         return CraftCheck.success();
     }
