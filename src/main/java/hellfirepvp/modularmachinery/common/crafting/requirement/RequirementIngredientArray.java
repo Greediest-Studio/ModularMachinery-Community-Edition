@@ -71,6 +71,14 @@ public class RequirementIngredientArray extends ComponentRequirement.MultiCompPa
     }
 
     @Override
+    public Object getComponentMatchCacheKey() {
+        if (getClass() != RequirementIngredientArray.class) {
+            return null;
+        }
+        return actionType == IOType.INPUT ? COMPONENT_MATCH_ITEM_INPUT : COMPONENT_MATCH_ITEM_OUTPUT;
+    }
+
+    @Override
     public RequirementIngredientArray deepCopyModified(List<RecipeModifier> modifiers) {
         ArrayList<ChancedIngredientStack> copiedIngredients = new ArrayList<>();
 

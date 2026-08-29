@@ -18,6 +18,7 @@ import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.awt.*;
 import java.util.List;
 
@@ -33,6 +34,13 @@ public abstract class ComponentRequirement<T, V extends RequirementType<T, ? ext
     public static final int PRIORITY_WEIGHT_ENERGY = 50_000_000;
     public static final int PRIORITY_WEIGHT_FLUID  = 100;
     public static final int PRIORITY_WEIGHT_ITEM   = 50_000;
+
+    protected static final Object COMPONENT_MATCH_ITEM_INPUT   = new Object();
+    protected static final Object COMPONENT_MATCH_ITEM_OUTPUT  = new Object();
+    protected static final Object COMPONENT_MATCH_FLUID_INPUT  = new Object();
+    protected static final Object COMPONENT_MATCH_FLUID_OUTPUT = new Object();
+    protected static final Object COMPONENT_MATCH_GAS_INPUT    = new Object();
+    protected static final Object COMPONENT_MATCH_GAS_OUTPUT   = new Object();
 
     public final    V                    requirementType;
     protected final IOType               actionType;
@@ -132,6 +140,22 @@ public abstract class ComponentRequirement<T, V extends RequirementType<T, ? ext
      * @return true, if the component is valid for further processing by the specified methods, false otherwise
      */
     public abstract boolean isValidComponent(ProcessingComponent<?> component, RecipeCraftingContext ctx);
+
+    /**
+     * Returns a stable key when component matching can be shared by multiple
+     * requirements in the same crafting context.
+     * <p>
+     * Equal, non-null keys must produce the same result from
+     * {@link #isValidComponent(ProcessingComponent, RecipeCraftingContext)} for
+     * every component in every recipe group. The selector tag is handled by
+     * the crafting context and must not be included in the key. Returning
+     * {@code null} disables this optimization, which is the safe default for
+     * addon requirements whose matching rules may depend on custom state.
+     */
+    @Nullable
+    public Object getComponentMatchCacheKey() {
+        return null;
+    }
 
     /**
      * Whether this requirement must be represented in every recipe group even

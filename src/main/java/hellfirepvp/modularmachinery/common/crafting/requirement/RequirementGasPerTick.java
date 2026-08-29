@@ -36,6 +36,14 @@ public class RequirementGasPerTick extends ComponentRequirement.PerTickParalleli
     }
 
     @Override
+    public Object getComponentMatchCacheKey() {
+        if (getClass() != RequirementGasPerTick.class) {
+            return null;
+        }
+        return actionType == IOType.INPUT ? COMPONENT_MATCH_GAS_INPUT : COMPONENT_MATCH_GAS_OUTPUT;
+    }
+
+    @Override
     public RequirementGasPerTick deepCopy() {
         return deepCopyModified(Collections.emptyList());
     }

@@ -78,6 +78,14 @@ public class RequirementGas extends ComponentRequirement.MultiCompParallelizable
     }
 
     @Override
+    public Object getComponentMatchCacheKey() {
+        if (getClass() != RequirementGas.class) {
+            return null;
+        }
+        return actionType == IOType.INPUT ? COMPONENT_MATCH_GAS_INPUT : COMPONENT_MATCH_GAS_OUTPUT;
+    }
+
+    @Override
     public void startCrafting(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
         if (actionType == IOType.INPUT && chance.canWork(RecipeModifier.applyModifiers(context, this, this.chance, true))) {
             doGasIO(components, context);

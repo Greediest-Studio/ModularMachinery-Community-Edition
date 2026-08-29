@@ -72,6 +72,7 @@ public class RecipeCraftingContext {
 
     private final List<ComponentRequirement<?, ?>> requirements = new ArrayList<>();
     private final Map<Long, List<RequirementComponents>> requirementComponents = new ConcurrentHashMap<>();
+    private MachineRecipe requirementsRecipe;
     private boolean isCrafting = false;
     private long groupId = 0;
     private final long[][] groupKeys = new long[2][];
@@ -89,6 +90,7 @@ public class RecipeCraftingContext {
                                  final TileMultiblockMachineController controller) {
         this.reloadCounter = reloadCounter;
         this.activeRecipe = activeRecipe;
+        this.requirementsRecipe = activeRecipe.getRecipe();
         for (ComponentRequirement<?, ?> requirement : getParentRecipe().getCraftingRequirements()) {
             this.requirements.add(this.requirements.size(), requirement.deepCopy().postDeepCopy(requirement));
         }
@@ -124,6 +126,7 @@ public class RecipeCraftingContext {
         this.chanceModifierAppliers.clear();
         this.permanentModifierList.clear();
         this.currentRestrictions.clear();
+        this.requirements.forEach(requirement -> requirement.setTriggered(false));
         this.isCrafting = false;
 
         this.currentIOTickIndex = 0;
@@ -144,13 +147,15 @@ public class RecipeCraftingContext {
     public void destroy() {
         resetAll();
         this.requirements.clear();
+        this.requirementsRecipe = null;
     }
 
     public RecipeCraftingContext init(final ActiveMachineRecipe activeRecipe,
                                       final TileMultiblockMachineController ctrl) {
         this.controller = ctrl;
-        if (this.activeRecipe == null || this.activeRecipe.getRecipe() != activeRecipe.getRecipe()) {
+        if (this.requirementsRecipe != activeRecipe.getRecipe()) {
             this.activeRecipe = activeRecipe;
+            this.requirementsRecipe = activeRecipe.getRecipe();
             this.requirements.clear();
             for (ComponentRequirement<?, ?> requirement : getParentRecipe().getCraftingRequirements()) {
                 this.requirements.add(this.requirements.size(), requirement.deepCopy().postDeepCopy(requirement));
@@ -158,7 +163,7 @@ public class RecipeCraftingContext {
         } else {
             this.activeRecipe = activeRecipe;
         }
-        this.commandSender = new ControllerCommandSender(this.controller);
+        this.commandSender = null;
 
         reset();
         updateComponents(ctrl.getFoundComponents());
@@ -301,7 +306,7 @@ public class RecipeCraftingContext {
         }
         currentIOTickIndex = 0;
 
-        this.getParentRecipe().getCommandContainer().runTickCommands(this.commandSender, currentTick);
+        this.getParentRecipe().getCommandContainer().runTickCommands(getCommandSender(), currentTick);
 
         return CraftingCheckResult.SUCCESS;
     }
@@ -365,7 +370,7 @@ public class RecipeCraftingContext {
             }
         }
 
-        this.getParentRecipe().getCommandContainer().runStartCommands(this.commandSender);
+        this.getParentRecipe().getCommandContainer().runStartCommands(getCommandSender());
     }
 
     private void startCrafting(final ResultChance chance, final RequirementComponents reqComponents) {
@@ -426,7 +431,14 @@ public class RecipeCraftingContext {
             requirement.endRequirementCheck();
         }
 
-        this.getParentRecipe().getCommandContainer().runFinishCommands(this.commandSender);
+        this.getParentRecipe().getCommandContainer().runFinishCommands(getCommandSender());
+    }
+
+    private ControllerCommandSender getCommandSender() {
+        if (commandSender == null) {
+            commandSender = new ControllerCommandSender(controller);
+        }
+        return commandSender;
     }
 
     public Collection<RequirementComponents> getAllParallelizableComponents() {
@@ -628,12 +640,33 @@ public class RecipeCraftingContext {
 
     public void updateRequirementComponents() {
         requirementComponents.clear();
-        requirements.forEach(req ->
-            getComponentsFor(req, req.tag)
-                .forEach((groupId, list)
-                    -> requirementComponents
+        Map<ComponentMatchCacheKey, Map<Long, List<ProcessingComponent<?>>>> componentMatchCache = null;
+        for (ComponentRequirement<?, ?> req : requirements) {
+            Object matchKey = req.getComponentMatchCacheKey();
+            Map<Long, List<ProcessingComponent<?>>> matchingComponents;
+            boolean cached = false;
+            if (matchKey == null) {
+                matchingComponents = getComponentsFor(req, req.tag);
+            } else {
+                ComponentMatchCacheKey cacheKey = new ComponentMatchCacheKey(matchKey, req.tag);
+                if (componentMatchCache == null) {
+                    componentMatchCache = new HashMap<>();
+                }
+                matchingComponents = componentMatchCache.get(cacheKey);
+                if (matchingComponents == null) {
+                    matchingComponents = getComponentsFor(req, req.tag);
+                    componentMatchCache.put(cacheKey, matchingComponents);
+                } else {
+                    cached = true;
+                }
+            }
+
+            final boolean copyLists = cached;
+            matchingComponents.forEach((groupId, list) ->
+                requirementComponents
                     .computeIfAbsent(groupId, i -> new ObjectArrayList<>())
-                    .add(new RequirementComponents(req, list))));
+                    .add(new RequirementComponents(req, copyLists ? new ObjectArrayList<>(list) : list)));
+        }
 
         if (this.requirementComponents.isEmpty()) {
             this.requirementComponents.put(0L, ObjectLists.emptyList());
@@ -651,6 +684,32 @@ public class RecipeCraftingContext {
         Arrays.sort(groupKeys[0]);
         if (groupKeys[1] == null) groupKeys[1] = new long[]{groupId};
         else if (groupKeys[1][0] != groupId) groupKeys[1][0] = groupId;
+    }
+
+    private static final class ComponentMatchCacheKey {
+        private final Object               matchKey;
+        private final ComponentSelectorTag tag;
+
+        private ComponentMatchCacheKey(final Object matchKey, final ComponentSelectorTag tag) {
+            this.matchKey = matchKey;
+            this.tag = tag;
+        }
+
+        @Override
+        public boolean equals(final Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof ComponentMatchCacheKey other)) {
+                return false;
+            }
+            return matchKey.equals(other.matchKey) && java.util.Objects.equals(tag, other.tag);
+        }
+
+        @Override
+        public int hashCode() {
+            return 31 * matchKey.hashCode() + java.util.Objects.hashCode(tag);
+        }
     }
 
     public void addModifier(SingleBlockModifierReplacement replacement) {

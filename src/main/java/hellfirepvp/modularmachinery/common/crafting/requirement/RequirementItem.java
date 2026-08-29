@@ -138,6 +138,14 @@ public class RequirementItem extends ComponentRequirement.MultiCompParallelizabl
     }
 
     @Override
+    public Object getComponentMatchCacheKey() {
+        if (getClass() != RequirementItem.class) {
+            return null;
+        }
+        return actionType == IOType.INPUT ? COMPONENT_MATCH_ITEM_INPUT : COMPONENT_MATCH_ITEM_OUTPUT;
+    }
+
+    @Override
     public RequirementItem deepCopy() {
         return deepCopyModified(Collections.emptyList());
     }

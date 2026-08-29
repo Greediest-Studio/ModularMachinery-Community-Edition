@@ -58,6 +58,14 @@ public class RequirementFluid extends ComponentRequirement.MultiCompParallelizab
     }
 
     @Override
+    public Object getComponentMatchCacheKey() {
+        if (getClass() != RequirementFluid.class) {
+            return null;
+        }
+        return actionType == IOType.INPUT ? COMPONENT_MATCH_FLUID_INPUT : COMPONENT_MATCH_FLUID_OUTPUT;
+    }
+
+    @Override
     public RequirementFluid deepCopy() {
         return deepCopyModified(Collections.emptyList());
     }

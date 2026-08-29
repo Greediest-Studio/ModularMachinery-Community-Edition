@@ -141,6 +141,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     protected final List<TileParallelController.ParallelControllerProvider> foundParallelControllers = new ArrayList<>();
     protected final Map<TileEntity, ProcessingComponent<?>>                 generalComponents        = new ConcurrentHashMap<>();
     protected final Map<Long, Map<TileEntity, ProcessingComponent<?>>>      foundComponents          = new ConcurrentHashMap<>();
+    protected volatile List<List<MachineComponentTileNotifiable>>           foundEventListeners      = java.util.Collections.emptyList();
 
     protected final TimeRecorder                             timeRecorder               = new TimeRecorder();
     protected final Set<InfItemFluidHandler>                 generalComponentSet        = new ObjectOpenHashSet<>();
@@ -858,6 +859,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         if (this.foundMachine == null || this.foundPattern == null || this.controllerRotation == null || this.foundReplacements == null) {
             this.foundComponents.forEach((i, map) -> map.forEach((te, c) -> MachineComponentManager.INSTANCE.removeOwner(te, this)));
             this.foundComponents.clear();
+            this.foundEventListeners = java.util.Collections.emptyList();
             this.generalComponents.clear();
             this.foundModifiers.clear();
             this.foundSmartInterfaces.clear();
@@ -884,6 +886,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
             this.foundComponents.putAll(found);
             this.foundComponents.values().forEach(c -> c.putAll(generalComponents));
         }
+        updateFoundEventListeners();
         this.componentSet.clear();
         this.generalComponentSet.clear();
         this.foundModifiers.clear();
@@ -894,6 +897,22 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         } else {
             ModularMachinery.EXECUTE_MANAGER.addSyncTask(this::distributeCasingColor);
         }
+    }
+
+    private void updateFoundEventListeners() {
+        List<List<MachineComponentTileNotifiable>> listenersByGroup = new ObjectArrayList<>();
+        for (Map<TileEntity, ProcessingComponent<?>> components : foundComponents.values()) {
+            List<MachineComponentTileNotifiable> listeners = new ObjectArrayList<>();
+            for (TileEntity tile : components.keySet()) {
+                if (tile instanceof MachineComponentTileNotifiable listener) {
+                    listeners.add(listener);
+                }
+            }
+            if (!listeners.isEmpty()) {
+                listenersByGroup.add(listeners);
+            }
+        }
+        foundEventListeners = listenersByGroup;
     }
 
     private void checkAndAddComponents(final BlockPos pos, final BlockPos ctrlPos, final Map<Long,Map<TileEntity, ProcessingComponent<?>>> found) {
@@ -1215,6 +1234,10 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
     public Map<Long, Map<TileEntity, ProcessingComponent<?>>> getFoundComponents() {
         return foundComponents;
+    }
+
+    public List<List<MachineComponentTileNotifiable>> getFoundEventListeners() {
+        return foundEventListeners;
     }
 
     public Map<TileEntity, ProcessingComponent<?>> getGeneralComponents() {

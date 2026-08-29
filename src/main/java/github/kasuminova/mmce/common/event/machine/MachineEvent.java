@@ -5,18 +5,15 @@ import crafttweaker.util.IEventHandler;
 import github.kasuminova.mmce.common.handler.UpgradeMachineEventHandler;
 import github.kasuminova.mmce.common.helper.IMachineController;
 import hellfirepvp.modularmachinery.ModularMachinery;
-import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.tiles.base.MachineComponentTileNotifiable;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraftforge.fml.common.eventhandler.Event;
 import stanhebben.zenscript.annotations.ZenClass;
 import stanhebben.zenscript.annotations.ZenGetter;
 import stanhebben.zenscript.annotations.ZenSetter;
 
 import java.util.List;
-import java.util.Map;
 
 @ZenRegister
 @ZenClass("mods.modularmachinery.MachineEvent")
@@ -50,13 +47,11 @@ public class MachineEvent extends Event {
     }
 
     public void postEventToComponents() {
-        for (Map<TileEntity, ProcessingComponent<?>> value : controller.getFoundComponents().values()) {
-            for (TileEntity tileEntity : value.keySet()) {
-                if (tileEntity instanceof final MachineComponentTileNotifiable componentTile) {
-                    componentTile.onMachineEvent(this);
-                    if (isCanceled()) {
-                        break;
-                    }
+        for (List<MachineComponentTileNotifiable> listeners : controller.getFoundEventListeners()) {
+            for (MachineComponentTileNotifiable listener : listeners) {
+                listener.onMachineEvent(this);
+                if (isCanceled()) {
+                    break;
                 }
             }
         }

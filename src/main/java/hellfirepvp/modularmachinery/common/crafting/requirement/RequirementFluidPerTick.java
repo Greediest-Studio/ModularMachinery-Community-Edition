@@ -44,6 +44,14 @@ public class RequirementFluidPerTick extends ComponentRequirement.PerTickParalle
     }
 
     @Override
+    public Object getComponentMatchCacheKey() {
+        if (getClass() != RequirementFluidPerTick.class) {
+            return null;
+        }
+        return actionType == IOType.INPUT ? COMPONENT_MATCH_FLUID_INPUT : COMPONENT_MATCH_FLUID_OUTPUT;
+    }
+
+    @Override
     public RequirementFluidPerTick deepCopy() {
         return deepCopyModified(Collections.emptyList());
     }
