@@ -72,6 +72,8 @@ public class MMInfoProvider implements IProbeInfoProvider {
         //是否形成结构
         if (machine.isStructureFormed()) {
             stateBox.text(TextFormatting.GREEN + "{*top.machine.structure.found*}");
+        } else if (machine.getMachineRequiringBlueprint() != null) {
+            stateBox.text(TextFormatting.YELLOW + "{*top.machine.structure.requires_blueprint*}");
         } else {
             stateBox.text(TextFormatting.RED + "{*top.machine.structure.none*}");
             return;
