@@ -16,6 +16,7 @@ import hellfirepvp.modularmachinery.common.crafting.component.ComponentGas;
 import hellfirepvp.modularmachinery.common.crafting.component.ComponentItem;
 import hellfirepvp.modularmachinery.common.crafting.component.ComponentItemFluid;
 import hellfirepvp.modularmachinery.common.crafting.component.ComponentParallelController;
+import hellfirepvp.modularmachinery.common.crafting.component.ComponentParallelEqualizer;
 import hellfirepvp.modularmachinery.common.crafting.component.ComponentSmartInterface;
 import hellfirepvp.modularmachinery.common.crafting.component.ComponentUpgradeBus;
 import net.minecraft.util.ResourceLocation;
@@ -26,6 +27,7 @@ import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.COMPONENT
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.COMPONENT_ITEM;
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.COMPONENT_ITEM_FLUID_GAS;
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.COMPONENT_PARALLEL_CONTROLLER;
+import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.COMPONENT_PARALLEL_EQUALIZER;
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.COMPONENT_SMART_INTERFACE;
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.COMPONENT_UPGRADE_BUS;
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.KEY_COMPONENT_ENERGY;
@@ -34,6 +36,7 @@ import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.KEY_COMPO
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.KEY_COMPONENT_ITEM;
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.KEY_COMPONENT_ITEM_FLUID;
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.KEY_COMPONENT_PARALLEL_CONTROLLER;
+import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.KEY_COMPONENT_PARALLEL_EQUALIZER;
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.KEY_COMPONENT_SMART_INTERFACE;
 import static hellfirepvp.modularmachinery.common.lib.ComponentTypesMM.KEY_COMPONENT_UPGRADE_BUS;
 
@@ -57,6 +60,7 @@ public class RegistryComponentTypes {
         COMPONENT_GAS = register(new ComponentGas(), KEY_COMPONENT_GAS);
         COMPONENT_SMART_INTERFACE = register(new ComponentSmartInterface(), KEY_COMPONENT_SMART_INTERFACE);
         COMPONENT_PARALLEL_CONTROLLER = register(new ComponentParallelController(), KEY_COMPONENT_PARALLEL_CONTROLLER);
+        COMPONENT_PARALLEL_EQUALIZER = register(new ComponentParallelEqualizer(), KEY_COMPONENT_PARALLEL_EQUALIZER);
         COMPONENT_UPGRADE_BUS = register(new ComponentUpgradeBus(), KEY_COMPONENT_UPGRADE_BUS);
     }
 

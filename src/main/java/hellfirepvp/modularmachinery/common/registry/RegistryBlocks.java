@@ -39,6 +39,7 @@ import hellfirepvp.modularmachinery.common.block.BlockFluidOutputHatch;
 import hellfirepvp.modularmachinery.common.block.BlockInputBus;
 import hellfirepvp.modularmachinery.common.block.BlockMachineComponent;
 import hellfirepvp.modularmachinery.common.block.BlockOutputBus;
+import hellfirepvp.modularmachinery.common.block.BlockParallelEqualizerHatch;
 import hellfirepvp.modularmachinery.common.block.BlockParallelController;
 import hellfirepvp.modularmachinery.common.block.BlockSmartInterface;
 import hellfirepvp.modularmachinery.common.block.BlockStatedMachineComponent;
@@ -62,6 +63,7 @@ import hellfirepvp.modularmachinery.common.tiles.TileItemInputBus;
 import hellfirepvp.modularmachinery.common.tiles.TileItemOutputBus;
 import hellfirepvp.modularmachinery.common.tiles.TileMachineController;
 import hellfirepvp.modularmachinery.common.tiles.TileParallelController;
+import hellfirepvp.modularmachinery.common.tiles.TileParallelEqualizerHatch;
 import hellfirepvp.modularmachinery.common.tiles.TileSmartInterface;
 import hellfirepvp.modularmachinery.common.tiles.TileUpgradeBus;
 import hellfirepvp.modularmachinery.common.tiles.base.TileColorableMachineComponent;
@@ -154,6 +156,7 @@ import static hellfirepvp.modularmachinery.common.lib.BlocksMM.meItemOutputBus;
 import static hellfirepvp.modularmachinery.common.lib.BlocksMM.mePatternMirrorImage;
 import static hellfirepvp.modularmachinery.common.lib.BlocksMM.mePatternProvider;
 import static hellfirepvp.modularmachinery.common.lib.BlocksMM.parallelController;
+import static hellfirepvp.modularmachinery.common.lib.BlocksMM.parallelEqualizerHatch;
 import static hellfirepvp.modularmachinery.common.lib.BlocksMM.smartInterface;
 import static hellfirepvp.modularmachinery.common.lib.BlocksMM.upgradeBus;
 
@@ -213,6 +216,17 @@ public class RegistryBlocks {
         prepareItemBlockRegister(smartInterface);
         parallelController = prepareRegister(new BlockParallelController());
         prepareItemBlockRegister(parallelController);
+
+        parallelEqualizerHatch = new BlockParallelEqualizerHatch();
+        parallelEqualizerHatch.setRegistryName(ModularMachinery.MODID, BlockParallelEqualizerHatch.NAME);
+        parallelEqualizerHatch.setTranslationKey(ModularMachinery.MODID + '.' + BlockParallelEqualizerHatch.NAME);
+        prepareRegisterWithCustomName(parallelEqualizerHatch);
+
+        ItemBlock parallelEqualizerHatchItem = new ItemBlock(parallelEqualizerHatch);
+        parallelEqualizerHatchItem.setRegistryName(parallelEqualizerHatch.getRegistryName());
+        parallelEqualizerHatchItem.setTranslationKey(ModularMachinery.MODID + '.' + BlockParallelEqualizerHatch.NAME);
+        prepareItemBlockRegisterWithCustomName(parallelEqualizerHatchItem);
+
         upgradeBus = prepareRegister(new BlockUpgradeBus());
         prepareItemBlockRegister(upgradeBus);
 
@@ -320,6 +334,7 @@ public class RegistryBlocks {
 
         registerTile(TileSmartInterface.class);
         registerTile(TileParallelController.class);
+        registerTile(TileParallelEqualizerHatch.class);
         registerTile(TileUpgradeBus.class);
 
         if (Mods.AE2.isPresent()) {

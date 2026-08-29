@@ -25,6 +25,7 @@ import hellfirepvp.modularmachinery.common.block.BlockFluidInputHatch;
 import hellfirepvp.modularmachinery.common.block.BlockFluidOutputHatch;
 import hellfirepvp.modularmachinery.common.block.BlockInputBus;
 import hellfirepvp.modularmachinery.common.block.BlockOutputBus;
+import hellfirepvp.modularmachinery.common.block.BlockParallelEqualizerHatch;
 import hellfirepvp.modularmachinery.common.block.BlockParallelController;
 import hellfirepvp.modularmachinery.common.block.BlockSmartInterface;
 import hellfirepvp.modularmachinery.common.block.BlockUpgradeBus;
@@ -70,6 +71,7 @@ public class BlocksMM {
 
     public static BlockSmartInterface     smartInterface;
     public static BlockParallelController parallelController;
+    public static BlockParallelEqualizerHatch parallelEqualizerHatch;
     public static BlockUpgradeBus         upgradeBus;
 
     public static BlockMEItemOutputBus      meItemOutputBus;

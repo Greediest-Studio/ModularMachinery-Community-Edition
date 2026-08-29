@@ -392,6 +392,8 @@ tile.modularmachinery.blockparallelcontroller.elite.name=§bElite Parallel Contr
 tile.modularmachinery.blockparallelcontroller.super.name=§5Super Parallel Controller
 tile.modularmachinery.blockparallelcontroller.ultimate.name=§cUltimate Parallel Controller
 tile.modularmachinery.blockparallelcontroller.tip=Up to §a%s§7 of identical recipes can be run simultaneously.
+tile.modularmachinery.parallel_equalizer_hatch.name=Parallel Equalizer Hatch
+tile.modularmachinery.parallel_equalizer_hatch.tip=Divides the machine's parallelism evenly among factory threads.
 
 tile.modularmachinery.blockupgradebus.normal.name=§aNormal Upgrade Bus
 tile.modularmachinery.blockupgradebus.reinforced.name=§6Reinforced Upgrade Bus

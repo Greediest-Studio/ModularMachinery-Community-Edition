@@ -412,7 +412,7 @@ public class TileFactoryController extends TileMultiblockMachineController {
      */
     public int getAvailableParallelism() {
         int maxParallelism = getMaxParallelism();
-        if (foundMachine != null && foundMachine.isEvenParallelismDistribution()) {
+        if (foundMachine != null && (foundMachine.isEvenParallelismDistribution() || hasParallelEqualizerHatch())) {
             return getEvenDistributedParallelism(null);
         }
         for (FactoryRecipeThread thread : recipeThreadList) {
@@ -438,7 +438,7 @@ public class TileFactoryController extends TileMultiblockMachineController {
     }
 
     public int getThreadParallelism(@Nullable FactoryRecipeThread targetThread) {
-        if (foundMachine != null && foundMachine.isEvenParallelismDistribution()) {
+        if (foundMachine != null && (foundMachine.isEvenParallelismDistribution() || hasParallelEqualizerHatch())) {
             return getEvenDistributedParallelism(targetThread == null ? getNextIdleThread() : targetThread);
         }
         return getAvailableParallelism();

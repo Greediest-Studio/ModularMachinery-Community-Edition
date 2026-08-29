@@ -277,7 +277,7 @@ public class GuiFactoryController extends GuiContainerBase<ContainerFactoryContr
     private int drawParallelismInfo(int offsetX, int y, FontRenderer fr) {
         int offsetY = y;
 
-        int parallelism = factory.getRunningParallelism();
+        int parallelism = getDisplayedRunningParallelism();
         int maxParallelism = factory.getTotalParallelism();
         if (maxParallelism <= 1) {
             return offsetY;
@@ -295,6 +295,28 @@ public class GuiFactoryController extends GuiContainerBase<ContainerFactoryContr
         offsetY += 10;
 
         return offsetY;
+    }
+
+    /**
+     * Sum the same active recipes that are shown in the factory thread list.
+     * The old formula used a shared baseline of one and undercounted by
+     * activeThreadCount - 1.
+     */
+    private int getDisplayedRunningParallelism() {
+        int parallelism = 0;
+        for (FactoryRecipeThread thread : factory.getFactoryRecipeThreadList()) {
+            ActiveMachineRecipe activeRecipe = thread.getActiveRecipe();
+            if (activeRecipe != null) {
+                parallelism += activeRecipe.getParallelism();
+            }
+        }
+        for (FactoryRecipeThread thread : factory.getCoreRecipeThreads().values()) {
+            ActiveMachineRecipe activeRecipe = thread.getActiveRecipe();
+            if (activeRecipe != null) {
+                parallelism += activeRecipe.getParallelism();
+            }
+        }
+        return Math.max(1, parallelism);
     }
 
     private int drawStructureInfo(int offsetX, int y, FontRenderer fr, DynamicMachine found) {

@@ -45,6 +45,7 @@ import hellfirepvp.modularmachinery.common.crafting.helper.ComponentSelectorTag;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftingStatus;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
+import hellfirepvp.modularmachinery.common.lib.ComponentTypesMM;
 import hellfirepvp.modularmachinery.common.item.ItemBlueprint;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.machine.MachineComponent;
@@ -139,6 +140,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     protected final Set<String>                                             syncedUpgradeNames       = ConcurrentHashMap.newKeySet();
     protected final List<TileUpgradeBus.UpgradeBusProvider>                 foundUpgradeBuses        = new ArrayList<>();
     protected final List<TileParallelController.ParallelControllerProvider> foundParallelControllers = new ArrayList<>();
+    protected       boolean                                                   parallelEqualizerHatchFound;
     protected final Map<TileEntity, ProcessingComponent<?>>                 generalComponents        = new ConcurrentHashMap<>();
     protected final Map<Long, Map<TileEntity, ProcessingComponent<?>>>      foundComponents          = new ConcurrentHashMap<>();
     protected volatile List<List<MachineComponentTileNotifiable>>           foundEventListeners      = java.util.Collections.emptyList();
@@ -565,6 +567,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         foundMachine = null;
         foundPattern = null;
         foundReplacements = null;
+        parallelEqualizerHatchFound = false;
         foundDynamicPatterns.clear();
     }
 
@@ -930,6 +933,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
             this.generalComponents.clear();
             this.foundModifiers.clear();
             this.foundSmartInterfaces.clear();
+            this.parallelEqualizerHatchFound = false;
 
             resetMachine(false);
             return;
@@ -945,6 +949,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         this.generalComponents.clear();
         this.foundSmartInterfaces.clear();
         this.foundParallelControllers.clear();
+        this.parallelEqualizerHatchFound = false;
         Map<Long, Map<TileEntity, ProcessingComponent<?>>> found = new Long2ObjectOpenHashMap<>();
 
         this.foundPattern.getTileBlocksArray().forEach((pos, info) -> checkAndAddComponents(pos, getPos(), found));
@@ -1021,6 +1026,9 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
             }
 
             addComponent(component, tag, te, found);
+            if (component.getComponentType() == ComponentTypesMM.COMPONENT_PARALLEL_EQUALIZER) {
+                parallelEqualizerHatchFound = true;
+            }
             if (component instanceof TileParallelController.ParallelControllerProvider p) {
                 this.foundParallelControllers.add(p);
                 return;
@@ -1305,6 +1313,10 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
     public List<List<MachineComponentTileNotifiable>> getFoundEventListeners() {
         return foundEventListeners;
+    }
+
+    protected boolean hasParallelEqualizerHatch() {
+        return parallelEqualizerHatchFound;
     }
 
     public Map<TileEntity, ProcessingComponent<?>> getGeneralComponents() {

@@ -391,6 +391,8 @@ tile.modularmachinery.blockparallelcontroller.elite.name=§b精英并行控制�
 tile.modularmachinery.blockparallelcontroller.super.name=§5超级并行控制器
 tile.modularmachinery.blockparallelcontroller.ultimate.name=§c终极并行控制器
 tile.modularmachinery.blockparallelcontroller.tip=最多可以同时运行 §a%s§7 个相同配方。
+tile.modularmachinery.parallel_equalizer_hatch.name=并行均分仓
+tile.modularmachinery.parallel_equalizer_hatch.tip=将机器的并行数平均分配给工厂线程。
 
 tile.modularmachinery.blockupgradebus.normal.name=§a升级总线
 tile.modularmachinery.blockupgradebus.reinforced.name=§6强化升级总线
