@@ -544,6 +544,14 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         return this.foundMachine != null && this.foundPattern != null;
     }
 
+    /**
+     * A controller block registered for a specific machine must not be able to
+     * switch to another machine just because its pattern also matches.
+     */
+    protected boolean isMachineAllowedByController(@Nullable final DynamicMachine machine) {
+        return machine != null && (parentMachine == null || parentMachine.equals(machine));
+    }
+
     protected void resetMachine(boolean clearData) {
         if (clearData) {
             setControllerStatus(CraftingStatus.MISSING_STRUCTURE);
@@ -584,7 +592,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     }
 
     protected boolean matchesRotation(TaggedPositionBlockArray pattern, DynamicMachine machine, EnumFacing ctrlRotation) {
-        if (pattern == null) {
+        if (pattern == null || !isMachineAllowedByController(machine)) {
             return false;
         }
         if (!getWorld().isAreaLoaded(pattern.getPatternBoundingBox(getPos()))) {
@@ -610,7 +618,8 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     }
 
     private boolean matchesRotationWithoutForming(TaggedPositionBlockArray pattern, DynamicMachine machine, EnumFacing ctrlRotation) {
-        if (pattern == null || !getWorld().isAreaLoaded(pattern.getPatternBoundingBox(getPos()))) {
+        if (pattern == null || !isMachineAllowedByController(machine) ||
+            !getWorld().isAreaLoaded(pattern.getPatternBoundingBox(getPos()))) {
             return false;
         }
 
@@ -851,15 +860,18 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         if (isStructureFormed()) {
             BlockPos ctrlPos = getPos();
             //Is chunk area loaded? Prevention of unanticipated consumption of something.
-            if (!getWorld().isAreaLoaded(foundPattern.getPatternBoundingBox(ctrlPos))) {
+            if (!isMachineAllowedByController(foundMachine)) {
+                resetMachine(true);
+            } else if (!getWorld().isAreaLoaded(foundPattern.getPatternBoundingBox(ctrlPos))) {
                 return false;
             }
-            if (this.foundMachine.isRequiresBlueprint() && !this.foundMachine.equals(getBlueprintMachine())) {
-                resetMachine(true);
-            } else if (
-                !foundPattern.matches(getWorld(), ctrlPos, true, this.foundReplacements) ||
+            if (isStructureFormed()) {
+                if (this.foundMachine.isRequiresBlueprint() && !this.foundMachine.equals(getBlueprintMachine())) {
+                    resetMachine(true);
+                } else if (!foundPattern.matches(getWorld(), ctrlPos, true, this.foundReplacements) ||
                     !matchesDynamicPattern(foundMachine)) {
-                resetMachine(true);
+                    resetMachine(true);
+                }
             }
         }
 
