@@ -21,7 +21,7 @@ import java.util.List;
 public class RequirementCatalyst extends RequirementIngredientArray {
     protected final List<RecipeModifier> modifierList = new ArrayList<>();
     protected final List<String>         toolTipList  = new ArrayList<>();
-    protected       boolean              active       = false;
+    protected       boolean              isRequired   = false;
     protected       boolean              consumePerParallel = true;
 
     public RequirementCatalyst(ItemStack item) {
@@ -58,8 +58,20 @@ public class RequirementCatalyst extends RequirementIngredientArray {
         this.consumePerParallel = consumePerParallel;
     }
 
+    public boolean isRequired() {
+        return isRequired;
+    }
+
+    public void setRequired(boolean required) {
+        this.isRequired = required;
+    }
+
     public boolean isActive() {
-        return active;
+        return isRequired;
+    }
+
+    public void setActive(boolean active) {
+        this.isRequired = active;
     }
 
     @Override
@@ -69,7 +81,7 @@ public class RequirementCatalyst extends RequirementIngredientArray {
 
     @Override
     public void reset() {
-        this.active = false;
+        this.isRequired = false;
     }
 
     @Override
@@ -89,10 +101,10 @@ public class RequirementCatalyst extends RequirementIngredientArray {
         if (super.canStartCrafting(testCopied, context).isSuccess()) {
             super.canStartCrafting(components, context);
             addModifierToContext(context);
-            this.active = true;
+            this.isRequired = true;
             return CraftCheck.success();
         } else {
-            this.active = false;
+            this.isRequired = false;
             return CraftCheck.skipComponent();
         }
     }
@@ -110,9 +122,9 @@ public class RequirementCatalyst extends RequirementIngredientArray {
 
     @Override
     public void startCrafting(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
-        if (active) {
+        if (isRequired) {
             super.startCrafting(components, context, chance);
-            active = false;
+            isRequired = false;
         }
     }
 
@@ -158,6 +170,7 @@ public class RequirementCatalyst extends RequirementIngredientArray {
         catalyst.modifierList.addAll(this.modifierList);
         catalyst.toolTipList.addAll(toolTipList);
         catalyst.consumePerParallel = this.consumePerParallel;
+        catalyst.isRequired = this.isRequired;
         float ch = RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_ITEM, actionType, chance, true);
         if (ch == chance && RequirementTypesMM.REQUIREMENT_CATALYST != null) {
             ch = RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_CATALYST, actionType, chance, true);
@@ -171,6 +184,7 @@ public class RequirementCatalyst extends RequirementIngredientArray {
         super.postDeepCopy(another);
         if (another instanceof RequirementCatalyst catalyst) {
             this.consumePerParallel = catalyst.consumePerParallel;
+            this.isRequired = catalyst.isRequired;
         }
         return this;
     }
