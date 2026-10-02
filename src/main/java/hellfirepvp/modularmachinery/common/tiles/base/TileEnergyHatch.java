@@ -70,12 +70,19 @@ public abstract class TileEnergyHatch extends TileColorableMachineComponent impl
 
     public TileEnergyHatch(EnergyHatchData size, IOType ioType) {
         this.size = size;
-        this.energyContainer = new GTEnergyContainer(this, ioType);
     }
 
     @Optional.Method(modid = "gregtech")
     private static Capability<?> getGTEnergyCapability() {
         return GregtechCapabilities.CAPABILITY_ENERGY_CONTAINER;
+    }
+
+    @Optional.Method(modid = "gregtech")
+    private synchronized GTEnergyContainer getGTEnergyContainer() {
+        if (energyContainer == null) {
+            energyContainer = new GTEnergyContainer(this, canReceive() ? IOType.INPUT : IOType.OUTPUT);
+        }
+        return energyContainer;
     }
 
     protected static int convertDownEnergy(long energy) {
@@ -131,29 +138,28 @@ public abstract class TileEnergyHatch extends TileColorableMachineComponent impl
     }
 
     @Override
-    public int receiveEnergy(int maxReceive, boolean simulate) {
+    public synchronized int receiveEnergy(int maxReceive, boolean simulate) {
         if (!canReceive()) {
             return 0;
         }
-        int insertable = this.energy.get() + maxReceive > this.size.maxEnergy ? convertDownEnergy(this.size.maxEnergy - this.energy.get()) : maxReceive;
-        insertable = Math.min(insertable, convertDownEnergy(size.transferLimit));
+        int insertable = (int) Math.min(Math.max(0, maxReceive),
+            Math.min(size.transferLimit, Math.max(0, size.maxEnergy - energy.get())));
         if (!simulate) {
             this.energy.set(MiscUtils.clamp(this.energy.get() + insertable, 0, this.size.maxEnergy));
-            markNoUpdate();
+            markNoUpdateSync();
         }
         return insertable;
     }
 
     @Override
-    public int extractEnergy(int maxExtract, boolean simulate) {
+    public synchronized int extractEnergy(int maxExtract, boolean simulate) {
         if (!canExtract()) {
             return 0;
         }
-        int extractable = this.energy.get() - maxExtract < 0 ? convertDownEnergy(this.energy.get()) : maxExtract;
-        extractable = Math.min(extractable, convertDownEnergy(size.transferLimit));
+        int extractable = (int) Math.min(Math.max(0, maxExtract), Math.min(size.transferLimit, energy.get()));
         if (!simulate) {
             this.energy.set(MiscUtils.clamp(this.energy.get() - extractable, 0, this.size.maxEnergy));
-            markNoUpdate();
+            markNoUpdateSync();
         }
         return extractable;
     }
@@ -179,6 +185,9 @@ public abstract class TileEnergyHatch extends TileColorableMachineComponent impl
         if (capability == CapabilityEnergy.ENERGY) {
             return true;
         }
+        if (Mods.GREGTECH.isPresent() && capability == getGTEnergyCapability()) {
+            return true;
+        }
 
         return super.hasCapability(capability, facing);
     }
@@ -191,7 +200,7 @@ public abstract class TileEnergyHatch extends TileColorableMachineComponent impl
             return (T) this;
         }
         if (Mods.GREGTECH.isPresent() && capability == getGTEnergyCapability()) {
-            return (T) this.energyContainer;
+            return (T) getGTEnergyContainer();
         }
 
         return super.getCapability(capability, facing);

@@ -149,10 +149,11 @@ public class MachineUpgradeBuilder {
                 controller.addModifier(modifierKey, modifier);
                 return;
             }
-            RecipeModifier multiply = modifier;
-            for (int i = 0; i < upgrade.getStackSize(); i++) {
-                multiply = multiply.multiply(modifier.getModifier());
-            }
+            RecipeModifier multiply = modifier.getOperation() == RecipeModifier.OPERATION_ADD
+                ? modifier.multiply(upgrade.getStackSize())
+                : new RecipeModifier(modifier.getTarget(), modifier.getIOTarget(),
+                    (float) Math.pow(modifier.getModifier(), upgrade.getStackSize()),
+                    modifier.getOperation(), modifier.affectsChance());
             controller.addModifier(modifierKey, multiply);
         });
         return this;

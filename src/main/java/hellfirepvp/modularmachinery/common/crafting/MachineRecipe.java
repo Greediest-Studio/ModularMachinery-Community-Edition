@@ -133,8 +133,17 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
     }
 
     public void mergeAdapter(final RecipeAdapterBuilder adapterBuilder) {
-        this.parallelized = adapterBuilder.isParallelized();
+        mergeAdapterMetadata(adapterBuilder);
         this.tooltipList.addAll(adapterBuilder.getTooltipList());
+        for (final ComponentRequirement<?, ?> requirement : adapterBuilder.getComponents()) {
+            addRequirement(requirement);
+        }
+        adapterBuilder.getRecipeEventHandlers().forEach((clazz, actions) -> actions.forEach(action -> addRecipeEventHandler(clazz, action)));
+    }
+
+    /** 附加需求、事件和说明已由适配器注册器写入，此处只应用配方属性。 */
+    public void mergeAdapterMetadata(final RecipeAdapterBuilder adapterBuilder) {
+        this.parallelized = adapterBuilder.isParallelized();
         this.loadJEI = adapterBuilder.getLoadJEI();
         if (!adapterBuilder.getThreadName().isEmpty()) {
             this.threadName = adapterBuilder.getThreadName();
@@ -142,10 +151,6 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
         if (adapterBuilder.getMaxThreads() != -1) {
             this.maxThreads = adapterBuilder.getMaxThreads();
         }
-        for (final ComponentRequirement<?, ?> requirement : adapterBuilder.getComponents()) {
-            addRequirement(requirement);
-        }
-        adapterBuilder.getRecipeEventHandlers().forEach((clazz, actions) -> actions.forEach(action -> addRecipeEventHandler(clazz, action)));
     }
 
     public void addTooltip(String tooltip) {
@@ -244,6 +249,8 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
     public MachineRecipe copy(Function<ResourceLocation, ResourceLocation> registryNameChange,
                               ResourceLocation newOwningMachineIdentifier,
                               List<RecipeModifier> modifiers) {
+        Map<Class<?>, List<IEventHandler<RecipeEvent>>> copiedHandlers = new HashMap<>();
+        this.recipeEventHandlers.forEach((type, handlers) -> copiedHandlers.put(type, new ArrayList<>(handlers)));
         MachineRecipe copy = new MachineRecipe(this.recipeFilePath,
             registryNameChange.apply(this.registryName),
             newOwningMachineIdentifier,
@@ -251,8 +258,8 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
             this.configuredPriority,
             this.doesCancelRecipeOnPerTickFailure(),
             this.parallelized,
-            this.recipeEventHandlers,
-            this.tooltipList,
+            copiedHandlers,
+            new ArrayList<>(this.tooltipList),
             this.threadName,
             this.maxThreads,
             this.loadJEI

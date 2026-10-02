@@ -140,6 +140,13 @@ public class FactoryRecipeThread extends RecipeThread {
     }
 
     public void tryRestartRecipe() {
+        if (!canAcceptRecipe(activeRecipe)) {
+            activeRecipe = null;
+            setContext(null);
+            status = CraftingStatus.IDLE;
+            createRecipeSearchTask();
+            return;
+        }
         activeRecipe.reset();
         activeRecipe.setMaxParallelism(factory.getThreadParallelism(this));
         RecipeCraftingContext context = getContext().reset();
@@ -154,6 +161,11 @@ public class FactoryRecipeThread extends RecipeThread {
             status = CraftingStatus.failure(result.getFirstErrorMessage(""));
             createRecipeSearchTask();
         }
+    }
+
+    @Override
+    protected boolean canAcceptRecipe(ActiveMachineRecipe recipe) {
+        return factory.canStartRecipe(recipe, this);
     }
 
     protected void createRecipeSearchTask() {

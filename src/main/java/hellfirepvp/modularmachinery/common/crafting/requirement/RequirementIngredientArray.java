@@ -10,6 +10,7 @@ import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
+import hellfirepvp.modularmachinery.common.crafting.helper.ResourceTransaction;
 import hellfirepvp.modularmachinery.common.crafting.requirement.jei.JEIComponentIngredientArray;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeIngredientArray;
 import hellfirepvp.modularmachinery.common.integration.ingredient.IngredientItemStack;
@@ -19,6 +20,7 @@ import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.machine.MachineComponent;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import hellfirepvp.modularmachinery.common.util.ItemUtils;
+import hellfirepvp.modularmachinery.common.util.IItemHandlerImpl;
 import hellfirepvp.modularmachinery.common.util.ResultChance;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -40,6 +42,18 @@ public class RequirementIngredientArray extends ComponentRequirement.MultiCompPa
     public          List<IngredientItemStack>    cachedJEIIORequirementList = null;
 
     public float chance = 1.0F;
+    private ChancedIngredientStack selectedOutput;
+
+    @Override
+    public void reset() {
+        super.reset();
+        selectedOutput = null;
+    }
+
+    @Override
+    public void resetForGroupCheck() {
+        // 并行探测和正式检查使用同一本次随机候选。
+    }
 
     /**
      * <p>物品组输入，仅消耗组内的其中一个</p>
@@ -174,9 +188,13 @@ public class RequirementIngredientArray extends ComponentRequirement.MultiCompPa
 
     @Override
     public void startCrafting(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
-        if (actionType == IOType.INPUT && chance.canWork(RecipeModifier.applyModifiers(context, RequirementTypesMM.REQUIREMENT_ITEM, actionType, this.chance, true))) {
-            doItemIO(components, context, chance);
-        }
+        startCraftingChecked(components, context, chance);
+    }
+
+    @Override
+    public boolean startCraftingChecked(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
+        if (actionType != IOType.INPUT || !chance.canWork(RecipeModifier.applyModifiers(context, RequirementTypesMM.REQUIREMENT_ITEM, actionType, this.chance, true))) return true;
+        return ResourceTransaction.consumeItems(components, copies -> doItemIO(copies, context, chance).isSuccess());
     }
 
     @Override
@@ -210,6 +228,11 @@ public class RequirementIngredientArray extends ComponentRequirement.MultiCompPa
     @Override
     public List<ProcessingComponent<?>> copyComponents(final List<ProcessingComponent<?>> components) {
         return ItemUtils.copyItemHandlerComponents(components);
+    }
+
+    @Override
+    public Object getComponentCopyFamily() {
+        return COMPONENT_COPY_ITEM;
     }
 
     private CraftCheck doItemIO(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
@@ -247,66 +270,51 @@ public class RequirementIngredientArray extends ComponentRequirement.MultiCompPa
                                final int maxMultiplier,
                                final ResultChance chance) {
         int ingredientConsumed = 0;
-
-        for (final ChancedIngredientStack ingredient : ingredients) {
+        for (ChancedIngredientStack ingredient : ingredients) {
             int toConsume = applyModifierAmount(context, ingredient.count, ingredient.minCount, ingredient.maxCount, chance != ResultChance.GUARANTEED);
-            int maxConsume = toConsume * (maxMultiplier - ingredientConsumed);
-            final AtomicInteger consumed = new AtomicInteger();
-
-            AdvancedItemChecker checker;
-
-            switch (ingredient.ingredientType) {
-                case ITEMSTACK -> {
-                    checker = ingredient.itemChecker;
-                    ItemStack stack = ItemUtils.copyStackWithSize(ingredient.itemStack, toConsume);
-
-                    for (final IItemHandlerModifiable handler : handlers) {
-                        Sync.executeSyncIfPresent(handler, () -> {
-                            stack.setCount(maxConsume - consumed.get());
-                            if (checker != null) {
-                                consumed.addAndGet(ItemUtils.consumeAll(
-                                    handler, stack, checker, context.getMachineController()) / toConsume);
-                            } else {
-                                consumed.addAndGet(ItemUtils.consumeAll(
-                                    handler, stack, ingredient.tag));
-                            }
-                        });
-                        if (consumed.get() >= maxConsume) {
-                            break;
-                        }
-                    }
-                }
-                case ORE_DICT -> {
-                    checker = ingredient.itemChecker;
-
-                    for (final IItemHandlerModifiable handler : handlers) {
-                        Sync.executeSyncIfPresent(handler, () -> {
-                            if (checker != null) {
-                                consumed.addAndGet(ItemUtils.consumeAll(
-                                    handler, ingredient.oreDictName, maxConsume - consumed.get(), checker, context.getMachineController()));
-                            } else {
-                                consumed.addAndGet(ItemUtils.consumeAll(
-                                    handler, ingredient.oreDictName, maxConsume - consumed.get(), ingredient.tag));
-                            }
-                        });
-                        if (consumed.get() >= maxConsume) {
-                            break;
-                        }
-                    }
-                }
+            if (toConsume <= 0) return maxMultiplier;
+            int maximum = toConsume * (maxMultiplier - ingredientConsumed);
+            int available = 0;
+            for (IItemHandlerModifiable handler : handlers) {
+                available += consumeIngredient(new IItemHandlerImpl(handler), ingredient, maximum - available, context);
+                if (available >= maximum) break;
             }
-
-            ingredientConsumed += (consumed.get() / toConsume);
+            // 仅支付完整选项；不足一份的候选原封不动留在仓内。
+            int completeAmount = available / toConsume * toConsume;
+            if (completeAmount == 0) continue;
+            AtomicInteger consumed = new AtomicInteger();
+            for (IItemHandlerModifiable handler : handlers) {
+                Sync.executeSyncIfPresent(handler, () -> consumed.addAndGet(
+                    consumeIngredient(handler, ingredient, completeAmount - consumed.get(), context)));
+                if (consumed.get() >= completeAmount) break;
+            }
+            ingredientConsumed += consumed.get() / toConsume;
+            if (ingredientConsumed >= maxMultiplier) break;
         }
-
         return ingredientConsumed;
+    }
+
+    private int consumeIngredient(IItemHandlerModifiable handler, ChancedIngredientStack ingredient,
+                                  int amount, RecipeCraftingContext context) {
+        if (amount <= 0) return 0;
+        AdvancedItemChecker checker = ingredient.itemChecker;
+        return switch (ingredient.ingredientType) {
+            case ITEMSTACK -> {
+                ItemStack stack = ItemUtils.copyStackWithSize(ingredient.itemStack, amount);
+                yield checker == null ? ItemUtils.consumeAll(handler, stack, ingredient.tag)
+                    : ItemUtils.consumeAll(handler, stack, checker, context.getMachineController());
+            }
+            case ORE_DICT -> checker == null ? ItemUtils.consumeAll(handler, ingredient.oreDictName, amount, ingredient.tag)
+                : ItemUtils.consumeAll(handler, ingredient.oreDictName, amount, checker, context.getMachineController());
+        };
     }
 
     public int insertAllItems(final List<IItemHandlerModifiable> handlers,
                               final RecipeCraftingContext context,
                               final int maxMultiplier,
                               final ResultChance chance) {
-        ChancedIngredientStack selected = chance == ResultChance.GUARANTEED ? selectMaxCountStack() : selectRandomStack();
+        if (selectedOutput == null) selectedOutput = selectRandomStack();
+        ChancedIngredientStack selected = selectedOutput;
         if (selected == null) {
             return 0;
         }

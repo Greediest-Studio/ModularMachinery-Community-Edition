@@ -66,7 +66,7 @@ public class MEGasOutputBus extends MEGasBus {
 
         try {
             IMEMonitor<IAEGasStack> inv = proxy.getStorage().getInventory(channel);
-            synchronized (tanks) {
+            synchronized (handler) {
                 for (final int slot : getNeedUpdateSlots()) {
                     changedSlots[slot] = false;
                     GasStack gas = tanks.getGasStack(slot);
@@ -89,12 +89,12 @@ public class MEGasOutputBus extends MEGasBus {
                 }
             }
         } catch (GridAccessException e) {
-            inTick = false;
             changedSlots = new boolean[TANK_SLOT_AMOUNT];
             return TickRateModulation.IDLE;
+        } finally {
+            inTick = false;
         }
 
-        inTick = false;
         return successAtLeastOnce ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
     }
 

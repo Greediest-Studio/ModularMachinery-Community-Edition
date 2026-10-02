@@ -17,6 +17,7 @@ import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
+import hellfirepvp.modularmachinery.common.crafting.helper.ResourceTransaction;
 import hellfirepvp.modularmachinery.common.crafting.requirement.jei.JEIComponentItem;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeItem;
 import hellfirepvp.modularmachinery.common.integration.ingredient.IngredientItemStack;
@@ -259,9 +260,13 @@ public class RequirementItem extends ComponentRequirement.MultiCompParallelizabl
 
     @Override
     public void startCrafting(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
-        if (actionType == IOType.INPUT && chance.canWork(RecipeModifier.applyModifiers(context, this, this.chance, true))) {
-            doItemIO(components, context, itemModifierList, chance);
-        }
+        startCraftingChecked(components, context, chance);
+    }
+
+    @Override
+    public boolean startCraftingChecked(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
+        if (actionType != IOType.INPUT || !chance.canWork(RecipeModifier.applyModifiers(context, this, this.chance, true))) return true;
+        return ResourceTransaction.consumeItems(components, copies -> doItemIO(copies, context, itemModifierList, chance).isSuccess());
     }
 
     @Override
@@ -331,13 +336,30 @@ public class RequirementItem extends ComponentRequirement.MultiCompParallelizabl
         return ItemUtils.copyItemHandlerComponents(components);
     }
 
+    @Override
+    public Object getComponentCopyFamily() {
+        return COMPONENT_COPY_ITEM;
+    }
+
     public int consumeAllItems(final List<IItemHandlerModifiable> handlers,
                                final RecipeCraftingContext context,
                                final int maxMultiplier,
                                final List<AdvancedItemModifier> itemModifiers,
                                final ResultChance chance) {
+        if (requirementType == ItemRequirementType.FUEL) {
+            int requiredBurnTime = Math.round(RecipeModifier.applyModifiers(context, this, fuelBurntime, false));
+            if (requiredBurnTime <= 0) return maxMultiplier;
+            int totalRequired = Math.multiplyExact(requiredBurnTime, maxMultiplier);
+            AtomicInteger remaining = new AtomicInteger(totalRequired);
+            for (IItemHandlerModifiable handler : handlers) {
+                Sync.executeSyncIfPresent(handler, () -> remaining.set(
+                    ItemUtils.consumeFromInventoryFuel(handler, remaining.get(), false, tag)));
+                if (remaining.get() <= 0) return maxMultiplier;
+            }
+            return (totalRequired - remaining.get()) / requiredBurnTime;
+        }
         final AtomicInteger consumed = new AtomicInteger();
-        int toConsume = applyModifierAmount(context, chance != ResultChance.GUARANTEED || minAmount != maxAmount);
+        int toConsume = applyModifierAmount(context, chance != ResultChance.GUARANTEED);
 
         int maxConsume = toConsume * maxMultiplier;
 
@@ -487,7 +509,7 @@ public class RequirementItem extends ComponentRequirement.MultiCompParallelizabl
         }
 
         final AtomicInteger inserted = new AtomicInteger();
-        int toInsert = applyModifierAmount(context, chance != ResultChance.GUARANTEED || minAmount != maxAmount);
+        int toInsert = applyModifierAmount(context, chance != ResultChance.GUARANTEED);
 
         if (toInsert <= 0) {
             return maxMultiplier;

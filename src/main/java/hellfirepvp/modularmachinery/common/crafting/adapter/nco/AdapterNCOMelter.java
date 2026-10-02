@@ -95,7 +95,7 @@ public class AdapterNCOMelter extends AdapterNCOMachine {
             // Fluid Output
             for (IFluidIngredient fluidIngredient : basicRecipe.getFluidProducts()) {
                 FluidStack stack = fluidIngredient.getStack().copy();
-                int inAmount = Math.round(RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_FLUID, IOType.INPUT, stack.amount, false));
+                int inAmount = Math.round(RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_FLUID, IOType.OUTPUT, stack.amount, false));
                 if (inAmount > 0) {
                     stack.amount = inAmount;
                     recipe.addRequirement(new RequirementFluid(IOType.OUTPUT, stack));

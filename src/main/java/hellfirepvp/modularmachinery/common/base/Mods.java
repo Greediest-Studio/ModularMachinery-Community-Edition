@@ -36,7 +36,9 @@ public enum Mods {
                 return detected = false;
             }
             try {
-                Class.forName("gregtech.client.utils.BloomEffectUtil");
+                // 激光仓属于本适配层依赖的 CEu 功能，且在独立服务器上也存在。
+                Class.forName("gregtech.common.metatileentities.multi.multiblockpart.MetaTileEntityLaserHatch",
+                    false, Mods.class.getClassLoader());
                 return detected = true;
             } catch (Exception e) {
                 return detected = false;

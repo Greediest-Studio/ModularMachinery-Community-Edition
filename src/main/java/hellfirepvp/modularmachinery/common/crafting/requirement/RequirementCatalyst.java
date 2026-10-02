@@ -85,6 +85,11 @@ public class RequirementCatalyst extends RequirementIngredientArray {
     }
 
     @Override
+    public void resetForGroupCheck() {
+        reset();
+    }
+
+    @Override
     public void setParallelism(int parallelism) {
         if (consumePerParallel) {
             this.parallelism = parallelism;
@@ -120,12 +125,23 @@ public class RequirementCatalyst extends RequirementIngredientArray {
         }
     }
 
+    /** 恢复本次已启用的效果；只有开工索引尚未经过本需求时才补扣催化剂。 */
+    public void restoreAfterLoad(RecipeCraftingContext context, boolean pendingConsumption) {
+        addModifierToContext(context);
+        isRequired = pendingConsumption;
+    }
+
     @Override
     public void startCrafting(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
-        if (isRequired) {
-            super.startCrafting(components, context, chance);
-            isRequired = false;
-        }
+        startCraftingChecked(components, context, chance);
+    }
+
+    @Override
+    public boolean startCraftingChecked(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
+        if (!isRequired) return true;
+        if (!super.startCraftingChecked(components, context, chance)) return false;
+        isRequired = false;
+        return true;
     }
 
     @Override

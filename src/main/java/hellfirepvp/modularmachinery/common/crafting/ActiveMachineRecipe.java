@@ -26,6 +26,7 @@ import stanhebben.zenscript.annotations.ZenGetter;
 import stanhebben.zenscript.annotations.ZenSetter;
 
 import javax.annotation.Nonnull;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * This class is part of the Modular Machinery Mod
@@ -41,6 +42,11 @@ public class ActiveMachineRecipe {
     private       NBTTagCompound data = new NBTTagCompound();
     private       int            tick = 0, totalTick;
     private int baseMaxParallelism, maxParallelism, parallelism = 1;
+    private boolean started;
+    private Long craftingGroupId;
+    private Long craftingSeed;
+    private int startRequirementIndex;
+    private int[] activeCatalystIndices = new int[0];
 
     public ActiveMachineRecipe(MachineRecipe recipe, int maxParallelism) {
         this.recipe = recipe;
@@ -50,6 +56,16 @@ public class ActiveMachineRecipe {
     }
 
     public ActiveMachineRecipe(NBTTagCompound serialized) {
+        // Older saves also contain an already-paid, active recipe.
+        this.started = !serialized.hasKey("started") || serialized.getBoolean("started");
+        if (serialized.hasKey("craftingGroupId")) {
+            this.craftingGroupId = serialized.getLong("craftingGroupId");
+        }
+        if (serialized.hasKey("craftingSeed")) {
+            this.craftingSeed = serialized.getLong("craftingSeed");
+        }
+        this.startRequirementIndex = serialized.getInteger("startRequirementIndex");
+        this.activeCatalystIndices = serialized.getIntArray("activeCatalystIndices");
         this.recipe = RecipeRegistry.getRecipe(new ResourceLocation(serialized.getString("recipeName")));
         this.tick = serialized.getInteger("tick");
         this.totalTick = serialized.getInteger("totalTick");
@@ -71,6 +87,11 @@ public class ActiveMachineRecipe {
     }
 
     public void reset() {
+        this.started = false;
+        this.craftingGroupId = null;
+        this.craftingSeed = null;
+        this.startRequirementIndex = 0;
+        this.activeCatalystIndices = new int[0];
         this.tick = 0;
         this.parallelism = 1;
         this.baseMaxParallelism = 1;
@@ -84,6 +105,12 @@ public class ActiveMachineRecipe {
 
     @Nonnull
     public CraftingStatus tick(TileMultiblockMachineController ctrl, RecipeCraftingContext context) {
+        if (!started) {
+            start(context);
+            if (!started) {
+                return CraftingStatus.failure("craftcheck.failure.start_retry");
+            }
+        }
         float rawTotalTick = RecipeModifier.applyModifiers(
             context, RequirementTypesMM.REQUIREMENT_DURATION, null, this.recipe.getRecipeTotalTickTime(), false);
         this.totalTick = rawTotalTick < 1F ? 1 : Math.round(rawTotalTick);
@@ -124,7 +151,7 @@ public class ActiveMachineRecipe {
     }
 
     public boolean isCompleted() {
-        return this.tick >= totalTick;
+        return started && this.tick >= totalTick;
     }
 
     public RecipeCraftingContext.CraftingCheckResult canStartCrafting(RecipeCraftingContext context) {
@@ -162,7 +189,14 @@ public class ActiveMachineRecipe {
     }
 
     public void start(RecipeCraftingContext context) {
-        context.startCrafting();
+        if (started) return;
+        if (craftingGroupId == null) {
+            activeCatalystIndices = context.getActiveCatalystIndices();
+        }
+        this.craftingGroupId = context.getGroupId();
+        if (craftingSeed == null) craftingSeed = ThreadLocalRandom.current().nextLong();
+        if (!context.tryStartCrafting(craftingSeed)) return;
+        this.started = true;
         float rawTotalTick = RecipeModifier.applyModifiers(
             context, RequirementTypesMM.REQUIREMENT_DURATION, null, this.recipe.getRecipeTotalTickTime(), false);
         this.totalTick = rawTotalTick < 1F ? 1 : Math.round(rawTotalTick);
@@ -176,11 +210,40 @@ public class ActiveMachineRecipe {
         tag.setInteger("baseMaxParallelism", this.baseMaxParallelism);
         tag.setInteger("maxParallelism", this.maxParallelism);
         tag.setInteger("parallelism", this.parallelism);
+        tag.setBoolean("started", this.started);
+        if (craftingGroupId != null) {
+            tag.setLong("craftingGroupId", craftingGroupId);
+        }
+        if (craftingSeed != null) {
+            tag.setLong("craftingSeed", craftingSeed);
+        }
+        tag.setInteger("startRequirementIndex", startRequirementIndex);
+        tag.setIntArray("activeCatalystIndices", activeCatalystIndices);
 
         if (!data.isEmpty()) {
             tag.setTag("data", data);
         }
         return tag;
+    }
+
+    public boolean isStarted() {
+        return started;
+    }
+
+    public Long getCraftingGroupId() {
+        return craftingGroupId;
+    }
+
+    public int getStartRequirementIndex() {
+        return startRequirementIndex;
+    }
+
+    public int[] getActiveCatalystIndices() {
+        return activeCatalystIndices;
+    }
+
+    public void setStartRequirementIndex(int startRequirementIndex) {
+        this.startRequirementIndex = startRequirementIndex;
     }
 
     @ZenGetter("maxParallelism")

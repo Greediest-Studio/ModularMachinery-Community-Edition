@@ -60,7 +60,7 @@ public class SmartInterfaceData {
      */
     @ZenGetter("parentMachineName")
     public String getParentMachineName() {
-        return parent.getNamespace();
+        return parent.getPath();
     }
 
     /**

@@ -1,5 +1,6 @@
 package kport.modularmagic.common.crafting.requirement;
 
+import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
@@ -11,6 +12,7 @@ import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import hellfirepvp.modularmachinery.common.util.Asyncable;
 import hellfirepvp.modularmachinery.common.util.ResultChance;
 import kport.modularmagic.common.crafting.component.ComponentAura;
+import kport.modularmagic.common.crafting.helper.AuraProviderCopy;
 import kport.modularmagic.common.crafting.requirement.types.ModularMagicRequirements;
 import kport.modularmagic.common.crafting.requirement.types.RequirementTypeAura;
 import kport.modularmagic.common.integration.jei.component.JEIComponentAura;
@@ -20,7 +22,7 @@ import kport.modularmagic.common.tile.machinecomponent.MachineComponentAuraProvi
 import net.minecraft.util.math.ChunkPos;
 
 import javax.annotation.Nonnull;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -40,14 +42,18 @@ public class RequirementAura extends ComponentRequirement.MultiCompParallelizabl
         this.min = min;
     }
 
-    @Nonnull
-    private static Map<ChunkPos, TileAuraProvider> buildChunkAuraProviderMap(final List<ProcessingComponent<?>> components) {
-        Map<ChunkPos, TileAuraProvider> chunkAuraProviders = new HashMap<>();
-        for (final ProcessingComponent<?> component : components) {
-            TileAuraProvider provider = (TileAuraProvider) component.getComponent().getContainerProvider();
-            chunkAuraProviders.putIfAbsent(provider.getChunkPos(), provider);
+    private static Map<ChunkPos, AuraProviderCopy> buildAccounts(List<ProcessingComponent<?>> components) {
+        Map<ChunkPos, AuraProviderCopy> accounts = new HashMap<>();
+        for (ProcessingComponent<?> component : components) {
+            Object provided = component.getProvidedComponent();
+            if (provided instanceof AuraProviderCopy copy) {
+                accounts.putIfAbsent(copy.getOriginal().getChunkPos(), copy);
+            } else {
+                TileAuraProvider provider = (TileAuraProvider) provided;
+                accounts.computeIfAbsent(provider.getChunkPos(), key -> new AuraProviderCopy(provider));
+            }
         }
-        return chunkAuraProviders;
+        return accounts;
     }
 
     @Override
@@ -60,44 +66,53 @@ public class RequirementAura extends ComponentRequirement.MultiCompParallelizabl
 
     @Nonnull
     @Override
+    public Object getComponentCopyKey(ProcessingComponent<?> component) {
+        TileAuraProvider provider = (TileAuraProvider) component.getComponent().getContainerProvider();
+        return java.util.Arrays.asList(provider.getWorld(), provider.getChunkPos());
+    }
+
+    @Nonnull
+    @Override
+    @SuppressWarnings("unchecked")
     public List<ProcessingComponent<?>> copyComponents(final List<ProcessingComponent<?>> components) {
-        return components;
+        return ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> {
+            Map<ChunkPos, AuraProviderCopy> accounts = buildAccounts(components);
+            List<ProcessingComponent<?>> copies = new ArrayList<>();
+            for (ProcessingComponent<?> component : components) {
+                TileAuraProvider provider = (TileAuraProvider) component.getComponent().getContainerProvider();
+                copies.add(new ProcessingComponent<>((MachineComponent<Object>) component.component(),
+                    accounts.get(provider.getChunkPos()), component.tag()));
+            }
+            return copies;
+        });
     }
 
     @Nonnull
     @Override
     public CraftCheck canStartCrafting(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context) {
-        Map<ChunkPos, TileAuraProvider> chunkAuraProviders = buildChunkAuraProviderMap(components);
-        switch (actionType) {
-            case INPUT -> {
-                int removed = removeAll(chunkAuraProviders.values(), context, parallelism, true);
-                if (removed < parallelism) {
-                    return CraftCheck.failure("error.modularmachinery.requirement.aura.less");
-                }
-            }
-            case OUTPUT -> {
-                int added = addAll(chunkAuraProviders.values(), context, parallelism, true);
-                if (added < parallelism) {
-                    return CraftCheck.failure("error.modularmachinery.requirement.aura.more");
-                }
-            }
+        if (actionType == IOType.OUTPUT && ignoreOutputCheck) {
+            return CraftCheck.success();
         }
-        return CraftCheck.success();
+        return transferAll(components, context, parallelism, true) >= parallelism
+            ? CraftCheck.success()
+            : CraftCheck.failure(actionType == IOType.INPUT
+                ? "error.modularmachinery.requirement.aura.less" : "error.modularmachinery.requirement.aura.more");
     }
 
     @Override
     public void startCrafting(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final ResultChance chance) {
-        if (actionType == IOType.INPUT) {
-            Map<ChunkPos, TileAuraProvider> chunkAuraProviders = buildChunkAuraProviderMap(components);
-            removeAll(chunkAuraProviders.values(), context, parallelism, false);
-        }
+        startCraftingChecked(components, context, chance);
+    }
+
+    @Override
+    public boolean startCraftingChecked(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final ResultChance chance) {
+        return actionType != IOType.INPUT || transferAll(components, context, parallelism, false) >= parallelism;
     }
 
     @Override
     public void finishCrafting(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final ResultChance chance) {
         if (actionType == IOType.OUTPUT) {
-            Map<ChunkPos, TileAuraProvider> chunkAuraProviders = buildChunkAuraProviderMap(components);
-            addAll(chunkAuraProviders.values(), context, parallelism, false);
+            transferAll(components, context, parallelism, false);
         }
     }
 
@@ -106,77 +121,66 @@ public class RequirementAura extends ComponentRequirement.MultiCompParallelizabl
         if (ignoreOutputCheck && actionType == IOType.OUTPUT) {
             return maxParallelism;
         }
-        Map<ChunkPos, TileAuraProvider> chunkAuraProviders = buildChunkAuraProviderMap(components);
         if (parallelizeUnaffected) {
-            int max = switch (actionType) {
-                case INPUT -> removeAll(chunkAuraProviders.values(), context, 1, true);
-                case OUTPUT -> addAll(chunkAuraProviders.values(), context, 1, true);
-            };
-            if (max >= 1) {
-                return maxParallelism;
-            }
-            return 0;
+            return transferAll(components, context, 1, true) >= 1 ? maxParallelism : 0;
         }
-        return switch (actionType) {
-            case INPUT -> removeAll(chunkAuraProviders.values(), context, parallelism, true);
-            case OUTPUT -> addAll(chunkAuraProviders.values(), context, parallelism, true);
-        };
+        return transferAll(components, context, maxParallelism, true);
     }
 
-    private int addAll(final Collection<TileAuraProvider> chunkAuraProviders,
-                       final RecipeCraftingContext context,
-                       final float maxMultiplier,
-                       final boolean simulate) {
-        int toAdd = (int) Math.round(RecipeModifier.applyModifiers(context, this, (double) aura.getAmount(), false));
-        int maxAdd = (int) (toAdd * maxMultiplier);
-
-        int totalAdded = 0;
-        for (final TileAuraProvider auraProvider : chunkAuraProviders) {
-            Aura aura = auraProvider.getAura();
-            if (aura.getType() == this.aura.getType() && aura.getAmount() < max) {
-                int added = max - aura.getAmount();
-                totalAdded += added;
-                if (!simulate) {
-                    auraProvider.addAura(new Aura(added, this.aura.getType()));
+    private int transferAll(List<ProcessingComponent<?>> components, RecipeCraftingContext context,
+                            int multiplier, boolean simulate) {
+        return ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> {
+            int perRecipe = (int) Math.max(0L, Math.min(Integer.MAX_VALUE,
+                Math.round(RecipeModifier.applyModifiers(context, this, (double) aura.getAmount(), false))));
+            if (perRecipe == 0) {
+                return multiplier;
+            }
+            long requested = (long) perRecipe * multiplier;
+            int bound = actionType == IOType.INPUT ? min : max;
+            Map<ChunkPos, AuraProviderCopy> accounts = buildAccounts(components);
+            long available = accounts.values().stream()
+                .mapToLong(copy -> copy.available(aura.getType(), actionType, bound)).sum();
+            int supported = (int) Math.min(multiplier, available / perRecipe);
+            // 实际不足时不扣费；检查和转移在同一次主线程调用内完成。
+            if (!simulate && available < requested) {
+                return supported;
+            }
+            long transferable = (long) supported * perRecipe;
+            long remaining = transferable;
+            Map<AuraProviderCopy, Long> transferred = simulate ? Collections.emptyMap() : new HashMap<>();
+            for (AuraProviderCopy copy : accounts.values()) {
+                while (remaining > 0) {
+                    int moved = copy.transfer(aura.getType(), actionType, bound,
+                        (int) Math.min(Integer.MAX_VALUE, remaining), simulate);
+                    if (moved <= 0) {
+                        break;
+                    }
+                    remaining -= moved;
+                    if (!simulate) {
+                        transferred.merge(copy, (long) moved, Long::sum);
+                    }
                 }
-                if (totalAdded >= maxAdd) {
+                if (remaining == 0) {
                     break;
                 }
             }
-        }
-
-        if (totalAdded < maxAdd) {
-            return totalAdded / toAdd;
-        }
-        return totalAdded;
-    }
-
-    private int removeAll(final Collection<TileAuraProvider> chunkAuraProviders,
-                          final RecipeCraftingContext context,
-                          final float maxMultiplier,
-                          final boolean simulate) {
-        int toRemove = (int) Math.round(RecipeModifier.applyModifiers(context, this, (double) aura.getAmount(), false));
-        int maxRemove = (int) (toRemove * maxMultiplier);
-
-        int totalRemoved = 0;
-        for (final TileAuraProvider auraProvider : chunkAuraProviders) {
-            Aura aura = auraProvider.getAura();
-            if (aura.getType() == this.aura.getType() && aura.getAmount() > min) {
-                int removed = aura.getAmount() - min;
-                totalRemoved += removed;
-                if (!simulate) {
-                    auraProvider.removeAura(new Aura(removed, this.aura.getType()));
-                }
-                if (totalRemoved >= maxRemove) {
-                    break;
-                }
+            if (!simulate && remaining != 0) {
+                // 外部 API 未足额转移时，退回本次已经转移的资源。
+                IOType reverse = actionType == IOType.INPUT ? IOType.OUTPUT : IOType.INPUT;
+                transferred.forEach((copy, amount) -> {
+                    while (amount > 0) {
+                        int restored = copy.getOriginal().transferAura(
+                            new Aura((int) Math.min(Integer.MAX_VALUE, amount), aura.getType()), reverse);
+                        if (restored <= 0) {
+                            throw new IllegalStateException("Aura transfer rollback failed");
+                        }
+                        amount -= restored;
+                    }
+                });
+                return 0;
             }
-        }
-
-        if (totalRemoved < maxRemove) {
-            return totalRemoved / toRemove;
-        }
-        return totalRemoved;
+            return (int) ((transferable - remaining) / perRecipe);
+        });
     }
 
     @Override

@@ -8,6 +8,8 @@
 
 package hellfirepvp.modularmachinery.common.tiles;
 
+import github.kasuminova.mmce.common.world.MachineComponentManager;
+
 import github.kasuminova.mmce.common.event.Phase;
 import github.kasuminova.mmce.common.event.recipe.RecipeFailureEvent;
 import github.kasuminova.mmce.common.event.recipe.RecipeFinishEvent;
@@ -123,7 +125,8 @@ public class TileMachineController extends TileMultiblockMachineController {
     }
 
     protected boolean doAsyncStep() {
-        return !doStructureCheck() || !isStructureFormed();
+        return !doStructureCheck() || !isStructureFormed()
+            || MachineComponentManager.INSTANCE.hasPendingGroup(this);
     }
 
     protected void doSyncStep(boolean recordTime) {

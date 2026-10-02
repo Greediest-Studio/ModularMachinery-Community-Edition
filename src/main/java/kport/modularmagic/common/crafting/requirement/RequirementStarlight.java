@@ -26,6 +26,7 @@ import java.util.List;
 public class RequirementStarlight extends ComponentRequirement.PerTick<Starlight, RequirementTypeStarlight> implements Asyncable {
 
     public float starlightAmount;
+    private boolean tickSatisfied;
 
     public RequirementStarlight(IOType actionType, float starlightAmount) {
         super((RequirementTypeStarlight) RegistriesMM.REQUIREMENT_TYPE_REGISTRY.getValue(ModularMagicRequirements.KEY_REQUIREMENT_STARLIGHT), actionType);
@@ -43,17 +44,39 @@ public class RequirementStarlight extends ComponentRequirement.PerTick<Starlight
     @Nonnull
     @Override
     public CraftCheck doIOTick(ProcessingComponent<?> component, RecipeCraftingContext context) {
-        if (getActionType() == IOType.OUTPUT) {
-            ModularMachinery.EXECUTE_MANAGER.addSyncTask(() ->
+        CraftCheck result = ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> {
+            CraftCheck check = checkProvider(component);
+            if (check.isSuccess() && actionType == IOType.OUTPUT) {
                 ((TileStarlightOutput) component.getComponent().getContainerProvider())
-                    .setStarlightProduced(this.starlightAmount / 4000));
-        }
-        return CraftCheck.success();
+                    .setStarlightProduced(this.starlightAmount / 4000);
+            }
+            return check;
+        });
+        tickSatisfied |= result.isSuccess();
+        return result;
+    }
+
+    @Override
+    public void startIOTick(RecipeCraftingContext context, float durationMultiplier) {
+        tickSatisfied = false;
+    }
+
+    @Nonnull
+    @Override
+    public CraftCheck resetIOTick(RecipeCraftingContext context) {
+        CraftCheck result = tickSatisfied ? CraftCheck.success()
+            : CraftCheck.failure("error.modularmachinery.requirement.starlight.less");
+        tickSatisfied = false;
+        return result;
     }
 
     @Nonnull
     @Override
     public CraftCheck canStartCrafting(ProcessingComponent<?> component, RecipeCraftingContext context, List<ComponentOutputRestrictor> restrictions) {
+        return ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> checkProvider(component));
+    }
+
+    private CraftCheck checkProvider(ProcessingComponent<?> component) {
         if (getActionType() == IOType.INPUT) {
             TileStarlightInput provider = (TileStarlightInput) component.getComponent().getContainerProvider();
             return provider.getStarlightStored() >= this.starlightAmount ? CraftCheck.success() : CraftCheck.failure("error.modularmachinery.requirement.starlight.less");

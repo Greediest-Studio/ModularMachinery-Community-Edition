@@ -39,8 +39,15 @@ public class GTEnergyContainer implements IEnergyContainer {
     @Override
     @Optional.Method(modid = "gregtech")
     public long acceptEnergyFromNetwork(EnumFacing side, long voltage, long amperage) {
+        synchronized (hatch) {
+            return acceptEnergyLocked(side, voltage, amperage);
+        }
+    }
+
+    @Optional.Method(modid = "gregtech")
+    private long acceptEnergyLocked(EnumFacing side, long voltage, long amperage) {
         if (ioType == IOType.INPUT && amperage > 0 && voltage > 0) {
-            long availableSpace = hatch.getMaxEnergy() / 4L - hatch.getCurrentEnergy() / 4L;
+            long availableSpace = (hatch.getMaxEnergy() - hatch.getCurrentEnergy()) / 4L;
             long maxAmperage = Math.min(getInputAmperage(), amperage);
 
             if (voltage > getInputVoltage()) {
@@ -57,7 +64,6 @@ public class GTEnergyContainer implements IEnergyContainer {
                 long acceptingAmperage = Math.min(availableSpace / voltage, maxAmperage);
                 if (acceptingAmperage > 0) {
                     hatch.setCurrentEnergy(hatch.getCurrentEnergy() + ((acceptingAmperage * voltage) * 4L));
-                    hatch.markNoUpdate();
                     return acceptingAmperage;
                 }
             }
@@ -80,15 +86,15 @@ public class GTEnergyContainer implements IEnergyContainer {
     @Override
     @Optional.Method(modid = "gregtech")
     public long changeEnergy(long differenceAmount) {
-        long oldEnergyStored = hatch.getCurrentEnergy() / 4L;
-        long maxCapacity = hatch.getMaxEnergy() / 4L;
-
-        long newEnergyStored = (maxCapacity - oldEnergyStored < differenceAmount) ? maxCapacity : (oldEnergyStored + differenceAmount);
-        if (newEnergyStored < 0) {
-            newEnergyStored = 0;
+        synchronized (hatch) {
+            long storedFE = hatch.getCurrentEnergy();
+            long changedEU = differenceAmount >= 0
+                ? Math.min(differenceAmount, (hatch.getMaxEnergy() - storedFE) / 4L)
+                : Math.max(differenceAmount, -(storedFE / 4L));
+            // 保留不足 1 EU 的 FE 余数，不能通过换算重写整个存量。
+            hatch.setCurrentEnergy(storedFE + changedEU * 4L);
+            return changedEU;
         }
-        hatch.setCurrentEnergy(newEnergyStored * 4L);
-        return newEnergyStored - oldEnergyStored;
     }
 
     @Override

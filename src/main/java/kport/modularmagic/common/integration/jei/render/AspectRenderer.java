@@ -33,7 +33,7 @@ public class AspectRenderer implements IIngredientRenderer<AspectList> {
         Color c = new Color(ingredient.getAspects()[0].getColor());
         GlStateManager.color((float) c.getRed() / 255.0F, (float) c.getGreen() / 255.0F, (float) c.getBlue() / 255.0F, 1.0F);
 
-        if (aspectRender == null || aspect == null || aspectRender != ingredient.getAspects()[0]) {
+        if (aspectRender == null || aspect != ingredient.getAspects()[0]) {
             aspect = ingredient.getAspects()[0];
             ResourceLocation texture = aspect.getImage();
             aspectRender = JeiPlugin.GUI_HELPER.drawableBuilder(texture, 0, 0, 16, 16);

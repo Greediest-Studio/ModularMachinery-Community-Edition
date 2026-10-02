@@ -21,7 +21,6 @@ import kport.modularmagic.common.integration.jei.ingredient.DemonWill;
 import kport.modularmagic.common.tile.TileWillProvider;
 
 import javax.annotation.Nonnull;
-import java.util.Collections;
 import java.util.List;
 
 public class RequirementWill extends ComponentRequirement<DemonWill, RequirementTypeWill> implements Asyncable {
@@ -49,15 +48,10 @@ public class RequirementWill extends ComponentRequirement<DemonWill, Requirement
 
     @Override
     public boolean startCrafting(ProcessingComponent<?> component, RecipeCraftingContext context, ResultChance chance) {
-        if (!canStartCrafting(component, context, Collections.emptyList()).isSuccess()) {
-            return false;
-        }
-
-        if (getActionType() == IOType.INPUT) {
-            TileWillProvider willProvider = (TileWillProvider) component.getComponent().getContainerProvider();
-            ModularMachinery.EXECUTE_MANAGER.addSyncTask(() -> willProvider.removeWill(willAmount, willType));
-        }
-        return true;
+        TileWillProvider provider = (TileWillProvider) component.getComponent().getContainerProvider();
+        return ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> getActionType() == IOType.INPUT
+            ? provider.tryRemoveWill(willAmount, willType, min)
+            : checkProvider(provider).isSuccess());
     }
 
     @Nonnull
@@ -65,7 +59,13 @@ public class RequirementWill extends ComponentRequirement<DemonWill, Requirement
     public CraftCheck finishCrafting(ProcessingComponent<?> component, RecipeCraftingContext context, ResultChance chance) {
         if (getActionType() == IOType.OUTPUT) {
             TileWillProvider willProvider = (TileWillProvider) component.getComponent().getContainerProvider();
-            ModularMachinery.EXECUTE_MANAGER.addSyncTask(() -> willProvider.addWill(willAmount, willType));
+            return ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> {
+                CraftCheck check = checkProvider(willProvider);
+                if (check.isSuccess()) {
+                    willProvider.addWill(willAmount, willType);
+                }
+                return check;
+            });
         }
         return CraftCheck.success();
     }
@@ -74,14 +74,18 @@ public class RequirementWill extends ComponentRequirement<DemonWill, Requirement
     @Override
     public CraftCheck canStartCrafting(ProcessingComponent<?> component, RecipeCraftingContext context, List<ComponentOutputRestrictor> restrictions) {
         TileWillProvider willProvider = (TileWillProvider) component.getComponent().getContainerProvider();
+        return ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> checkProvider(willProvider));
+    }
+
+    private CraftCheck checkProvider(TileWillProvider willProvider) {
         switch (getActionType()) {
             case INPUT -> {
-                if (willProvider.getWill(this.willType) - this.willAmount < this.min) {
+                if (willAmount < 0 || willProvider.getWill(this.willType) - this.willAmount < Math.max(0, this.min)) {
                     return CraftCheck.failure("error.modularmachinery.requirement.will.less");
                 }
             }
             case OUTPUT -> {
-                if (willProvider.getWill(this.willType) - this.willAmount > this.max) {
+                if (willAmount < 0 || willProvider.getWill(this.willType) + this.willAmount > this.max) {
                     return CraftCheck.failure("error.modularmachinery.requirement.will.more");
                 }
             }
@@ -97,12 +101,13 @@ public class RequirementWill extends ComponentRequirement<DemonWill, Requirement
 
     @Override
     public RequirementWill deepCopy() {
-        return this;
+        return new RequirementWill(actionType, willAmount, willType, min, max);
     }
 
     @Override
     public RequirementWill deepCopyModified(List<RecipeModifier> list) {
-        return this;
+        return new RequirementWill(actionType,
+            RecipeModifier.applyModifiers(list, this, willAmount, false), willType, min, max);
     }
 
     @Override

@@ -3,6 +3,8 @@ package github.kasuminova.mmce.common.util;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.fml.common.FMLLog;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.oredict.OreDictionary;
 import net.minecraftforge.registries.IRegistryDelegate;
 
@@ -10,8 +12,18 @@ import javax.annotation.Nonnull;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+@Mod.EventBusSubscriber(modid = "modularmachinery")
 public class OredictCache {
     private static final Map<Integer, Map<Integer, int[]>> ORE_ID_CACHE_MAP = new ConcurrentHashMap<>();
+
+    public static void clear() {
+        ORE_ID_CACHE_MAP.clear();
+    }
+
+    @SubscribeEvent
+    public static void onOreRegistered(OreDictionary.OreRegisterEvent event) {
+        clear();
+    }
 
     public static int[] getOreIDsFast(@Nonnull ItemStack stack) {
         if (stack.isEmpty()) {
@@ -39,7 +51,7 @@ public class OredictCache {
             synchronized (map) {
                 oreIDs = map.get(damageOffset);
                 if (oreIDs == null) {
-                    map.put(id, oreIDs = OreDictionary.getOreIDs(stack));
+                    map.put(damageOffset, oreIDs = OreDictionary.getOreIDs(stack));
                 }
             }
         }

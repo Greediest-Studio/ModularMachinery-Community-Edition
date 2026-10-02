@@ -41,6 +41,9 @@ public abstract class ComponentRequirement<T, V extends RequirementType<T, ? ext
     protected static final Object COMPONENT_MATCH_FLUID_OUTPUT = new Object();
     protected static final Object COMPONENT_MATCH_GAS_INPUT    = new Object();
     protected static final Object COMPONENT_MATCH_GAS_OUTPUT   = new Object();
+    protected static final Object COMPONENT_COPY_ITEM = new Object();
+    protected static final Object COMPONENT_COPY_FLUID = new Object();
+    protected static final Object COMPONENT_COPY_GAS = new Object();
 
     public final    V                    requirementType;
     protected final IOType               actionType;
@@ -157,6 +160,17 @@ public abstract class ComponentRequirement<T, V extends RequirementType<T, ? ext
         return null;
     }
 
+    /** 返回共享模拟余额的资源键；null 表示使用 providedComponent 的对象身份。 */
+    @Nullable
+    public Object getComponentCopyKey(ProcessingComponent<?> component) {
+        return null;
+    }
+
+    /** 同一资源类型的不同需求共用副本，不在公共上下文中加载可选集成类。 */
+    public Object getComponentCopyFamily() {
+        return getClass();
+    }
+
     /**
      * Whether this requirement must be represented in every recipe group even
      * when that group has no matching component.
@@ -177,6 +191,11 @@ public abstract class ComponentRequirement<T, V extends RequirementType<T, ? ext
      * Reset requirement state when RecipeCraftingContext is reset or recycled.
      */
     public void reset() {
+    }
+
+    /** 切换候选资源组时重置检查状态，已选定的随机结果可保持不变。 */
+    public void resetForGroupCheck() {
+        reset();
     }
 
     /**
@@ -383,6 +402,13 @@ public abstract class ComponentRequirement<T, V extends RequirementType<T, ? ext
      * </p>
      */
     public interface MultiComponent {
+        /** 失败时不得留下本需求的部分扣费，调用方会保留索引并重试。 */
+        default boolean startCraftingChecked(List<ProcessingComponent<?>> components,
+                                             RecipeCraftingContext context, ResultChance chance) {
+            startCrafting(components, context, chance);
+            return true;
+        }
+
         /**
          * <p>
          * 为所有匹配的组件都提供一份复制副本，通常用于并行检查和配方检查。<br/>

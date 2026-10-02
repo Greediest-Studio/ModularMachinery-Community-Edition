@@ -101,7 +101,7 @@ public class AdapterNCOInfuser extends AdapterNCOMachine {
             }
 
             for (IItemIngredient itemProduct : basicRecipe.getItemProducts()) {
-                int outputAmount = Math.round(RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_ITEM, IOType.INPUT, itemProduct.getStack().getCount(), false));
+                int outputAmount = Math.round(RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_ITEM, IOType.OUTPUT, itemProduct.getStack().getCount(), false));
                 if (outputAmount > 0) {
                     recipe.addRequirement(new RequirementItem(IOType.OUTPUT, ItemUtils.copyStackWithSize(itemProduct.getStack(), outputAmount)));
                 }

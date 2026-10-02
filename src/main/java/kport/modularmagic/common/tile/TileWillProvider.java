@@ -23,6 +23,21 @@ public abstract class TileWillProvider extends TileColorableMachineComponent imp
         WorldDemonWillHandler.drainWill(this.world, this.pos, willType, willValue, true);
     }
 
+    // 由主线程调用：检查、扣款和不足额退款必须在同一次操作内完成。
+    public boolean tryRemoveWill(double willValue, EnumDemonWillType willType, double minimum) {
+        if (willValue < 0 || getWill(willType) - willValue < Math.max(0, minimum)) {
+            return false;
+        }
+        double removed = WorldDemonWillHandler.drainWill(world, pos, willType, willValue, true);
+        if (removed >= willValue) {
+            return true;
+        }
+        if (removed > 0) {
+            WorldDemonWillHandler.fillWill(world, pos, willType, removed, true);
+        }
+        return false;
+    }
+
     public static class Input extends TileWillProvider {
 
         @Nullable

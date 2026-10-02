@@ -78,6 +78,7 @@ public class ItemUtils {
                 if (fuelAmtToConsume <= 0) {
                     break;
                 }
+                continue;
             }
             int fuelPer = TileEntityFurnace.getItemBurnTime(inSlot);
             int toConsumeDiv = fuelAmtToConsume / fuelPer;

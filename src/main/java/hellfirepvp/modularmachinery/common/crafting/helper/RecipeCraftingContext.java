@@ -13,11 +13,13 @@ import github.kasuminova.mmce.common.event.Phase;
 import github.kasuminova.mmce.common.event.recipe.ResultChanceCreateEvent;
 import hellfirepvp.modularmachinery.common.crafting.ActiveMachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementCatalyst;
 import hellfirepvp.modularmachinery.common.crafting.command.ControllerCommandSender;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementType;
 import hellfirepvp.modularmachinery.common.data.Config;
 import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
 import hellfirepvp.modularmachinery.common.machine.IOType;
+import hellfirepvp.modularmachinery.common.machine.MachineComponent;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import hellfirepvp.modularmachinery.common.modifier.SingleBlockModifierReplacement;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
@@ -106,16 +108,23 @@ public class RecipeCraftingContext {
         final ReqCompMap reqCompMap,
         final TaggedReqCompMap taggedReqCompMap,
         final ComponentRequirement<?, ?> req, final List<ProcessingComponent<?>> compList) {
-        List<ProcessingComponent<?>> copiedCompList;
-        if (req.tag != null) {
-            copiedCompList = taggedReqCompMap.computeIfAbsent(
-                req.actionType, reqTypeMap -> new Object2ObjectArrayMap<>()).computeIfAbsent(
-                req.requirementType, tagMap -> new Object2ObjectOpenHashMap<>()).computeIfAbsent(
-                req.tag, comp -> ((ComponentRequirement.MultiComponent) req).copyComponents(compList));
-        } else {
-            copiedCompList = reqCompMap.computeIfAbsent(
-                req.actionType, reqTypeMap -> new Object2ObjectArrayMap<>()).computeIfAbsent(
-                req.requirementType, comp -> ((ComponentRequirement.MultiComponent) req).copyComponents(compList));
+        // 同一实际库存的不同需求/标签必须共用检查账本；组合仓的不同资源仍分别复制。
+        Object family = req.getComponentCopyFamily();
+        Map<Object, Object> snapshots = reqCompMap.snapshots.computeIfAbsent(family, ignored -> new HashMap<>());
+        List<ProcessingComponent<?>> copiedCompList = new ArrayList<>(compList.size());
+        Set<Object> included = new HashSet<>();
+        for (ProcessingComponent<?> component : compList) {
+            Object source = req.getComponentCopyKey(component);
+            if (source == null) source = new ComponentIdentity(component.getProvidedComponent());
+            if (!included.add(source)) continue;
+            Object copy = snapshots.get(source);
+            if (copy == null) {
+                List<ProcessingComponent<?>> copied = ((ComponentRequirement.MultiComponent) req).copyComponents(Collections.singletonList(component));
+                if (copied.isEmpty()) continue;
+                copy = copied.get(0).getProvidedComponent();
+                snapshots.put(source, copy);
+            }
+            copiedCompList.add(new ProcessingComponent<>((MachineComponent<Object>) component.component(), copy, component.tag()));
         }
         return copiedCompList;
     }
@@ -170,7 +179,40 @@ public class RecipeCraftingContext {
 
         reset();
         updateComponents(ctrl.getFoundComponents());
+        boolean resumed = activeRecipe.isStarted() || activeRecipe.getCraftingGroupId() != null;
+        setParallelism(resumed ? activeRecipe.getParallelism() : 1);
+        if (resumed) {
+            if (activeRecipe.getCraftingGroupId() != null) setGroupId(activeRecipe.getCraftingGroupId());
+            else getCurrentComponents();
+            this.isCrafting = true;
+            restoreCatalysts();
+        }
         return this;
+    }
+
+    /** 使用配方需求索引保存本次启用项，重载后沿用当前配方定义的modifier。 */
+    public int[] getActiveCatalystIndices() {
+        return java.util.stream.IntStream.range(0, requirements.size())
+            .filter(index -> requirements.get(index) instanceof RequirementCatalyst catalyst && catalyst.isActive())
+            .toArray();
+    }
+
+    private void restoreCatalysts() {
+        List<RequirementComponents> components = getCurrentComponents();
+        for (int index : activeRecipe.getActiveCatalystIndices()) {
+            if (index < 0 || index >= requirements.size()
+                || !(requirements.get(index) instanceof RequirementCatalyst catalyst)) continue;
+            boolean pending = false;
+            if (!activeRecipe.isStarted()) {
+                for (int i = activeRecipe.getStartRequirementIndex(); i < components.size(); i++) {
+                    if (components.get(i).requirement() == catalyst) {
+                        pending = true;
+                        break;
+                    }
+                }
+            }
+            catalyst.restoreAfterLoad(this, pending);
+        }
     }
 
     public int getReloadCounter() {
@@ -253,6 +295,7 @@ public class RecipeCraftingContext {
     }
 
     public CraftingCheckResult ioTick(int currentTick) {
+        if (!requirementComponents.containsKey(groupId)) return missingGroup();
         ResultChance chance = new ResultChance(RAND.nextLong());
         CraftingCheckResult checkResult = new CraftingCheckResult();
         float durMultiplier = this.getDurationMultiplier();
@@ -265,7 +308,7 @@ public class RecipeCraftingContext {
 
             ComponentRequirement<?, ?> requirement = reqComponent.requirement();
             if (!(requirement instanceof ComponentRequirement.PerTick<?, ?> perTickReq)) {
-                if (requirement.getTriggerTime() <= 0) {
+                if (requirement.getTriggerTime() > 0) {
                     checkAndTriggerRequirement(checkResult, currentTick, chance, reqComponent);
                     if (checkResult.isFailure()) {
                         currentIOTickIndex = i;
@@ -331,15 +374,14 @@ public class RecipeCraftingContext {
                                             final ResultChance chance,
                                             final RequirementComponents reqComponent) {
         ComponentRequirement<?, ?> req = reqComponent.requirement();
-        int triggerTime = req.getTriggerTime() * Math.round(RecipeModifier.applyModifiers(
-            this, RequirementTypesMM.REQUIREMENT_DURATION, null, 1, false));
-        if (triggerTime <= 0 || triggerTime != currentTick || (req.isTriggered() && !req.isTriggerRepeatable())) {
+        int triggerTime = Math.max(0, Math.round(req.getTriggerTime() * getDurationMultiplier()));
+        if (triggerTime != currentTick || (req.isTriggered() && !req.isTriggerRepeatable())) {
             return;
         }
 
         if (canStartCrafting(res, reqComponent, new ReqCompMap(), new TaggedReqCompMap())) {
-            startCrafting(chance, reqComponent);
-            req.setTriggered(true);
+            if (startCrafting(chance, reqComponent)) req.setTriggered(true);
+            else res.addError("craftcheck.failure.start_retry");
         }
     }
 
@@ -347,13 +389,14 @@ public class RecipeCraftingContext {
         List<RequirementComponents> components;
         var g = requirementComponents.get(groupId);
         if (g == null) {
+            if (isCrafting) return Collections.emptyList();
             for (Long l : this.requirementComponents.keySet()) {
                 if (l >= 0) {
                     setGroupId(l);
                     break;
                 }
             }
-            components = requirementComponents.get(groupId);
+            components = requirementComponents.getOrDefault(groupId, Collections.emptyList());
         } else {
             components = g;
         }
@@ -365,23 +408,29 @@ public class RecipeCraftingContext {
     }
 
     public void startCrafting(long seed) {
-        ResultChance chance = new ResultChance(seed);
-
-        for (RequirementComponents reqComponents : getCurrentComponents()) {
-            if (reqComponents.requirement().getTriggerTime() <= 0) {
-                startCrafting(chance, reqComponents);
-            }
-        }
-
-        this.getParentRecipe().getCommandContainer().runStartCommands(getCommandSender());
+        tryStartCrafting(seed);
     }
 
-    private void startCrafting(final ResultChance chance, final RequirementComponents reqComponents) {
+    public boolean tryStartCrafting(long seed) {
+        if (!requirementComponents.containsKey(groupId)) return false;
+        List<RequirementComponents> components = getCurrentComponents();
+        for (int i = activeRecipe.getStartRequirementIndex(); i < components.size(); i++) {
+            RequirementComponents reqComponents = components.get(i);
+            if (reqComponents.requirement().getTriggerTime() <= 0) {
+                // 每个需求独立固定随机流；重试不会重新扣前序需求或改变概率。
+                if (!startCrafting(new ResultChance(seed + i * 0x9E3779B97F4A7C15L), reqComponents)) return false;
+            }
+            activeRecipe.setStartRequirementIndex(i + 1);
+        }
+        this.getParentRecipe().getCommandContainer().runStartCommands(getCommandSender());
+        return true;
+    }
+
+    private boolean startCrafting(final ResultChance chance, final RequirementComponents reqComponents) {
         ComponentRequirement<?, ?> requirement = reqComponents.requirement();
 
         if (requirement instanceof ComponentRequirement.MultiComponent req) {
-            req.startCrafting(reqComponents.components(), this, chance);
-            return;
+            return req.startCraftingChecked(reqComponents.components(), this, chance);
         }
 
         requirement.startRequirementCheck(chance, this);
@@ -394,10 +443,11 @@ public class RecipeCraftingContext {
             }
             if (success.get()) {
                 requirement.endRequirementCheck();
-                return;
+                return true;
             }
         }
         requirement.endRequirementCheck();
+        return requirement.isOptional();
     }
 
     public void finishCrafting() {
@@ -447,8 +497,7 @@ public class RecipeCraftingContext {
     public Collection<RequirementComponents> getAllParallelizableComponents() {
         Collection<RequirementComponents> list = new ObjectArrayList<>();
         for (RequirementComponents reqComponent : getCurrentComponents()) {
-            if (reqComponent.requirement() instanceof ComponentRequirement.Parallelizable parallelizable
-                && !parallelizable.isParallelizeUnaffected()) {
+            if (reqComponent.requirement() instanceof ComponentRequirement.Parallelizable) {
                 list.add(reqComponent);
             }
         }
@@ -456,31 +505,34 @@ public class RecipeCraftingContext {
     }
 
     public int getMaxParallelism(Collection<RequirementComponents> parallelizable) {
-        int maxParallelism = this.activeRecipe.getMaxParallelism();
-
-        ReqCompMap typeCopiedComp = new ReqCompMap();
-        TaggedReqCompMap taggedTypeCopiedComp = new TaggedReqCompMap();
-
-        int reqMaxParallelism = maxParallelism;
-        for (RequirementComponents reqComponent : parallelizable) {
-            ComponentRequirement<?, ?> req = reqComponent.requirement();
-            List<ProcessingComponent<?>> compList = reqComponent.components();
-            List<ProcessingComponent<?>> copiedCompList = getCopiedRequirementComponents(typeCopiedComp, taggedTypeCopiedComp, req, compList);
-
-            ComponentRequirement.Parallelizable requirement = (ComponentRequirement.Parallelizable) req;
-            reqMaxParallelism = Math.min(reqMaxParallelism, requirement.getMaxParallelism(copiedCompList, this, reqMaxParallelism));
-
-            if (reqMaxParallelism <= 0) {
-                return 0;
+        int low = 0, high = this.activeRecipe.getMaxParallelism();
+        // 每个候选使用全新账本，避免先前较大并行的试扣污染后续需求。
+        while (low < high) {
+            int candidate = low + (int) (((long) high - low + 1) / 2);
+            clearPermanentModifiers();
+            for (RequirementComponents entry : parallelizable) {
+                entry.requirement().resetForGroupCheck();
+                ((ComponentRequirement.Parallelizable) entry.requirement()).setParallelism(candidate);
             }
+            ReqCompMap copied = new ReqCompMap();
+            TaggedReqCompMap tagged = new TaggedReqCompMap();
+            CraftingCheckResult result = new CraftingCheckResult();
+            boolean fits = true;
+            for (RequirementComponents entry : parallelizable) {
+                if (!canStartCrafting(result, entry, copied, tagged) && !entry.requirement().isOptional()) {
+                    fits = false;
+                    break;
+                }
+            }
+            if (fits) low = candidate;
+            else high = candidate - 1;
         }
-
-        return reqMaxParallelism;
+        return low;
     }
 
     public void setParallelism(int parallelism) {
-        for (RequirementComponents obj : getCurrentComponents()) {
-            if (obj.requirement() instanceof ComponentRequirement.Parallelizable p) {
+        for (ComponentRequirement<?, ?> requirement : requirements) {
+            if (requirement instanceof ComponentRequirement.Parallelizable p) {
                 p.setParallelism(parallelism);
             }
         }
@@ -495,9 +547,6 @@ public class RecipeCraftingContext {
             int maxParallelism = getMaxParallelism(parallelizable);
             setParallelism(Math.max(1, maxParallelism));
 
-            if (maxParallelism > 0 && parallelizable.size() >= getCurrentComponents().size()) {
-                return CraftingCheckResult.SUCCESS;
-            }
         }
         return canStartCrafting(true);
     }
@@ -526,6 +575,7 @@ public class RecipeCraftingContext {
     }
 
     private CraftingCheckResult canStartCrafting(boolean input) {
+        if (isCrafting && !requirementComponents.containsKey(groupId)) return missingGroup();
         currentRestrictions.clear();
 
         CraftingCheckResult result = CraftingCheckResult.FAILURE;
@@ -539,7 +589,7 @@ public class RecipeCraftingContext {
             controller.beginSmartInterfaceRecipeCheck(key);
             if (input) {
                 clearPermanentModifiers();
-                this.requirements.forEach(ComponentRequirement::reset);
+                this.requirements.forEach(ComponentRequirement::resetForGroupCheck);
             }
             try {
                 List<RequirementComponents> components = this.requirementComponents.get(key);
@@ -606,6 +656,12 @@ public class RecipeCraftingContext {
 
     public long getGroupId() {
         return groupId;
+    }
+
+    private CraftingCheckResult missingGroup() {
+        CraftingCheckResult result = new CraftingCheckResult();
+        result.addError("craftcheck.failure.group.missing");
+        return result;
     }
 
     private boolean canStartCrafting(final CraftingCheckResult result,
@@ -940,6 +996,7 @@ public class RecipeCraftingContext {
 
     public static class ReqCompMap
         extends EnumMap<IOType, Object2ObjectArrayMap<RequirementType<?, ?>, List<ProcessingComponent<?>>>> {
+        private final Map<Object, Map<Object, Object>> snapshots = new HashMap<>();
         public ReqCompMap() {
             super(IOType.class);
         }
@@ -947,6 +1004,15 @@ public class RecipeCraftingContext {
         @Override
         public final ReqCompMap clone() throws AssertionError {
             throw new AssertionError();
+        }
+    }
+
+    private static final class ComponentIdentity {
+        private final Object component;
+        private ComponentIdentity(Object component) { this.component = component; }
+        @Override public int hashCode() { return System.identityHashCode(component); }
+        @Override public boolean equals(Object other) {
+            return other instanceof ComponentIdentity identity && component == identity.component;
         }
     }
 }

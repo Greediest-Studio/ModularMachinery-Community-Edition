@@ -124,7 +124,7 @@ public class RequirementLifeEssence extends ComponentRequirement.PerTickParallel
 
     @Override
     public void finishCrafting(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final ResultChance chance) {
-        if (!perTick && actionType == IOType.INPUT) {
+        if (!perTick && actionType == IOType.OUTPUT) {
             addAll(convertLifeEssenceProviders(components), context, parallelism, false);
         }
     }

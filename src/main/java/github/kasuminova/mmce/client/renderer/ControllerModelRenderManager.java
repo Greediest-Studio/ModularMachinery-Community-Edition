@@ -66,17 +66,28 @@ public class ControllerModelRenderManager {
         for (final TileMultiblockMachineController ctrl : toRemove) {
             GeoModelRenderTask removed = MachineControllerRenderer.INSTANCE.tasks.remove(ctrl);
             if (removed != null) {
-                try {
-                    //noinspection FinalizeCalledExplicitly
-                    removed.finalize();
-                } catch (Throwable ignored) {
-                }
+                reinitializeCallback.remove(removed);
+                removed.dispose();
             }
             toRender.remove(ctrl);
             if (MachineControllerRenderer.shouldUseBloom()) {
                 BloomGeoModelRenderer.INSTANCE.unregisterGlobal(ctrl);
             }
         }
+        alive.clear();
+    }
+
+    public void clear() {
+        buffers.clear();
+        reinitializeCallback.clear();
+        MachineControllerRenderer.INSTANCE.tasks.forEach((ctrl, task) -> {
+            task.dispose();
+            if (MachineControllerRenderer.shouldUseBloom()) {
+                BloomGeoModelRenderer.INSTANCE.unregisterGlobal(ctrl);
+            }
+        });
+        MachineControllerRenderer.INSTANCE.tasks.clear();
+        toRender.clear();
         alive.clear();
     }
 

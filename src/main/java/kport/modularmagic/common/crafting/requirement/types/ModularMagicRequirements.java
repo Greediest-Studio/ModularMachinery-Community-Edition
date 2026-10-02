@@ -41,7 +41,7 @@ public class ModularMagicRequirements {
             registerRequirement(new RequirementTypeAspect(), KEY_REQUIREMENT_ASPECT);
         }
         if (Mods.TA.isPresent()) {
-            registerRequirement(new RequirementTypeImpetus(), KEY_REQUIREMENT_IMPETUS);
+            registerRequirement(RequirementTypeImpetus.INSTANCE, KEY_REQUIREMENT_IMPETUS);
         }
         if (Mods.BOTANIA.isPresent()) {
             registerRequirement(new RequirementTypeMana(), KEY_REQUIREMENT_MANA);

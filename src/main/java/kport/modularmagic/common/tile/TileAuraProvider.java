@@ -16,19 +16,22 @@ import javax.annotation.Nullable;
 public abstract class TileAuraProvider extends TileColorableMachineComponent implements MachineComponentTile {
 
     public void addAura(Aura aura) {
-        IAuraChunk auraChunk = IAuraChunk.getAuraChunk(world, pos);
-        if (aura.getType() != auraChunk.getType()) {
-            return;
-        }
-        ModularMachinery.EXECUTE_MANAGER.addSyncTask(() -> auraChunk.storeAura(pos, aura.getAmount() * 100000));
+        ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> transferAura(aura, IOType.OUTPUT));
     }
 
     public void removeAura(Aura aura) {
+        ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> transferAura(aura, IOType.INPUT));
+    }
+
+    /** 主线程调用；读取、配方数量、上下界和实际转移均使用 API 原生单位。 */
+    public int transferAura(Aura aura, IOType io) {
         IAuraChunk auraChunk = IAuraChunk.getAuraChunk(world, pos);
-        if (aura.getType() != auraChunk.getType()) {
-            return;
+        if (aura.getAmount() <= 0 || aura.getType() != auraChunk.getType()) {
+            return 0;
         }
-        ModularMachinery.EXECUTE_MANAGER.addSyncTask(() -> auraChunk.drainAura(pos, aura.getAmount() * 100000));
+        return io == IOType.INPUT
+            ? auraChunk.drainAura(pos, aura.getAmount(), false, false)
+            : auraChunk.storeAura(pos, aura.getAmount(), false, false);
     }
 
     public Aura getAura() {

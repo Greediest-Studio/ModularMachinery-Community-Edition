@@ -84,10 +84,11 @@ public record HashedItemStack(ItemStack stack, int stackHashCode, boolean hasTag
     @Override
     public boolean equals(final Object o) {
         if (o instanceof HashedItemStack hashedItemStack) {
-            if (hasTag && !hashedItemStack.hasTag) {
-                return false;
-            }
-            return stackEqualsNonNBT(stack, hashedItemStack.stack) && (!hasTag || ItemStack.areItemStackTagsEqual(stack, hashedItemStack.stack));
+            // 哈希键使用精确等价关系；通配匹配不能作为集合的 equals。
+            return stackHashCode == hashedItemStack.stackHashCode && hasTag == hashedItemStack.hasTag
+                && stack.getItem() == hashedItemStack.stack.getItem()
+                && stack.getItemDamage() == hashedItemStack.stack.getItemDamage()
+                && (!hasTag || ItemStack.areItemStackTagsEqual(stack, hashedItemStack.stack));
         }
         return false;
     }

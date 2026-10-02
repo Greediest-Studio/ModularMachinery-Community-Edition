@@ -124,7 +124,7 @@ public abstract class RecipeThread {
                 return;
             }
 
-            if (context.canStartCrafting().isSuccess()) {
+            if (canAcceptRecipe(context.getActiveRecipe()) && context.canStartCrafting().isSuccess()) {
                 setContext(context);
                 this.activeRecipe = context.getActiveRecipe();
                 this.status = CraftingStatus.SUCCESS;
@@ -139,6 +139,10 @@ public abstract class RecipeThread {
 
     protected boolean shouldSearchRecipe() {
         return ctrl.isSearchRecipeImmediately() || (ctrl.getTicksExisted() % ctrl.currentRecipeSearchDelay() == 0);
+    }
+
+    protected boolean canAcceptRecipe(ActiveMachineRecipe recipe) {
+        return true;
     }
 
     public boolean hasRecipeSearchTask() {

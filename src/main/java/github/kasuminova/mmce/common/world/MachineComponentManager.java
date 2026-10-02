@@ -7,7 +7,6 @@ import github.kasuminova.mmce.common.util.concurrent.ExecuteGroup;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import it.unimi.dsi.fastutil.objects.ObjectArraySet;
 import it.unimi.dsi.fastutil.objects.ReferenceOpenHashSet;
-import it.unimi.dsi.fastutil.objects.ReferenceSets;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -16,6 +15,8 @@ import net.minecraftforge.fml.common.Optional;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,6 +24,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class MachineComponentManager {
     public static final MachineComponentManager                  INSTANCE     = new MachineComponentManager();
     private final       Map<World, Map<BlockPos, ComponentInfo>> componentMap = new ConcurrentHashMap<>();
+    private final Map<TileMultiblockMachineController, Long> pendingGroups = new IdentityHashMap<>();
 
     private MachineComponentManager() {
     }
@@ -44,11 +46,12 @@ public class MachineComponentManager {
         return Pair.of(pos, te);
     }
 
-    public void addWorld(World world) {
-        componentMap.put(world, new ConcurrentHashMap<>());
+    public synchronized void addWorld(World world) {
+        componentMap.putIfAbsent(world, new ConcurrentHashMap<>());
     }
 
-    public void removeWorld(World world) {
+    public synchronized void removeWorld(World world) {
+        pendingGroups.keySet().removeIf(ctrl -> ctrl.getWorld() == world);
         Map<BlockPos, ComponentInfo> removed = componentMap.remove(world);
         if (removed == null) {
             return;
@@ -59,7 +62,7 @@ public class MachineComponentManager {
         removed.clear();
     }
 
-    public void checkComponentShared(TileEntity component, TileMultiblockMachineController ctrl) {
+    public synchronized void checkComponentShared(TileEntity component, TileMultiblockMachineController ctrl) {
         World world = component.getWorld();
         BlockPos pos;
         TileEntity te;
@@ -75,36 +78,48 @@ public class MachineComponentManager {
 
         Map<BlockPos, ComponentInfo> posComponentMap = componentMap.computeIfAbsent(world, v -> new ConcurrentHashMap<>());
 
-        synchronized (te) {
-            ComponentInfo info = posComponentMap.computeIfAbsent(pos, v -> new ComponentInfo(
-                    te, pos, ReferenceSets.synchronize(new ReferenceOpenHashSet<>(Collections.singleton(ctrl)))));
-
-            if (!info.areTileEntityEquals(te)) {
-                ComponentInfo newInfo = new ComponentInfo(te, pos, ReferenceSets.synchronize(new ReferenceOpenHashSet<>(Collections.singleton(ctrl))));
-                posComponentMap.put(pos, newInfo);
-                return;
-            }
-
-            Set<TileMultiblockMachineController> owners = info.owners;
-            if (owners.contains(ctrl)) {
-                return;
-            }
-            owners.add(ctrl);
-            if (owners.size() <= 1) {
-                return;
-            }
-
-            long groupId = owners.stream()
-                    .filter(owner -> owner.getExecuteGroupId() != -1)
-                    .findFirst()
-                    .map(TileMultiblockMachineController::getExecuteGroupId)
-                    .orElse(ExecuteGroup.newGroupId());
-
-            owners.forEach(owner -> owner.setExecuteGroupId(groupId));
+        ComponentInfo info = posComponentMap.get(pos);
+        if (info == null || !info.areTileEntityEquals(te)) {
+            posComponentMap.put(pos, new ComponentInfo(te, pos, new ReferenceOpenHashSet<>(Collections.singleton(ctrl))));
+            return;
         }
+        Set<TileMultiblockMachineController> owners = info.owners;
+        if (!owners.add(ctrl) || owners.size() <= 1) {
+            return;
+        }
+
+        Set<Long> oldGroups = new HashSet<>();
+        owners.forEach(owner -> oldGroups.add(effectiveGroup(owner)));
+        if (oldGroups.size() == 1 && !oldGroups.contains(-1L)) {
+            return;
+        }
+        oldGroups.remove(-1L);
+        long groupId = oldGroups.isEmpty() ? ExecuteGroup.newGroupId() : Collections.min(oldGroups);
+        Set<TileMultiblockMachineController> merged = new ReferenceOpenHashSet<>(owners);
+        // Merge every member of both old groups, not only owners of the connecting component.
+        for (ComponentInfo componentInfo : posComponentMap.values()) {
+            for (TileMultiblockMachineController owner : componentInfo.owners) {
+                if (oldGroups.contains(effectiveGroup(owner))) merged.add(owner);
+            }
+        }
+        merged.forEach(owner -> pendingGroups.put(owner, groupId));
     }
 
-    public void removeOwner(TileEntity component, TileMultiblockMachineController ctrl) {
+    private long effectiveGroup(TileMultiblockMachineController ctrl) {
+        return pendingGroups.getOrDefault(ctrl, ctrl.getExecuteGroupId());
+    }
+
+    public synchronized boolean hasPendingGroup(TileMultiblockMachineController ctrl) {
+        return pendingGroups.containsKey(ctrl);
+    }
+
+    /** Called after the current executor batch has drained, before the next batch is scheduled. */
+    public synchronized void applyPendingGroups() {
+        pendingGroups.forEach((ctrl, group) -> ctrl.setExecuteGroupId(group));
+        pendingGroups.clear();
+    }
+
+    public synchronized void removeOwner(TileEntity component, TileMultiblockMachineController ctrl) {
         World world = component.getWorld();
         BlockPos pos;
         TileEntity te;

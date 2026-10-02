@@ -88,7 +88,7 @@ public class IOInventory extends IItemHandlerImpl implements ReadWriteLockProvid
             return stack;
         }
         try {
-            (simulate ? rwLock.writeLock() : rwLock.readLock()).lock();
+            (simulate ? rwLock.readLock() : rwLock.writeLock()).lock();
             ItemStack inserted = insertItemInternal(slot, stack, simulate);
             if (!simulate) {
                 if (listener != null) {
@@ -98,7 +98,7 @@ public class IOInventory extends IItemHandlerImpl implements ReadWriteLockProvid
             }
             return inserted;
         } finally {
-            (simulate ? rwLock.writeLock() : rwLock.readLock()).unlock();
+            (simulate ? rwLock.readLock() : rwLock.writeLock()).unlock();
         }
     }
 
@@ -106,7 +106,7 @@ public class IOInventory extends IItemHandlerImpl implements ReadWriteLockProvid
     @Nonnull
     public ItemStack extractItem(int slot, int amount, boolean simulate) {
         try {
-            (simulate ? rwLock.writeLock() : rwLock.readLock()).lock();
+            (simulate ? rwLock.readLock() : rwLock.writeLock()).lock();
             ItemStack extracted = super.extractItem(slot, amount, simulate);
             if (!simulate) {
                 if (listener != null) {
@@ -116,7 +116,7 @@ public class IOInventory extends IItemHandlerImpl implements ReadWriteLockProvid
             }
             return extracted;
         } finally {
-            (simulate ? rwLock.writeLock() : rwLock.readLock()).unlock();
+            (simulate ? rwLock.readLock() : rwLock.writeLock()).unlock();
         }
     }
 

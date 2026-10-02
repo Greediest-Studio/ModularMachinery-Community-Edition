@@ -10,6 +10,7 @@ import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
 import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import nc.recipe.BasicRecipe;
+import nc.config.NCConfig;
 import nc.recipe.NCRecipes;
 import nc.recipe.ingredient.IFluidIngredient;
 import net.minecraft.util.ResourceLocation;
@@ -20,6 +21,8 @@ import java.util.*;
 
 public class AdapterNCOCentrifuge extends AdapterNCOMachine {
     public static final int BASE_ENERGY_PER_TICK = 10;
+    // NCO TileProcessor.Centrifuge 使用 processor_time/power 的下标 17。
+    private static final int PROCESSOR_INDEX = 17;
 
     public AdapterNCOCentrifuge() {
         super(new ResourceLocation("nuclearcraft", "centrifuge"));
@@ -38,11 +41,15 @@ public class AdapterNCOCentrifuge extends AdapterNCOMachine {
         for (BasicRecipe basicRecipe : recipeList) {
             ResourceLocation recipeName = new ResourceLocation("nuclearcraft", "centrifuge_" + incId);
 
-            int totalEnergy = Math.round(RecipeModifier.applyModifiers(modifiers,
+            int energyPerTick = Math.round(RecipeModifier.applyModifiers(modifiers,
                     RequirementTypesMM.REQUIREMENT_ENERGY, IOType.INPUT,
-                    (float) basicRecipe.getBaseProcessPower(1.0), false));
+                    (float) basicRecipe.getBaseProcessPower(NCConfig.processor_power[PROCESSOR_INDEX]
+                        * NCConfig.processor_power_multiplier), false));
 
-            int duration = Math.max(1, totalEnergy / BASE_ENERGY_PER_TICK);
+            int duration = Math.max(1, Math.round(RecipeModifier.applyModifiers(modifiers,
+                RequirementTypesMM.REQUIREMENT_DURATION, IOType.INPUT,
+                (float) basicRecipe.getBaseProcessTime(NCConfig.processor_time[PROCESSOR_INDEX]
+                    * NCConfig.processor_time_multiplier), false)));
 
             MachineRecipe recipe = createRecipeShell(recipeName, owningMachineName, duration, incId, false);
 
@@ -73,7 +80,9 @@ public class AdapterNCOCentrifuge extends AdapterNCOMachine {
             }
 
             // 能源输入
-            recipe.addRequirement(new RequirementEnergy(IOType.INPUT, BASE_ENERGY_PER_TICK));
+            if (energyPerTick > 0) {
+                recipe.addRequirement(new RequirementEnergy(IOType.INPUT, energyPerTick));
+            }
 
             machineRecipes.add(recipe);
             incId++;

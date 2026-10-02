@@ -33,7 +33,7 @@ import javax.annotation.Nonnull;
 import javax.vecmath.Vector3f;
 import javax.vecmath.Vector4f;
 import java.util.Map;
-import java.util.WeakHashMap;
+import java.util.HashMap;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class MachineControllerRenderer extends TileEntitySpecialRenderer<TileMultiblockMachineController> {
@@ -59,7 +59,7 @@ public class MachineControllerRenderer extends TileEntitySpecialRenderer<TileMul
         }
     }
 
-    protected final Map<TileMultiblockMachineController, GeoModelRenderTask> tasks = new WeakHashMap<>();
+    protected final Map<TileMultiblockMachineController, GeoModelRenderTask> tasks = new HashMap<>();
 
     protected MachineControllerRenderer() {
     }
@@ -131,6 +131,8 @@ public class MachineControllerRenderer extends TileEntitySpecialRenderer<TileMul
 
     @Optional.Method(modid = "geckolib3")
     private void renderWithBuffer(final TileMultiblockMachineController animatable) {
+        // Lifetime is based on actual TESR visits, independent of emissive geometry.
+        ControllerModelRenderManager.INSTANCE.addToRender(animatable);
         GeoModelRenderTask task = getTask(animatable);
 
         if (MachineControllerRenderer.shouldUseBloom() && !ShaderManager.isOptifineShaderPackLoaded()) {

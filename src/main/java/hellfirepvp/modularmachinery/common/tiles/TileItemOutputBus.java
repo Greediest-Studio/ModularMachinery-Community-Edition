@@ -79,7 +79,16 @@ public class TileItemOutputBus extends TileItemBus implements MachineComponentTi
         }
     }
 
-    private synchronized void outputToExternal(IItemHandler external) {
+    private void outputToExternal(IItemHandler external) {
+        inventory.getRWLock().writeLock().lock();
+        try {
+            outputToExternalLocked(external);
+        } finally {
+            inventory.getRWLock().writeLock().unlock();
+        }
+    }
+
+    private void outputToExternalLocked(IItemHandler external) {
         boolean successAtLeastOnce = false;
 
         for (int externalSlotId = 0; externalSlotId < external.getSlots(); externalSlotId++) {

@@ -42,7 +42,6 @@ public class StaticModelBones {
 
         staticBones.add(bone.name);
         bone.childBones.stream()
-                       .filter(childBone -> !childBone.childBones.isEmpty())
                        .filter(childBone -> !animatedBones.contains(childBone.name))
                        .forEach(staticBone -> recursiveAdd(staticBone, animatedBones));
     }

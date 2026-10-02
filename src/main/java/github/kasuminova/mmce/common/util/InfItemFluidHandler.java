@@ -513,7 +513,7 @@ public class InfItemFluidHandler implements IItemHandlerModifiable, IFluidHandle
             if (stackInSlot == null || !stackInSlot.isGasEqual(toDraw)) {
                 continue;
             }
-            int maxCanDraw = Math.min(toDrawAmount, Integer.MAX_VALUE - stackInSlot.amount);
+            int maxCanDraw = Math.min(toDrawAmount, stackInSlot.amount);
             if (doTransfer) {
                 if (maxCanDraw >= stackInSlot.amount) {
                     gasStackList.set(i, null);
@@ -592,7 +592,7 @@ public class InfItemFluidHandler implements IItemHandlerModifiable, IFluidHandle
             if (stackInSlot == null) {
                 continue;
             }
-            int maxCanDraw = Math.min(drawAmount, Integer.MAX_VALUE - stackInSlot.amount);
+            int maxCanDraw = Math.min(drawAmount, stackInSlot.amount);
             if (doTransfer) {
                 if (maxCanDraw >= stackInSlot.amount) {
                     gasStackList.set(i, null);

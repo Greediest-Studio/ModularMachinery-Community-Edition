@@ -5,6 +5,7 @@ import github.kasuminova.mmce.client.renderer.ControllerModelRenderManager;
 import github.kasuminova.mmce.client.renderer.MachineControllerRenderer;
 import hellfirepvp.modularmachinery.common.base.Mods;
 import net.minecraft.client.renderer.RenderGlobal;
+import net.minecraft.client.multiplayer.WorldClient;
 import net.minecraft.client.renderer.culling.ICamera;
 import net.minecraft.entity.Entity;
 import net.minecraftforge.client.MinecraftForgeClient;
@@ -16,6 +17,13 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @SuppressWarnings("MethodMayBeStatic")
 @Mixin(RenderGlobal.class)
 public class MixinRenderGlobal {
+
+    @Inject(method = "setWorldAndLoadRenderers", at = @At("HEAD"))
+    private void clearControllerModels(final WorldClient world, final CallbackInfo ci) {
+        if (Mods.GECKOLIB.isPresent()) {
+            ControllerModelRenderManager.INSTANCE.clear();
+        }
+    }
 
     @Inject(method = "renderEntities",
         at = @At(

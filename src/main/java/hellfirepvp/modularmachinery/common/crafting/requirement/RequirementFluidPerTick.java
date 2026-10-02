@@ -5,6 +5,7 @@ import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
+import hellfirepvp.modularmachinery.common.crafting.helper.ResourceTransaction;
 import hellfirepvp.modularmachinery.common.crafting.requirement.jei.JEIComponentFluidPerTick;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeFluidPerTick;
 import hellfirepvp.modularmachinery.common.lib.ComponentTypesMM;
@@ -59,6 +60,7 @@ public class RequirementFluidPerTick extends ComponentRequirement.PerTickParalle
     @Override
     public RequirementFluidPerTick deepCopyModified(List<RecipeModifier> modifiers) {
         FluidStack stack = this.required.copy();
+        if (tagMatch != null) stack.tag = tagMatch.copy();
         stack.amount = ((int) Math.round(RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_FLUID, actionType, (double) stack.amount, false)));
         RequirementFluidPerTick fluid = new RequirementFluidPerTick(actionType, stack);
         fluid.tagMatch = tagMatch;
@@ -97,6 +99,11 @@ public class RequirementFluidPerTick extends ComponentRequirement.PerTickParalle
     }
 
     @Override
+    public Object getComponentCopyFamily() {
+        return COMPONENT_COPY_FLUID;
+    }
+
+    @Override
     public int getMaxParallelism(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final int maxParallelism) {
         if (ignoreOutputCheck && actionType == IOType.OUTPUT) {
             return maxParallelism;
@@ -111,7 +118,8 @@ public class RequirementFluidPerTick extends ComponentRequirement.PerTickParalle
     }
 
     private CraftCheck doFluidIO(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context) {
-        int mul = doFluidIOInternal(components, context, parallelism);
+        int mul = ResourceTransaction.withComponents(components, () ->
+            doFluidIOInternal(components, context, parallelism, !(ignoreOutputCheck && actionType == IOType.OUTPUT)));
         if (mul < parallelism) {
             return switch (actionType) {
                 case INPUT -> CraftCheck.failure("craftcheck.failure.fluid.input");
@@ -127,6 +135,10 @@ public class RequirementFluidPerTick extends ComponentRequirement.PerTickParalle
     }
 
     public int doFluidIOInternal(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final int maxMultiplier) {
+        return doFluidIOInternal(components, context, maxMultiplier, false);
+    }
+
+    private int doFluidIOInternal(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final int maxMultiplier, final boolean wholeBatch) {
         List<IFluidHandler> fluidHandlers = HybridFluidUtils.castFluidHandlerComponents(components);
 
         long required = Math.round(RecipeModifier.applyModifiers(context, RequirementTypesMM.REQUIREMENT_FLUID, actionType, (double) this.required.amount, false));
@@ -137,13 +149,17 @@ public class RequirementFluidPerTick extends ComponentRequirement.PerTickParalle
         long maxRequired = required * maxMultiplier;
 
         FluidStack stack = this.required.copy();
-        long totalIO = HybridFluidUtils.doSimulateDrainOrFill(stack, fluidHandlers, maxRequired, actionType);
+        if (tagMatch != null && actionType == IOType.OUTPUT) stack.tag = tagMatch.copy();
+        boolean matchInput = tagMatch != null && actionType == IOType.INPUT;
+        long totalIO = matchInput ? HybridFluidUtils.drainMatchingFluids(stack, tagMatch, fluidHandlers, maxRequired, true)
+            : HybridFluidUtils.doSimulateDrainOrFill(stack, fluidHandlers, maxRequired, actionType);
 
-        if (totalIO < required) {
+        if (totalIO < required || (wholeBatch && totalIO < maxRequired)) {
             return 0;
         }
 
-        HybridFluidUtils.doDrainOrFill(stack, totalIO, fluidHandlers, actionType);
+        if (matchInput) HybridFluidUtils.drainMatchingFluids(stack, tagMatch, fluidHandlers, totalIO, false);
+        else HybridFluidUtils.doDrainOrFill(stack, totalIO, fluidHandlers, actionType);
 
         return (int) (totalIO / required);
     }

@@ -456,7 +456,7 @@ public abstract class WorldSceneRenderer {
     }
 
     public WorldSceneRenderer setVertexBuffers(VertexBuffer[] vertexBuffers) {
-        this.vertexBuffers.setBuffer(vertexBuffers).setAnotherBuffer(vertexBuffers);
+        this.vertexBuffers.setBuffer(vertexBuffers).setAnotherBuffer(new VertexBuffer[vertexBuffers.length]);
         for (int j = 0; j < BlockRenderLayer.values().length; ++j) {
             this.vertexBuffers.getBuffer()[j] = new VertexBuffer(DefaultVertexFormats.BLOCK);
             this.vertexBuffers.getAnotherBuffer()[j] = new VertexBuffer(DefaultVertexFormats.BLOCK);
@@ -577,6 +577,7 @@ public abstract class WorldSceneRenderer {
 
     private void compileCache(final Minecraft mc, final BlockRenderLayer oldRenderLayer, final boolean checkDisabledModel) {
         Thread compilerThread = Thread.currentThread();
+        VertexBuffer[] uploadBuffers = vertexBuffers.getAnotherBuffer();
         BlockRendererDispatcher blockrendererdispatcher = mc.getBlockRendererDispatcher();
         Map<Collection<BlockPos>, ISceneRenderHook> renderedBlocksMap = this.renderedBlocksMap.getAnotherMap();
         for (final BlockRenderLayer layer : BlockRenderLayer.values()) {
@@ -596,11 +597,11 @@ public abstract class WorldSceneRenderer {
                 return;
             }
             mc.addScheduledTask(() -> {
-                if (!useCache) {
+                if (!useCache || thread != compilerThread || compilerThread.isInterrupted()) {
                     return;
                 }
                 ByteBuffer buf = buffer.getByteBuffer();
-                vertexBuffers.getAnotherBuffer()[layer.ordinal()].bufferData(buf);
+                uploadBuffers[layer.ordinal()].bufferData(buf);
             });
         }
         if (!isCompiling()) {
@@ -626,13 +627,17 @@ public abstract class WorldSceneRenderer {
             return;
         }
 
-        tileEntities = poses;
-        cacheState.set(CacheState.COMPILED);
-        maxProgress = -1;
-
-        switchLRRenderer();
-
-        thread = null;
+        // The upload tasks above and the front/back swap run in order on the render thread.
+        mc.addScheduledTask(() -> {
+            if (!useCache || thread != compilerThread || compilerThread.isInterrupted()) {
+                return;
+            }
+            tileEntities = poses;
+            switchLRRenderer();
+            cacheState.set(CacheState.COMPILED);
+            maxProgress = -1;
+            thread = null;
+        });
     }
 
     public void switchLRRenderer() {

@@ -86,14 +86,13 @@ public class MEFluidOutputBus extends MEFluidBus {
                 tanks.setFluidInSlot(slot, left);
             }
 
-            inTick = false;
-            rwLock.writeLock().unlock();
             return successAtLeastOnce ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
         } catch (GridAccessException e) {
-            inTick = false;
             changedSlots = new boolean[TANK_SLOT_AMOUNT];
-            rwLock.writeLock().unlock();
             return TickRateModulation.IDLE;
+        } finally {
+            inTick = false;
+            rwLock.writeLock().unlock();
         }
     }
 

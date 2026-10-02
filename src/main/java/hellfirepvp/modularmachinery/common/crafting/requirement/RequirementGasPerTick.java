@@ -5,6 +5,7 @@ import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
+import hellfirepvp.modularmachinery.common.crafting.helper.ResourceTransaction;
 import hellfirepvp.modularmachinery.common.crafting.requirement.jei.JEIComponentGasPerTick;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeGasPerTick;
 import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
@@ -86,6 +87,11 @@ public class RequirementGasPerTick extends ComponentRequirement.PerTickParalleli
     }
 
     @Override
+    public Object getComponentCopyFamily() {
+        return COMPONENT_COPY_GAS;
+    }
+
+    @Override
     public int getMaxParallelism(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final int maxParallelism) {
         if (ignoreOutputCheck && actionType == IOType.OUTPUT) {
             return maxParallelism;
@@ -100,7 +106,8 @@ public class RequirementGasPerTick extends ComponentRequirement.PerTickParalleli
     }
 
     private CraftCheck doGasIO(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context) {
-        int mul = doGasIOInternal(components, context, parallelism);
+        int mul = ResourceTransaction.withComponents(components, () ->
+            doGasIOInternal(components, context, parallelism, !(ignoreOutputCheck && actionType == IOType.OUTPUT)));
         if (mul < parallelism) {
             return switch (actionType) {
                 case INPUT -> CraftCheck.failure("craftcheck.failure.gas.input");
@@ -116,15 +123,21 @@ public class RequirementGasPerTick extends ComponentRequirement.PerTickParalleli
     }
 
     private int doGasIOInternal(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final int maxMultiplier) {
+        return doGasIOInternal(components, context, maxMultiplier, false);
+    }
+
+    private int doGasIOInternal(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final int maxMultiplier, final boolean wholeBatch) {
         List<IExtendedGasHandler> gasHandlers = HybridFluidUtils.castGasHandlerComponents(components);
 
         long required = Math.round(RecipeModifier.applyModifiers(context, this, (double) this.required.amount, false));
+        if (required <= 0) return maxMultiplier;
+
         long maxRequired = required * maxMultiplier;
 
         GasStack stack = this.required.copy();
         long totalIO = HybridFluidUtils.doSimulateDrainOrFill(stack, gasHandlers, maxRequired, actionType);
 
-        if (totalIO < required) {
+        if (totalIO < required || (wholeBatch && totalIO < maxRequired)) {
             return 0;
         }
 

@@ -1,6 +1,7 @@
 package kport.modularmagic.common.crafting.requirement;
 
 import com.google.common.collect.Lists;
+import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentOutputRestrictor;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
@@ -27,6 +28,7 @@ import java.util.List;
 public class RequirementGrid extends ComponentRequirement.PerTick<Grid, RequirementTypeGrid> implements Asyncable {
 
     public float power;
+    private boolean tickSatisfied;
 
     public RequirementGrid(IOType actionType, float power) {
         super((RequirementTypeGrid) RegistriesMM.REQUIREMENT_TYPE_REGISTRY.getValue(ModularMagicRequirements.KEY_REQUIREMENT_GRID), actionType);
@@ -45,13 +47,27 @@ public class RequirementGrid extends ComponentRequirement.PerTick<Grid, Requirem
     @Override
     public CraftCheck doIOTick(ProcessingComponent<?> component, RecipeCraftingContext context) {
         TileGridProvider provider = (TileGridProvider) component.getComponent().getContainerProvider();
-        switch (getActionType()) {
-            case OUTPUT:
-                provider.setPower(-this.power);
-            case INPUT:
-                provider.setPower(this.power);
-        }
-        return CraftCheck.success();
+        CraftCheck result = ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> {
+            CraftCheck check = checkProvider(provider);
+            provider.setPower(check.isSuccess() ? (actionType == IOType.OUTPUT ? -power : power) : 0);
+            return check;
+        });
+        tickSatisfied |= result.isSuccess();
+        return result;
+    }
+
+    @Override
+    public void startIOTick(RecipeCraftingContext context, float durationMultiplier) {
+        tickSatisfied = false;
+    }
+
+    @Nonnull
+    @Override
+    public CraftCheck resetIOTick(RecipeCraftingContext context) {
+        CraftCheck result = tickSatisfied ? CraftCheck.success()
+            : CraftCheck.failure("error.modularmachinery.requirement.grid.less");
+        tickSatisfied = false;
+        return result;
     }
 
     @Override
@@ -63,8 +79,14 @@ public class RequirementGrid extends ComponentRequirement.PerTick<Grid, Requirem
     @Override
     public CraftCheck canStartCrafting(ProcessingComponent<?> component, RecipeCraftingContext context, List<ComponentOutputRestrictor> restrictions) {
         TileGridProvider provider = (TileGridProvider) component.getComponent().getContainerProvider();
+        return ModularMachinery.EXECUTE_MANAGER.callOnMainThread(() -> checkProvider(provider));
+    }
 
-        if (getActionType() == IOType.INPUT && provider.getFreq().getPowerCreated() - provider.getFreq().getPowerDrain() < this.power) {
+    private CraftCheck checkProvider(TileGridProvider provider) {
+        // 已登记的本仓负载不应作为新增负载重复计算；总发电量仍须满足本配方。
+        float created = provider.getFreq().getPowerCreated();
+        float available = created - provider.getFreq().getPowerDrain() + Math.max(0, provider.getPower());
+        if (actionType == IOType.INPUT && Math.min(created, available) < power) {
             return CraftCheck.failure("error.modularmachinery.requirement.grid.less");
         } else {
             return CraftCheck.success();

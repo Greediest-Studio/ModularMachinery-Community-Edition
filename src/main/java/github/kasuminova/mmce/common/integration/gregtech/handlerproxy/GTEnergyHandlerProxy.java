@@ -38,7 +38,8 @@ public class GTEnergyHandlerProxy implements IEnergyHandlerAsync {
 
     @Override
     public boolean extractEnergy(final long energy) {
-        long convertedEnergy = energy / ENERGY_MULTIPLIER;
+        // EU 只接受整单位；输入向上取整，避免小于 4 FE 的配方免费运行。
+        long convertedEnergy = energy / ENERGY_MULTIPLIER + (energy % ENERGY_MULTIPLIER == 0 ? 0 : 1);
 
         long removed = -energyContainer.removeEnergy(convertedEnergy);
         if (removed < convertedEnergy) {
@@ -53,7 +54,7 @@ public class GTEnergyHandlerProxy implements IEnergyHandlerAsync {
         long convertedEnergy = energy / ENERGY_MULTIPLIER;
 
         long added = energyContainer.addEnergy(convertedEnergy);
-        if (added < energy) {
+        if (added < convertedEnergy) {
             energyContainer.removeEnergy(added);
             return false;
         }

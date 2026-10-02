@@ -133,7 +133,7 @@ public abstract class BlockAspectProvider extends BlockMachineComponent implemen
                         tile.markDirty();
                         player.getHeldItem(hand).shrink(1);
                         if (!player.inventory.addItemStackToInventory(new ItemStack(ItemsTC.phial, 1, 0))) {
-                            world.spawnEntity(new EntityItem(world, (double) ((float) pos.getX() + 0.5F), (double) ((float) pos.getY() + 0.5F), (double) ((float) pos.getZ() + 0.5F), new ItemStack(this, 1, 0)));
+                            world.spawnEntity(new EntityItem(world, (double) ((float) pos.getX() + 0.5F), (double) ((float) pos.getY() + 0.5F), (double) ((float) pos.getZ() + 0.5F), new ItemStack(ItemsTC.phial, 1, 0)));
                         }
                         player.playSound(SoundEvents.ITEM_BOTTLE_FILL, 0.25F, 1.0F);
                         player.inventoryContainer.detectAndSendChanges();

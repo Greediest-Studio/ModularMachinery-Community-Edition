@@ -9,6 +9,8 @@ import github.kasuminova.mmce.common.util.MultiGasTank;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.machine.MachineComponent;
+import hellfirepvp.modularmachinery.common.util.nbt.NBTMatchingHelper;
+import net.minecraft.nbt.NBTTagCompound;
 import mekanism.api.gas.GasStack;
 import mekanism.api.gas.IGasHandler;
 import net.minecraftforge.fluids.FluidStack;
@@ -23,6 +25,32 @@ import java.util.LinkedList;
 import java.util.List;
 
 public class HybridFluidUtils {
+
+    /** 先匹配实际流体的 NBT，再把具体流体交给 Forge，支持子集和比较型 NBT 条件。 */
+    public static long drainMatchingFluids(FluidStack required, NBTTagCompound tagMatch,
+                                          List<IFluidHandler> handlers, long amount, boolean simulate) {
+        long drained = 0;
+        for (IFluidHandler handler : handlers) {
+            List<FluidStack> checked = new ArrayList<>();
+            for (IFluidTankProperties property : handler.getTankProperties()) {
+                FluidStack actual = property.getContents();
+                if (actual == null || actual.getFluid() != required.getFluid()
+                    || !NBTMatchingHelper.matchNBTCompound(tagMatch, actual.tag)) continue;
+                boolean duplicate = false;
+                for (FluidStack previous : checked) {
+                    if (previous.isFluidEqual(actual)) { duplicate = true; break; }
+                }
+                if (duplicate) continue;
+                checked.add(actual);
+                FluidStack request = actual.copy();
+                request.amount = (int) Math.min(Integer.MAX_VALUE, amount - drained);
+                FluidStack result = handler.drain(request, !simulate);
+                if (result != null) drained += result.amount;
+                if (drained >= amount) return drained;
+            }
+        }
+        return drained;
+    }
 
     public static long doSimulateDrainOrFill(final FluidStack drainOrFill, final List<IFluidHandler> fluidHandlers, final long maxDrainOrFill, final IOType actionType) {
         long totalIO = 0;

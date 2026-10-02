@@ -18,6 +18,7 @@ import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
 
 import javax.annotation.Nonnull;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * This class is part of the Modular Machinery Mod
@@ -29,8 +30,8 @@ import javax.annotation.Nonnull;
 public class TileEntitySynchronized extends TileEntity {
     protected boolean requireUpdateComparatorLevel = false;
 
-    private boolean inUpdateTask = false;
-    private boolean inMarkTask   = false;
+    private final AtomicBoolean inUpdateTask = new AtomicBoolean();
+    private final AtomicBoolean inMarkTask = new AtomicBoolean();
 
     private long lastUpdateTick = 0;
 
@@ -85,6 +86,7 @@ public class TileEntitySynchronized extends TileEntity {
 
     @SuppressWarnings("ConstantValue")
     public void markNoUpdate() {
+        inMarkTask.set(false);
         World world = getWorld();
         if (world == null) {
             return;
@@ -95,11 +97,11 @@ public class TileEntitySynchronized extends TileEntity {
         }
         markChunkDirty();
 
-        inMarkTask = false;
         lastUpdateTick = world.getTotalWorldTime();
     }
 
     public void markForUpdate() {
+        inUpdateTask.set(false);
         markNoUpdate();
         notifyUpdate();
     }
@@ -111,15 +113,13 @@ public class TileEntitySynchronized extends TileEntity {
         }
         IBlockState state = world.getBlockState(pos);
         world.notifyBlockUpdate(pos, state, state, 3);
-        inUpdateTask = false;
     }
 
     public void markNoUpdateSync() {
-        if (inMarkTask) {
+        if (!inMarkTask.compareAndSet(false, true)) {
             return;
         }
         ModularMachinery.EXECUTE_MANAGER.addTEMarkNoUpdateTask(this);
-        inMarkTask = true;
     }
 
     public void markChunkDirty() {
@@ -138,16 +138,14 @@ public class TileEntitySynchronized extends TileEntity {
      * <p>*** 只能保证 MMCE 自身对世界的线程安全 ***</p>
      */
     public void markForUpdateSync() {
-        if (inUpdateTask) {
+        if (!inUpdateTask.compareAndSet(false, true)) {
             return;
         }
         ModularMachinery.EXECUTE_MANAGER.addTEUpdateTask(this);
-        inUpdateTask = true;
-        inMarkTask = true;
     }
 
     public boolean isInUpdateTask() {
-        return inUpdateTask;
+        return inUpdateTask.get();
     }
 
     public long getLastUpdateTick() {

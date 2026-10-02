@@ -1,6 +1,6 @@
 /*******************************************************************************
  * HellFirePvP / Modular Machinery 2019
- *
+ * <p>
  * This project is licensed under GNU GENERAL PUBLIC LICENSE Version 3.
  * The source code is available on github: https://github.com/HellFirePvP/ModularMachinery
  * For further details, see the License file there.
@@ -132,7 +132,7 @@ public class ModularMachinery {
             NET_CHANNEL.registerMessage(StarlightMessage.StarlightMessageHandler.class, StarlightMessage.class, 106, Side.SERVER);
         }
         if (Mods.AE2.isPresent()) {
-            NET_CHANNEL.registerMessage(PktMEOutputBusStackSizeChange.class, PktMEOutputBusStackSizeChange.class, 107, Side.SERVER);
+            NET_CHANNEL.registerMessage(PktMEOutputBusStackSizeChange.class, PktMEOutputBusStackSizeChange.class, 109, Side.SERVER);
             NET_CHANNEL.registerMessage(PktSwitchGuiMEOutputBus.class, PktSwitchGuiMEOutputBus.class, 108, Side.SERVER);
         }
 

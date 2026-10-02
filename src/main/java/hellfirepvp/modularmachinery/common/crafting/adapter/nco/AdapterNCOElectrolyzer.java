@@ -40,7 +40,8 @@ public class AdapterNCOElectrolyzer extends AdapterNCOMachine {
             MachineRecipe recipe = createRecipeShell(
                     new ResourceLocation("nuclearcraft", "electrolyzer_" + incId),
                     owningMachineName,
-                    PROCESS_TIME,
+                    Math.max(1, Math.round(RecipeModifier.applyModifiers(modifiers,
+                        RequirementTypesMM.REQUIREMENT_DURATION, IOType.INPUT, PROCESS_TIME, false))),
                     incId,
                     false
             );
@@ -72,7 +73,11 @@ public class AdapterNCOElectrolyzer extends AdapterNCOMachine {
             }
 
             // Fixed energy per tick
-            recipe.addRequirement(new RequirementEnergy(IOType.INPUT, ENERGY_PER_TICK));
+            int energyPerTick = Math.round(RecipeModifier.applyModifiers(modifiers,
+                RequirementTypesMM.REQUIREMENT_ENERGY, IOType.INPUT, ENERGY_PER_TICK, false));
+            if (energyPerTick > 0) {
+                recipe.addRequirement(new RequirementEnergy(IOType.INPUT, energyPerTick));
+            }
 
             machineRecipes.add(recipe);
             incId++;

@@ -49,9 +49,14 @@ public class AEFluidInventoryUpgradeable implements IAEFluidTank, ReadWriteLockP
     }
 
     public void setCapacity(int capacity) {
-        this.capacity = capacity;
-        for (int slot = 0; slot < getSlots(); slot++) {
-            this.onContentChanged(slot);
+        rwLock.writeLock().lock();
+        try {
+            this.capacity = capacity;
+            for (int slot = 0; slot < getSlots(); slot++) {
+                this.onContentChanged(slot);
+            }
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -145,13 +150,11 @@ public class AEFluidInventoryUpgradeable implements IAEFluidTank, ReadWriteLockP
             return 0;
         }
 
-        int amountToStore = this.capacity;
-
-        if (fluid != null) {
-            amountToStore -= (int) fluid.getStackSize();
+        int amountToStore = (int) Math.min(resource.amount,
+            Math.max(0L, (long) capacity - (fluid == null ? 0L : fluid.getStackSize())));
+        if (amountToStore == 0) {
+            return 0;
         }
-
-        amountToStore = Math.min(amountToStore, resource.amount);
 
         if (doFill) {
             if (fluid == null) {
@@ -184,7 +187,8 @@ public class AEFluidInventoryUpgradeable implements IAEFluidTank, ReadWriteLockP
             drained = (int) fluid.getStackSize();
         }
 
-        FluidStack stack = new FluidStack(fluid.getFluid(), drained);
+        FluidStack stack = fluid.getFluidStack().copy();
+        stack.amount = drained;
         if (doDrain) {
             fluid.setStackSize(fluid.getStackSize() - drained);
             if (fluid.getStackSize() <= 0) {

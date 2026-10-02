@@ -164,7 +164,7 @@ public class MagicPrimer {
     public static RecipePrimer addWillInput(RecipePrimer primer, String willTypeString, int amount) {
         EnumDemonWillType willType = EnumDemonWillType.valueOf(willTypeString);
         if (willType != null) {
-            primer.appendComponent(new RequirementWill(IOType.INPUT, amount, willType, Integer.MIN_VALUE, Integer.MAX_VALUE));
+            primer.appendComponent(new RequirementWill(IOType.INPUT, amount, willType, 0, Integer.MAX_VALUE));
         } else {
             CraftTweakerAPI.logError("Invalid demon will type : " + willTypeString);
         }
@@ -176,7 +176,7 @@ public class MagicPrimer {
     public static RecipePrimer addWillOutput(RecipePrimer primer, String willTypeString, int amount) {
         EnumDemonWillType willType = EnumDemonWillType.valueOf(willTypeString);
         if (willType != null) {
-            primer.appendComponent(new RequirementWill(IOType.OUTPUT, amount, willType, Integer.MIN_VALUE, Integer.MAX_VALUE));
+            primer.appendComponent(new RequirementWill(IOType.OUTPUT, amount, willType, 0, Integer.MAX_VALUE));
         } else {
             CraftTweakerAPI.logError("Invalid demon will type : " + willTypeString);
         }

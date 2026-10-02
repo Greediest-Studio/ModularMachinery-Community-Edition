@@ -466,3 +466,6 @@ tile.modularmachinery.blockimpetusprovideroutput.name=Impetus Output Hatch
 
 
 tooltip.modularcontroller.machine_projector=Right-click on the controller while crouching to project the blueprint of his machine into the world.
+
+craftcheck.failure.start_retry=Resource payment incomplete; waiting to retry
+craftcheck.failure.group.missing=Original recipe resource group unavailable; waiting to resume

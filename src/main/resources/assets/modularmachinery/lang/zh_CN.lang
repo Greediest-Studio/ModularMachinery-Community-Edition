@@ -464,3 +464,6 @@ tile.modularmachinery.blockimpetusproviderinput.name=元动输入接口
 tile.modularmachinery.blockimpetusprovideroutput.name=元动输出接口
 
 tooltip.modularcontroller.machine_projector=蹲下时右击控制器以投影其机器的蓝图至世界。
+
+craftcheck.failure.start_retry=资源支付未完成，等待重试
+craftcheck.failure.group.missing=配方原资源组不可用，等待恢复

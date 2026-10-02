@@ -67,6 +67,11 @@ public abstract class MachineUpgrade {
         return stackSize += increment;
     }
 
+    public MachineUpgrade setStackSize(int stackSize) {
+        this.stackSize = stackSize;
+        return this;
+    }
+
     public int decrementStackSize(int decrement) {
         return stackSize -= decrement;
     }

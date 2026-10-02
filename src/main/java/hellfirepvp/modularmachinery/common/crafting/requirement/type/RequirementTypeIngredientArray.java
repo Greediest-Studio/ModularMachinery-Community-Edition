@@ -46,7 +46,7 @@ public class RequirementTypeIngredientArray extends RequirementType<ItemStack, R
         RequirementIngredientArray req;
 
         JsonArray items;
-        if (jsonObject.has("items") || jsonObject.get("items").isJsonArray()) {
+        if (jsonObject.has("items") && jsonObject.get("items").isJsonArray()) {
             items = jsonObject.getAsJsonArray("items");
         } else {
             throw new JsonParseException("'items' must be a item array or must be exists!");
@@ -64,7 +64,7 @@ public class RequirementTypeIngredientArray extends RequirementType<ItemStack, R
                 throw new JsonParseException("The ComponentType 'item' expects an 'item'-entry that defines the item!");
             }
 
-            ResourceLocation res = new ResourceLocation(itemDefinition);
+            ResourceLocation res = new ResourceLocation(itemDefinition.split("@", 2)[0]);
 
             int meta = 0;
             int indexMeta = itemDefinition.indexOf('@');
@@ -76,11 +76,11 @@ public class RequirementTypeIngredientArray extends RequirementType<ItemStack, R
                 }
             }
             int amount = 1;
-            if (jsonObject.has("amount")) {
-                if (!jsonObject.get("amount").isJsonPrimitive() || !jsonObject.getAsJsonPrimitive("amount").isNumber()) {
+            if (subItem.has("amount")) {
+                if (!subItem.get("amount").isJsonPrimitive() || !subItem.getAsJsonPrimitive("amount").isNumber()) {
                     throw new JsonParseException("'amount', if defined, needs to be a amount-number!");
                 }
-                amount = MathHelper.clamp(jsonObject.getAsJsonPrimitive("amount").getAsInt(), 1, 64);
+                amount = MathHelper.clamp(subItem.getAsJsonPrimitive("amount").getAsInt(), 1, 64);
             }
 
             Item item = ForgeRegistries.ITEMS.getValue(res);
@@ -112,11 +112,11 @@ public class RequirementTypeIngredientArray extends RequirementType<ItemStack, R
                 }
             }
 
-            if (jsonObject.has("nbt")) {
-                if (!jsonObject.has("nbt") || !jsonObject.get("nbt").isJsonObject()) {
+            if (subItem.has("nbt")) {
+                if (!subItem.has("nbt") || !subItem.get("nbt").isJsonObject()) {
                     throw new JsonParseException("The ComponentType 'nbt' expects a json compound that defines the NBT tag!");
                 }
-                String nbtString = jsonObject.getAsJsonObject("nbt").toString();
+                String nbtString = subItem.getAsJsonObject("nbt").toString();
                 try {
                     ingredientStack.tag = NBTJsonDeserializer.deserialize(nbtString);
                 } catch (NBTException exc) {
@@ -127,7 +127,7 @@ public class RequirementTypeIngredientArray extends RequirementType<ItemStack, R
             itemArray.add(ingredientStack);
         }
 
-        req = new RequirementIngredientArray(itemArray);
+        req = new RequirementIngredientArray(itemArray, type);
 
         if (jsonObject.has("chance")) {
             if (!jsonObject.get("chance").isJsonPrimitive() || !jsonObject.getAsJsonPrimitive("chance").isNumber()) {

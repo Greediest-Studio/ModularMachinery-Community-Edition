@@ -209,11 +209,32 @@ public class DynamicMachine extends AbstractMachine {
     }
 
     public void mergeFrom(DynamicMachine another) {
+        if (another == this) {
+            return;
+        }
+        localizedName = another.localizedName;
+        prefix = another.prefix;
+        definedColor = another.definedColor;
+        maxParallelism = another.maxParallelism;
+        internalParallelism = another.internalParallelism;
+        maxThreads = another.maxThreads;
+        requiresBlueprint = another.requiresBlueprint;
+        parallelizable = another.parallelizable;
+        hasFactory = another.hasFactory;
+        factoryOnly = another.factoryOnly;
+        evenParallelismDistribution = another.evenParallelismDistribution;
+        failureAction = another.failureAction;
+
         smartInterfaces.clear();
         smartInterfaces.putAll(another.smartInterfaces);
 
         modifiers.clear();
         modifiers.putAll(another.modifiers);
+
+        multiBlockModifiers.clear();
+        multiBlockModifiers.addAll(another.multiBlockModifiers);
+        coreThreadPreset.clear();
+        coreThreadPreset.putAll(another.coreThreadPreset);
 
         pattern.overwrite(another.pattern);
 

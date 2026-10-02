@@ -1,9 +1,12 @@
 package github.kasuminova.mmce.common.network;
 
+import appeng.api.config.SecurityPermissions;
+import appeng.api.networking.IGridNode;
+import appeng.api.networking.security.ISecurityGrid;
+import github.kasuminova.mmce.common.container.ContainerMEItemOutputBusStackSize;
 import github.kasuminova.mmce.common.tile.MEItemOutputBus;
 import io.netty.buffer.ByteBuf;
 import net.minecraft.entity.player.EntityPlayerMP;
-import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessage;
 import net.minecraftforge.fml.common.network.simpleimpl.IMessageHandler;
@@ -38,15 +41,31 @@ public class PktMEOutputBusStackSizeChange implements IMessage, IMessageHandler<
         EntityPlayerMP player = ctx.getServerHandler().player;
 
         player.getServerWorld().addScheduledTask(() -> {
-            TileEntity te = player.world.getTileEntity(message.pos);
-
-            if (!(te instanceof MEItemOutputBus outputBus)) {
+            if (!(player.openContainer instanceof ContainerMEItemOutputBusStackSize container)) {
+                return;
+            }
+            MEItemOutputBus outputBus = container.getOwner();
+            if (outputBus.isInvalid() || outputBus.getWorld() != player.world
+                || !outputBus.getPos().equals(message.pos)
+                || player.getDistanceSq(message.pos) > 64
+                || player.world.getTileEntity(message.pos) != outputBus
+                || !container.canInteractWith(player)) {
+                return;
+            }
+            // Security remains effective while the network is unpowered.
+            IGridNode node = outputBus.getProxy().getNode();
+            if (node == null) {
+                return;
+            }
+            ISecurityGrid security = node.getGrid().getCache(ISecurityGrid.class);
+            if (!security.hasPermission(player, SecurityPermissions.BUILD)) {
                 return;
             }
 
             int validatedStackSize = Math.max(1, message.stackSize);
 
             outputBus.setConfiguredStackSize(validatedStackSize);
+            container.stackSize = validatedStackSize;
 
             outputBus.markDirty();
         });

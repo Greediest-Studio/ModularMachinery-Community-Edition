@@ -27,6 +27,7 @@ import github.kasuminova.mmce.common.machine.component.MachineComponentProxyRegi
 import github.kasuminova.mmce.common.tile.MEPatternProvider;
 import github.kasuminova.mmce.common.tile.base.MachineCombinationComponent;
 import github.kasuminova.mmce.common.upgrade.MachineUpgrade;
+import github.kasuminova.mmce.common.upgrade.DynamicMachineUpgrade;
 import github.kasuminova.mmce.common.upgrade.UpgradeType;
 import github.kasuminova.mmce.common.util.DynamicPattern;
 import github.kasuminova.mmce.common.util.InfItemFluidHandler;
@@ -1073,16 +1074,23 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
             List<MachineUpgrade> upgrades = foundUpgrades.computeIfAbsent(type.getName(), v -> new ArrayList<>());
             add:
             for (final MachineUpgrade newUpgrade : newUpgrades) {
+                int remaining = type.getMaxStackSize() - upgrades.stream().mapToInt(MachineUpgrade::getStackSize).sum();
+                int count = Math.min(newUpgrade.getStackSize(), remaining);
+                if (count <= 0) {
+                    continue;
+                }
                 for (final MachineUpgrade u : upgrades) {
                     if (newUpgrade.equals(u)) {
-                        if (u.getStackSize() >= u.getType().getMaxStackSize()) {
-                            continue add;
-                        }
-                        newUpgrade.incrementStackSize(u.getStackSize());
+                        u.incrementStackSize(count);
                         continue add;
                     }
                 }
-                upgrades.add(newUpgrade);
+                // 动态升级需要保留物品/耐久引用；普通升级的聚合值归本控制器所有。
+                upgrades.add(newUpgrade instanceof DynamicMachineUpgrade ? newUpgrade :
+                    newUpgrade.copy(ItemStack.EMPTY).setStackSize(count).setParentBus(newUpgrade.getParentBus()));
+            }
+            if (upgrades.isEmpty()) {
+                foundUpgrades.remove(type.getName());
             }
         });
         syncMachineUpgradeNames();

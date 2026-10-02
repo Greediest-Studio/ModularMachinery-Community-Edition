@@ -1,7 +1,7 @@
 package github.kasuminova.mmce.client.gui;
 
 import appeng.client.gui.AEBaseGui;
-import appeng.client.gui.MathExpressionParser;
+import github.kasuminova.mmce.client.gui.util.QuantityExpression;
 import appeng.client.gui.widgets.GuiTabButton;
 import github.kasuminova.mmce.common.container.ContainerMEItemOutputBusStackSize;
 import github.kasuminova.mmce.common.network.PktMEOutputBusStackSizeChange;
@@ -154,9 +154,7 @@ public class GuiMEItemOutputBusStackSize extends AEBaseGui {
             return Long.parseLong(text);
         } catch (NumberFormatException e) {
             try {
-                text = preprocessExponents(text);
-
-                double result = MathExpressionParser.parse(text);
+                double result = QuantityExpression.parse(text);
                 if (Double.isNaN(result) || Double.isInfinite(result)) {
                     throw new NumberFormatException("Invalid expression");
                 }
@@ -166,33 +164,6 @@ public class GuiMEItemOutputBusStackSize extends AEBaseGui {
                 throw new NumberFormatException("Invalid number or expression");
             }
         }
-    }
-
-    private String preprocessExponents(String expression) {
-        while (expression.contains("^")) {
-            int caretIndex = expression.indexOf('^');
-
-            int baseStart = caretIndex - 1;
-            while (baseStart > 0 && (Character.isDigit(expression.charAt(baseStart - 1)) || expression.charAt(baseStart - 1) == '.')) {
-                baseStart--;
-            }
-
-            int expEnd = caretIndex + 2;
-            while (expEnd < expression.length() && (Character.isDigit(expression.charAt(expEnd)) || expression.charAt(expEnd) == '.')) {
-                expEnd++;
-            }
-
-            String baseStr = expression.substring(baseStart, caretIndex);
-            String expStr = expression.substring(caretIndex + 1, expEnd);
-
-            double base = Double.parseDouble(baseStr);
-            double exponent = Double.parseDouble(expStr);
-            double result = Math.pow(base, exponent);
-
-            expression = expression.substring(0, baseStart) + result + expression.substring(expEnd);
-        }
-
-        return expression;
     }
 
     @Override
@@ -207,6 +178,13 @@ public class GuiMEItemOutputBusStackSize extends AEBaseGui {
             boolean isControlKey = key == 14 || key == 211 || key == 203 || key == 205;
 
             if ((isValidChar || isControlKey) && this.stackSizeBox.textboxKeyTyped(character, key)) {
+                // Commit valid edits while this container is still open on the server.
+                try {
+                    long value = parseValue(this.stackSizeBox.getText());
+                    sendStackSizeToServer((int) Math.max(1, Math.min(Integer.MAX_VALUE, value)));
+                } catch (NumberFormatException ignored) {
+                    // Incomplete expressions keep the last valid value.
+                }
             } else {
                 super.keyTyped(character, key);
             }

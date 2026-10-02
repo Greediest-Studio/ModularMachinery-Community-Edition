@@ -27,7 +27,7 @@ public abstract class AbstractModifierReplacement {
     }
 
     public AbstractModifierReplacement(String modifierName, List<RecipeModifier> modifier, List<String> description, ItemStack descriptiveStack) {
-        this.modifierName = modifierName;
+        this.modifierName = modifierName == null ? "ReplacementModifier - " + DEFAULT_NAME_COUNTER.getAndIncrement() : modifierName;
         this.modifier = modifier;
         this.description = description;
         this.descriptiveStack = descriptiveStack;

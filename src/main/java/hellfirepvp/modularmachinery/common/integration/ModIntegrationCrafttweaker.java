@@ -13,6 +13,7 @@ import github.kasuminova.mmce.client.model.DynamicMachineModelRegistry;
 import github.kasuminova.mmce.client.resource.GeoModelExternalLoader;
 import github.kasuminova.mmce.common.concurrent.RecipeCraftingContextPool;
 import github.kasuminova.mmce.common.upgrade.registry.RegistryUpgrade;
+import github.kasuminova.mmce.common.util.OredictCache;
 import github.kasuminova.mmce.common.util.Sides;
 import github.kasuminova.mmce.common.util.concurrent.Action;
 import hellfirepvp.modularmachinery.client.ClientProxy;
@@ -62,6 +63,7 @@ public class ModIntegrationCrafttweaker {
     @SubscribeEvent
     @Optional.Method(modid = "zenutils")
     public void onScriptsReloading(ScriptReloadEvent.Pre event) {
+        OredictCache.clear();
         ICommandSender sender = event.getRequester();
         sender.sendMessage(new TextComponentTranslation("message.reloading"));
 
@@ -100,6 +102,8 @@ public class ModIntegrationCrafttweaker {
     @SubscribeEvent
     @Optional.Method(modid = "zenutils")
     public void onScriptsReloaded(ScriptReloadEvent.Post event) {
+        // 脚本删除矿辞项不会触发 OreRegisterEvent，重载后重新建立查询缓存。
+        OredictCache.clear();
         ICommandSender sender = event.getRequester();
         MinecraftServer server = FMLCommonHandler.instance().getMinecraftServerInstance();
         boolean isServer = server != null && server.isDedicatedServer();

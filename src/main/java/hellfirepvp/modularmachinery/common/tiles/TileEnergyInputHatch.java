@@ -55,7 +55,7 @@ public class TileEnergyInputHatch extends TileEnergyHatch implements IEnergySink
     }
 
     @Override
-    public void update() {
+    public synchronized void update() {
         if (world.isRemote) {
             return;
         }
@@ -127,7 +127,7 @@ public class TileEnergyInputHatch extends TileEnergyHatch implements IEnergySink
 
     @Override
     @Optional.Method(modid = "ic2")
-    public double injectEnergy(EnumFacing directionFrom, double amount, double voltage) {
+    public synchronized double injectEnergy(EnumFacing directionFrom, double amount, double voltage) {
         long addable = Math.min((this.size.maxEnergy - this.energy.get()) / 4L, MathHelper.lfloor(amount));
         amount -= addable;
         this.energy.set(MiscUtils.clamp(this.energy.get() + MathHelper.lfloor(addable * 4), 0, this.size.maxEnergy));

@@ -74,7 +74,16 @@ public class TileItemInputBus extends TileItemBus implements MachineComponentTil
         }
     }
 
-    private synchronized void inputFromExternal(IItemHandler external) {
+    private void inputFromExternal(IItemHandler external) {
+        inventory.getRWLock().writeLock().lock();
+        try {
+            inputFromExternalLocked(external);
+        } finally {
+            inventory.getRWLock().writeLock().unlock();
+        }
+    }
+
+    private void inputFromExternalLocked(IItemHandler external) {
         boolean successAtLeastOnce = false;
 
         external:
@@ -91,6 +100,9 @@ public class TileItemInputBus extends TileItemBus implements MachineComponentTil
                 if (internalStack.isEmpty()) {
                     // Extract external item and insert to internal.
                     ItemStack extracted = external.extractItem(externalSlotId, maxCanExtract, false);
+                    if (extracted.isEmpty()) {
+                        continue external;
+                    }
                     inventory.setStackInSlot(internalSlotId, extracted);
                     successAtLeastOnce = true;
                     // If there are no more items in the current slot, check the next external slot.
@@ -110,6 +122,9 @@ public class TileItemInputBus extends TileItemBus implements MachineComponentTil
 
                 // Extract external item and insert to internal.
                 ItemStack extracted = external.extractItem(externalSlotId, extractAmt, false);
+                if (extracted.isEmpty()) {
+                    continue external;
+                }
                 inventory.setStackInSlot(internalSlotId,
                     ItemUtils.copyStackWithSize(
                         extracted, internalStack.getCount() + extracted.getCount()));

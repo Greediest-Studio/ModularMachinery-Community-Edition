@@ -175,7 +175,9 @@ public class MEItemInputBus extends MEItemBus implements SettingsTransfer {
                 }
 
                 if (!ItemUtils.matchStacks(cfgStack, invStack)) {
-                    if (invStack.isEmpty() || insertStackToAE(inv, invStack).isEmpty()) {
+                    ItemStack remaining = invStack.isEmpty() ? ItemStack.EMPTY : insertStackToAE(inv, invStack);
+                    inventory.setStackInSlot(slot, remaining);
+                    if (remaining.isEmpty()) {
                         ItemStack stack = extractStackFromAE(inv, cfgStack);
                         inventory.setStackInSlot(slot, stack);
                         if (!stack.isEmpty()) {
@@ -217,14 +219,13 @@ public class MEItemInputBus extends MEItemBus implements SettingsTransfer {
                 }
             }
 
-            inTick = false;
-            rwLock.writeLock().unlock();
             return successAtLeastOnce ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
         } catch (GridAccessException e) {
-            inTick = false;
             changedSlots = new boolean[changedSlots.length];
-            rwLock.writeLock().unlock();
             return TickRateModulation.IDLE;
+        } finally {
+            inTick = false;
+            rwLock.writeLock().unlock();
         }
     }
 

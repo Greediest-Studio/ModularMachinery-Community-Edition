@@ -151,6 +151,11 @@ public abstract class TileFluidTank extends TileColorableMachineComponent implem
     public MachineComponent<?> provideComponent() {
         return new MachineComponent.FluidHatch(ioType) {
             @Override
+            public long getGroupID() {
+                return TileFluidTank.this.getGroupId();
+            }
+
+            @Override
             public HybridTank getContainerProvider() {
                 return TileFluidTank.this.tank;
             }

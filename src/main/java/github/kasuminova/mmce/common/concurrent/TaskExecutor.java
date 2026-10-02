@@ -7,6 +7,7 @@ import github.kasuminova.mmce.common.util.concurrent.CustomForkJoinWorkerThreadF
 import github.kasuminova.mmce.common.util.concurrent.CustomThreadFactory;
 import github.kasuminova.mmce.common.util.concurrent.ExecuteGroup;
 import github.kasuminova.mmce.common.util.concurrent.Queues;
+import github.kasuminova.mmce.common.world.MachineComponentManager;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.tiles.base.TileEntitySynchronized;
 import io.netty.util.internal.ThrowableUtil;
@@ -17,6 +18,7 @@ import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.longs.LongList;
 import it.unimi.dsi.fastutil.longs.LongListIterator;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
+import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.thread.SidedThreadGroups;
@@ -25,10 +27,13 @@ import net.minecraftforge.fml.relauncher.Side;
 import java.util.Queue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.LockSupport;
+import java.util.function.Supplier;
 
 public class TaskExecutor {
     public static final int THREAD_COUNT = Math.min(Math.max(Runtime.getRuntime().availableProcessors() / 4, 4), 8);
@@ -61,6 +66,7 @@ public class TaskExecutor {
     private final Queue<ForkJoinTask<?>> forkJoinTasks = Queues.createConcurrentQueue();
 
     private final Queue<Action>                 mainThreadActions          = Queues.createConcurrentQueue();
+    private final Queue<FutureTask<?>> mainThreadCalls = Queues.createConcurrentQueue();
     private final Queue<TileEntitySynchronized> requireUpdateTEQueue       = Queues.createConcurrentQueue();
     private final Queue<TileEntitySynchronized> requireMarkNoUpdateTEQueue = Queues.createConcurrentQueue();
 
@@ -68,6 +74,11 @@ public class TaskExecutor {
 
     private volatile boolean inTick                = false;
     private volatile boolean shouldUseForkJoinPool = false;
+    private final int[] recentExecuted = new int[20];
+    private int recentCursor;
+    private int recentSamples;
+    private long recentTotal;
+    private int executedThisTick;
 
     @SuppressWarnings({"BusyWait", "SameParameterValue"})
     private static void loopWait(final long nanos) {
@@ -108,8 +119,21 @@ public class TaskExecutor {
             executedCount++;
         }
 
+        executedThisTick += executed;
+        if (event.phase == TickEvent.Phase.END) {
+            recentTotal -= recentExecuted[recentCursor];
+            recentExecuted[recentCursor] = executedThisTick;
+            recentTotal += executedThisTick;
+            recentCursor = (recentCursor + 1) % recentExecuted.length;
+            recentSamples = Math.min(recentSamples + 1, recentExecuted.length);
+            executedThisTick = 0;
+        }
+
+        MachineComponentManager.INSTANCE.applyPendingGroups();
         executeGroups.clear();
-        checkShouldUseForkJoinPool();
+        if (event.phase == TickEvent.Phase.END) {
+            checkShouldUseForkJoinPool();
+        }
     }
 
     /**
@@ -137,7 +161,7 @@ public class TaskExecutor {
     }
 
     private boolean shouldUseForkJoinPool() {
-        long executedAvgPerExecution = executedCount == 0 ? 0 : totalExecuted / executedCount;
+        long executedAvgPerExecution = recentSamples == 0 ? 0 : recentTotal / recentSamples;
         return executedAvgPerExecution >= 1500;
     }
 
@@ -167,6 +191,11 @@ public class TaskExecutor {
 
     private int executeMainThreadActions() {
         int executed = 0;
+        FutureTask<?> call;
+        while ((call = mainThreadCalls.poll()) != null) {
+            call.run();
+            executed++;
+        }
         if (mainThreadActions.isEmpty()) {
             return executed;
         }
@@ -237,27 +266,28 @@ public class TaskExecutor {
     public ActionExecutor addTask(final Action action, final int priority) {
         ActionExecutor actionExecutor = new ActionExecutor(action, priority);
         executors.offer(actionExecutor);
+        submitter.unpark();
 
         return actionExecutor;
     }
 
     public ActionExecutor addExecuteGroupTask(final Action action, final long groupId) {
-        ExecuteGroup group = executeGroups.get(groupId);
-        if (group == null) {
-            synchronized (executeGroups) {
-                group = executeGroups.get(groupId);
-                if (group == null) {
-                    group = new ExecuteGroup(groupId);
-                    executeGroups.put(groupId, group);
-                }
+        ActionExecutor executor;
+        synchronized (executeGroups) {
+            ExecuteGroup group = executeGroups.get(groupId);
+            if (group == null) {
+                group = new ExecuteGroup(groupId);
+                executeGroups.put(groupId, group);
             }
+            executor = group.offer(new ActionExecutor(action));
         }
-
-        return group.offer(new ActionExecutor(action));
+        submitter.unpark();
+        return executor;
     }
 
     public <T> ForkJoinTask<T> submitForkJoinTask(final ForkJoinTask<T> task) {
         forkJoinTasks.offer(task);
+        submitter.unpark();
         return task;
     }
 
@@ -268,6 +298,27 @@ public class TaskExecutor {
      */
     public void addSyncTask(final Action action) {
         mainThreadActions.offer(action);
+    }
+
+    /** 在主线程原子完成世界资源操作，并把结果返回当前配方任务。调用方不得持有全局同步锁。 */
+    public <T> T callOnMainThread(final Supplier<T> action) {
+        if (FMLCommonHandler.instance().getMinecraftServerInstance().isCallingFromMinecraftThread()) {
+            return action.get();
+        }
+        if (Thread.holdsLock(Sync.class)) {
+            throw new IllegalStateException("Cannot wait for the server thread while holding Sync.class");
+        }
+        FutureTask<T> call = new FutureTask<>(action::get);
+        mainThreadCalls.offer(call);
+        try {
+            return call.get();
+        } catch (InterruptedException e) {
+            call.cancel(false);
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Interrupted while waiting for the server thread", e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Server thread operation failed", e.getCause());
+        }
     }
 
     public void addTEUpdateTask(final TileEntitySynchronized te) {
@@ -286,16 +337,19 @@ public class TaskExecutor {
         }
     }
 
-    private synchronized void submitTask() {
+    private synchronized boolean submitTask() {
+        boolean progressed = false;
         ActionExecutor executor;
         while ((executor = executors.poll()) != null) {
             execute(executor);
             submitted.offer(executor);
+            progressed = true;
         }
 
         ForkJoinTask<?> forkJoinTask;
         while ((forkJoinTask = forkJoinTasks.poll()) != null) {
             FORK_JOIN_POOL.submit(forkJoinTask);
+            progressed = true;
         }
 
         synchronized (executeGroups) {
@@ -309,21 +363,27 @@ public class TaskExecutor {
                     continue;
                 }
                 ActionExecutor groupExecutor = new ActionExecutor(() -> {
-                    ActionExecutor actionExecutor;
-                    while ((actionExecutor = group.poll()) != null) {
-                        actionExecutor.run();
+                    try {
+                        ActionExecutor actionExecutor;
+                        while ((actionExecutor = group.poll()) != null) {
+                            actionExecutor.run();
+                        }
+                    } finally {
+                        group.setSubmitted(false);
+                        submitter.unpark();
                     }
-                    group.setSubmitted(false);
                 });
                 group.setSubmitted(true);
                 execute(groupExecutor);
                 submitted.offer(groupExecutor);
+                progressed = true;
             }
             LongListIterator it = toRemove.iterator();
             while (it.hasNext()) {
                 executeGroups.remove(it.nextLong());
             }
         }
+        return progressed;
     }
 
     public class TaskSubmitter implements Runnable {
@@ -348,10 +408,8 @@ public class TaskExecutor {
         public void run() {
             while (!Thread.currentThread().isInterrupted()) {
                 if (inTick) {
-                    if (!executors.isEmpty() || !executeGroups.isEmpty() || !forkJoinTasks.isEmpty()) {
-                        submitTask();
-                    } else {
-                        LockSupport.parkNanos(10_000L);
+                    if (!submitTask()) {
+                        LockSupport.parkNanos(100_000L);
                     }
                 } else {
                     LockSupport.park();

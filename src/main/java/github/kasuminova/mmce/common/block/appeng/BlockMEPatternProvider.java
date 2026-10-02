@@ -50,6 +50,7 @@ public class BlockMEPatternProvider extends BlockMEMachineComponent {
 
                     final NBTTagCompound data = new NBTTagCompound();
                     data.setLong("Pos", pos.toLong());
+                    data.setInteger("Dimension", worldIn.provider.getDimension());
                     memoryCard.setMemoryCardContents(heldItem, name, data);
                     player.sendMessage(new TextComponentTranslation("message.blockmepatternprovider.save"));
 

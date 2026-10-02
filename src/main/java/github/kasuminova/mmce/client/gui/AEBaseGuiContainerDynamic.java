@@ -88,6 +88,14 @@ public abstract class AEBaseGuiContainerDynamic extends AEBaseGui {
     }
 
     @Override
+    protected void mouseClickMove(final int mouseX, final int mouseY, final int mouseButton, final long timeSinceLastClick) {
+        if (widgetController.onMouseClickMove(new MousePos(mouseX, mouseY), mouseButton)) {
+            return;
+        }
+        super.mouseClickMove(mouseX, mouseY, mouseButton, timeSinceLastClick);
+    }
+
+    @Override
     protected void mouseReleased(final int mouseX, final int mouseY, final int state) {
         if (widgetController.onMouseReleased(new MousePos(mouseX, mouseY))) {
             return;

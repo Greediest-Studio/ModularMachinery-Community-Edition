@@ -5,6 +5,7 @@ import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
+import hellfirepvp.modularmachinery.common.crafting.helper.ResourceTransaction;
 import hellfirepvp.modularmachinery.common.crafting.requirement.jei.JEIComponentGas;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeGas;
 import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
@@ -87,9 +88,13 @@ public class RequirementGas extends ComponentRequirement.MultiCompParallelizable
 
     @Override
     public void startCrafting(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
-        if (actionType == IOType.INPUT && chance.canWork(RecipeModifier.applyModifiers(context, this, this.chance, true))) {
-            doGasIO(components, context);
-        }
+        startCraftingChecked(components, context, chance);
+    }
+
+    @Override
+    public boolean startCraftingChecked(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
+        return actionType != IOType.INPUT || !chance.canWork(RecipeModifier.applyModifiers(context, this, this.chance, true))
+            || doGasIO(components, context).isSuccess();
     }
 
     @Override
@@ -112,6 +117,11 @@ public class RequirementGas extends ComponentRequirement.MultiCompParallelizable
     }
 
     @Override
+    public Object getComponentCopyFamily() {
+        return COMPONENT_COPY_GAS;
+    }
+
+    @Override
     public int getMaxParallelism(List<ProcessingComponent<?>> components, RecipeCraftingContext context, int maxParallelism) {
         if (ignoreOutputCheck && actionType == IOType.OUTPUT) {
             return maxParallelism;
@@ -126,7 +136,8 @@ public class RequirementGas extends ComponentRequirement.MultiCompParallelizable
     }
 
     private CraftCheck doGasIO(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context) {
-        int mul = doGasIOInternal(components, context, parallelism);
+        int mul = ResourceTransaction.withComponents(components, () ->
+            doGasIOInternal(components, context, parallelism, !(ignoreOutputCheck && actionType == IOType.OUTPUT)));
         if (mul < parallelism) {
             return switch (actionType) {
                 case INPUT -> CraftCheck.failure("craftcheck.failure.gas.input");
@@ -142,15 +153,21 @@ public class RequirementGas extends ComponentRequirement.MultiCompParallelizable
     }
 
     private int doGasIOInternal(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final int maxMultiplier) {
+        return doGasIOInternal(components, context, maxMultiplier, false);
+    }
+
+    private int doGasIOInternal(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final int maxMultiplier, boolean wholeBatch) {
         List<IExtendedGasHandler> gasHandlers = HybridFluidUtils.castGasHandlerComponents(components);
 
         long required = Math.round(RecipeModifier.applyModifiers(context, this, (double) this.required.amount, false));
+        if (required <= 0) return maxMultiplier;
+
         long maxRequired = required * maxMultiplier;
 
         GasStack stack = this.required.copy();
         long totalIO = HybridFluidUtils.doSimulateDrainOrFill(stack, gasHandlers, maxRequired, actionType);
 
-        if (totalIO < required) {
+        if (totalIO < required || (wholeBatch && totalIO < maxRequired)) {
             return 0;
         }
 

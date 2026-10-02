@@ -45,7 +45,7 @@ public class NBTJsonSerializer {
                 NBTTagList listTag = (NBTTagList) nbtBase;
 
                 for (int i = 0; i < listTag.tagCount(); ++i) {
-                    if (i != 0 && i + 1 < listTag.tagCount()) {
+                    if (i != 0) {
                         sb.append(',');
                     }
                     sb.append(serializeNBT(listTag.get(i)));
@@ -61,10 +61,10 @@ public class NBTJsonSerializer {
                 Iterator<String> it = collection.iterator();
                 while (it.hasNext()) {
                     final String s = it.next();
-                    sb.append(NBTTagString.quoteAndEscape(s)).append(':').append(serializeNBT(cmpTag.getTag(s)));
-                    if (i != 0 && it.hasNext()) {
+                    if (i != 0) {
                         sb.append(',');
                     }
+                    sb.append(NBTTagString.quoteAndEscape(s)).append(':').append(serializeNBT(cmpTag.getTag(s)));
                     i++;
                 }
 

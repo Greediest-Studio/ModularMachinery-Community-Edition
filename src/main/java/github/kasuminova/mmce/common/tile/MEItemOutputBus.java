@@ -116,14 +116,13 @@ public class MEItemOutputBus extends MEItemBus implements SettingsTransfer {
                 }
             }
 
-            inTick = false;
-            rwLock.writeLock().unlock();
             return successAtLeastOnce ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
         } catch (GridAccessException e) {
-            inTick = false;
             changedSlots = new boolean[changedSlots.length];
-            rwLock.writeLock().unlock();
             return TickRateModulation.IDLE;
+        } finally {
+            inTick = false;
+            rwLock.writeLock().unlock();
         }
     }
 

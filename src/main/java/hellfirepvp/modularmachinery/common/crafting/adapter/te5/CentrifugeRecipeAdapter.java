@@ -9,6 +9,7 @@ import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.adapter.RecipeAdapter;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementEnergy;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementFluid;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementItem;
 import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
 import hellfirepvp.modularmachinery.common.machine.IOType;
@@ -16,6 +17,7 @@ import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import hellfirepvp.modularmachinery.common.util.ItemUtils;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
+import net.minecraftforge.fluids.FluidStack;
 
 import javax.annotation.Nonnull;
 import java.util.*;
@@ -42,9 +44,10 @@ public class CentrifugeRecipeAdapter extends RecipeAdapter {
         for (CentrifugeRecipe recipeEntry : CentrifugeManager.getRecipeList()) {
             ItemStack input = recipeEntry.getInput();
             List<ItemStack> outputs = recipeEntry.getOutput();
+            FluidStack fluidOutput = recipeEntry.getFluid();
             int totalEnergy = recipeEntry.getEnergy();
 
-            if (input.isEmpty() || outputs.isEmpty() || totalEnergy <= 0) continue;
+            if (input.isEmpty() || (outputs.isEmpty() && fluidOutput == null) || totalEnergy <= 0) continue;
 
             HashedItemStack hashedInput = HashedItemStack.ofUnsafe(input);
             if (!inputTracker.add(hashedInput)) continue;
@@ -73,12 +76,34 @@ public class CentrifugeRecipeAdapter extends RecipeAdapter {
             }
 
             // Output items
-            for (ItemStack output : outputs) {
+            for (int index = 0; index < outputs.size(); index++) {
+                ItemStack output = outputs.get(index);
                 if (output.isEmpty()) continue;
                 int outAmount = Math.round(RecipeModifier.applyModifiers(modifiers,
                         RequirementTypesMM.REQUIREMENT_ITEM, IOType.OUTPUT, output.getCount(), false));
                 if (outAmount > 0) {
-                    recipe.addRequirement(new RequirementItem(IOType.OUTPUT, ItemUtils.copyStackWithSize(output, outAmount)));
+                    float chance = Math.max(0, RecipeModifier.applyModifiers(modifiers,
+                        RequirementTypesMM.REQUIREMENT_ITEM, IOType.OUTPUT,
+                        recipeEntry.getChance().get(index) / 100.0F, true));
+                    int guaranteed = (int) chance;
+                    if (guaranteed > 0) {
+                        recipe.addRequirement(new RequirementItem(IOType.OUTPUT,
+                            ItemUtils.copyStackWithSize(output, outAmount * guaranteed)));
+                    }
+                    if (chance > guaranteed) {
+                        RequirementItem extra = new RequirementItem(IOType.OUTPUT, ItemUtils.copyStackWithSize(output, outAmount));
+                        extra.setChance(chance - guaranteed);
+                        recipe.addRequirement(extra);
+                    }
+                }
+            }
+
+            if (fluidOutput != null) {
+                FluidStack output = fluidOutput.copy();
+                output.amount = Math.round(RecipeModifier.applyModifiers(modifiers,
+                    RequirementTypesMM.REQUIREMENT_FLUID, IOType.OUTPUT, output.amount, false));
+                if (output.amount > 0) {
+                    recipe.addRequirement(new RequirementFluid(IOType.OUTPUT, output));
                 }
             }
 

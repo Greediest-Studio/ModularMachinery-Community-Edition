@@ -21,4 +21,14 @@ public class GasInventoryHandler extends GasInvHandler implements IExtendedGasHa
         return drawGas(null, toDraw, doTransfer);
     }
 
+    @Override
+    public synchronized GasStack drawGas(final EnumFacing side, final int amount, final boolean doTransfer) {
+        return super.drawGas(side, amount, doTransfer);
+    }
+
+    @Override
+    public synchronized GasStack drawGas(final EnumFacing side, final GasStack stack, final boolean doTransfer) {
+        return super.drawGas(side, stack, doTransfer);
+    }
+
 }

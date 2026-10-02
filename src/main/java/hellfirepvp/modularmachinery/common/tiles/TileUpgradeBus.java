@@ -159,12 +159,15 @@ public class TileUpgradeBus extends TileEntityRestrictedTick implements MachineC
             UpgradeType type = upgrade.getType();
             MachineUpgrade founded = foundUpgrades.get(type);
             if (founded != null) {
-                founded.incrementStackSize(upgrade.getStackSize());
+                founded.incrementStackSize(Math.min(parentStack.getCount(),
+                    Math.max(0, type.getMaxStackSize() - founded.getStackSize())));
                 continue;
             }
-            upgrade.incrementStackSize(parentStack.getCount() - 1);
-
-            foundUpgrades.put(type, upgrade.setParentBus(this));
+            // 聚合对象属于总线，不改变物品 capability 的原始升级实例。
+            int count = Math.min(parentStack.getCount(), type.getMaxStackSize());
+            if (count > 0) {
+                foundUpgrades.put(type, upgrade.copy(parentStack).setStackSize(count).setParentBus(this));
+            }
         }
     }
 

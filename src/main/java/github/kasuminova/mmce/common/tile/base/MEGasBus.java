@@ -99,7 +99,9 @@ public abstract class MEGasBus extends MEMachineComponent implements
         super.readCustomNBT(compound);
 
         upgrades.readFromNBT(compound, "upgrades");
-        tanks.load(compound.getCompoundTag("tanks"));
+        synchronized (handler) {
+            tanks.load(compound.getCompoundTag("tanks"));
+        }
         updateTankCapacity();
     }
 
@@ -108,7 +110,9 @@ public abstract class MEGasBus extends MEMachineComponent implements
         super.writeCustomNBT(compound);
 
         upgrades.writeToNBT(compound, "upgrades");
-        compound.setTag("tanks", tanks.save());
+        synchronized (handler) {
+            compound.setTag("tanks", tanks.save());
+        }
     }
 
     // AE Compat
@@ -155,8 +159,10 @@ public abstract class MEGasBus extends MEMachineComponent implements
     }
 
     private void updateTankCapacity() {
-        tanks.setCap(
-            (int) (Math.pow(4, getInstalledUpgrades(Upgrades.CAPACITY) + 1) * (MEGasBus.TANK_DEFAULT_CAPACITY / 4)));
+        synchronized (handler) {
+            tanks.setCap(
+                (int) (Math.pow(4, getInstalledUpgrades(Upgrades.CAPACITY) + 1) * (MEGasBus.TANK_DEFAULT_CAPACITY / 4)));
+        }
     }
 
     @Override

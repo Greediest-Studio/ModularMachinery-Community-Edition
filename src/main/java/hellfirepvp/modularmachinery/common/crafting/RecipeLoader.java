@@ -126,7 +126,7 @@ public class RecipeLoader {
                 ModularMachinery.log.warn("Adapter with name " + accessor.getAdapterKey().toString() + " didn't provide have any recipes!");
             } else {
                 for (final MachineRecipe recipe : recipes) {
-                    recipe.mergeAdapter(builder);
+                    recipe.mergeAdapterMetadata(builder);
                 }
                 loadedRecipes.addAll(recipes);
             }

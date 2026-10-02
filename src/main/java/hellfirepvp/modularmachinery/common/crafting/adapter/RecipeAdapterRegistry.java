@@ -20,6 +20,7 @@ import net.minecraft.util.ResourceLocation;
 
 import javax.annotation.Nullable;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -43,7 +44,17 @@ public class RecipeAdapterRegistry {
         if (adapter == null) {
             return null;
         }
-        return adapter.createRecipesFor(owningMachine, modifiers, additionalRequirements, eventHandlers, recipeTooltips);
+        // 统一追加，适配器只负责转换原配方，避免漏加或重复添加附加条件。
+        Collection<MachineRecipe> recipes = adapter.createRecipesFor(owningMachine, modifiers,
+            Collections.emptyList(), Collections.emptyMap(), Collections.emptyList());
+        for (MachineRecipe recipe : recipes) {
+            for (ComponentRequirement<?, ?> requirement : additionalRequirements) {
+                recipe.addRequirement(requirement.deepCopyModified(modifiers).postDeepCopy(requirement));
+            }
+            eventHandlers.forEach((type, handlers) -> handlers.forEach(handler -> recipe.addRecipeEventHandler(type, handler)));
+            recipeTooltips.forEach(recipe::addTooltip);
+        }
+        return recipes;
     }
 
     public static void registerDynamicMachineAdapters() {

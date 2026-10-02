@@ -24,7 +24,7 @@ public class RequirementUtils {
 
     public static double getRequiredDouble(JsonObject json, String key, String requirement) {
         if (json.has(key) && json.get(key).isJsonPrimitive() && json.getAsJsonPrimitive(key).isNumber()) {
-            double d = json.getAsJsonPrimitive(key).getAsInt();
+            double d = json.getAsJsonPrimitive(key).getAsDouble();
             return d;
         }
         throw new JsonParseException("The component '" + requirement + "' expects a '" + key + "' double entry !");
@@ -32,7 +32,7 @@ public class RequirementUtils {
 
     public static float getRequiredFloat(JsonObject json, String key, String requirement) {
         if (json.has(key) && json.get(key).isJsonPrimitive() && json.getAsJsonPrimitive(key).isNumber()) {
-            float f = json.getAsJsonPrimitive(key).getAsInt();
+            float f = json.getAsJsonPrimitive(key).getAsFloat();
             return f;
         }
         throw new JsonParseException("The component '" + requirement + "' expects a '" + key + "' float entry !");
@@ -50,7 +50,7 @@ public class RequirementUtils {
 
     public static double getRequiredPositiveDouble(JsonObject json, String key, String requirement) {
         if (json.has(key) && json.get(key).isJsonPrimitive() && json.getAsJsonPrimitive(key).isNumber()) {
-            double d = json.getAsJsonPrimitive(key).getAsInt();
+            double d = json.getAsJsonPrimitive(key).getAsDouble();
             if (d > 0) {
                 return d;
             }
@@ -60,7 +60,7 @@ public class RequirementUtils {
 
     public static float getRequiredPositiveFloat(JsonObject json, String key, String requirement) {
         if (json.has(key) && json.get(key).isJsonPrimitive() && json.getAsJsonPrimitive(key).isNumber()) {
-            float f = json.getAsJsonPrimitive(key).getAsInt();
+            float f = json.getAsJsonPrimitive(key).getAsFloat();
             if (f > 0) {
                 return f;
             }

@@ -136,7 +136,7 @@ public class HybridGasTank extends HybridTank implements IExtendedGasHandler {
             }
 
             GasStack drawn = this.gasTank.draw(amount, doTransfer);
-            if (drawn != null && !doTransfer) {
+        if (drawn != null && doTransfer) {
                 onContentsChanged();
             }
             return drawn;

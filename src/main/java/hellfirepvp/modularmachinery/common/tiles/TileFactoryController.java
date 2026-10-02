@@ -1,5 +1,7 @@
 package hellfirepvp.modularmachinery.common.tiles;
 
+import github.kasuminova.mmce.common.world.MachineComponentManager;
+
 import github.kasuminova.mmce.common.concurrent.FactoryRecipeSearchTask;
 import github.kasuminova.mmce.common.concurrent.RecipeCraftingContextPool;
 import github.kasuminova.mmce.common.concurrent.RecipeSearchTask;
@@ -133,7 +135,8 @@ public class TileFactoryController extends TileMultiblockMachineController {
     }
 
     protected boolean doAsyncStep() {
-        return !doStructureCheck() || !isStructureFormed();
+        return !doStructureCheck() || !isStructureFormed()
+            || MachineComponentManager.INSTANCE.hasPendingGroup(this);
     }
 
     protected void doSyncStep(boolean recordTime) {
@@ -326,9 +329,8 @@ public class TileFactoryController extends TileMultiblockMachineController {
     protected void onStructureFormed() {
         super.onStructureFormed();
 
-        coreRecipeThreads.clear();
         foundMachine.getCoreThreadPreset().forEach((threadName, thread) ->
-            coreRecipeThreads.put(threadName, thread.copyCoreThread(this)));
+            coreRecipeThreads.computeIfAbsent(threadName, name -> thread.copyCoreThread(this)));
     }
 
     protected void searchAndStartRecipe() {
@@ -394,6 +396,8 @@ public class TileFactoryController extends TileMultiblockMachineController {
 
     @Override
     protected void resetRecipe() {
+        recipeThreadList.forEach(RecipeThread::invalidate);
+        coreRecipeThreads.values().forEach(RecipeThread::invalidate);
         recipeThreadList.clear();
         coreRecipeThreads.clear();
     }
@@ -527,7 +531,8 @@ public class TileFactoryController extends TileMultiblockMachineController {
 
     public boolean offerRecipe(RecipeCraftingContext context) {
         int maxThreads = getMaxThreads();
-        if (maxThreads <= 0 || getRegularThreadUsage() >= maxThreads) {
+        if (maxThreads <= 0 || getRegularThreadUsage() >= maxThreads
+            || !canStartRecipe(context.getActiveRecipe(), null)) {
             RecipeCraftingContextPool.returnCtx(context);
             return false;
         }
@@ -556,6 +561,26 @@ public class TileFactoryController extends TileMultiblockMachineController {
         return true;
     }
 
+    // Search tasks only hold snapshots. Recheck the live count before binding or restarting.
+    public boolean canStartRecipe(ActiveMachineRecipe candidate, @Nullable FactoryRecipeThread target) {
+        MachineRecipe recipe = candidate.getRecipe();
+        if (foundMachine == null) {
+            return false;
+        }
+        int limit = recipe.getMaxThreads();
+        if (limit == -1) {
+            return true;
+        }
+        int running = 0;
+        for (RecipeThread thread : getRecipeThreadList()) {
+            ActiveMachineRecipe active = thread.getActiveRecipe();
+            if (thread != target && active != null && active.getRecipe().getRegistryName().equals(recipe.getRegistryName())) {
+                running++;
+            }
+        }
+        return running < limit;
+    }
+
     public int getMaxThreads() {
         return extraThreadCount + foundMachine.getMaxThreads();
     }
@@ -563,6 +588,7 @@ public class TileFactoryController extends TileMultiblockMachineController {
     @Override
     public void flushContextModifier() {
         recipeThreadList.forEach(FactoryRecipeThread::flushContextModifier);
+        coreRecipeThreads.values().forEach(FactoryRecipeThread::flushContextModifier);
     }
 
     protected void createRecipeSearchTask() {
@@ -705,7 +731,7 @@ public class TileFactoryController extends TileMultiblockMachineController {
             controllerStatus = CraftingStatus.deserialize(compound.getCompoundTag("status"));
         }
 
-        extraThreadCount = compound.getByte("extraThreadCount");
+        extraThreadCount = compound.getInteger("extraThreadCount");
 
         recipeThreadList.clear();
         coreRecipeThreads.clear();
@@ -773,7 +799,7 @@ public class TileFactoryController extends TileMultiblockMachineController {
 
         compound.setTag("status", controllerStatus.serialize());
         compound.setInteger("totalParallelism", getMaxParallelism());
-        compound.setShort("extraThreadCount", (short) extraThreadCount);
+        compound.setInteger("extraThreadCount", extraThreadCount);
     }
 
     @Override

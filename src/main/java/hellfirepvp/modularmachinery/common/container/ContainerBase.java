@@ -92,7 +92,10 @@ public abstract class ContainerBase<T extends TileEntity> extends Container {
 
     @Override
     public boolean canInteractWith(EntityPlayer playerIn) {
-        return true;
+        return !owner.isInvalid()
+            && owner.getWorld() == playerIn.world
+            && playerIn.getDistanceSq(owner.getPos()) <= 64
+            && playerIn.world.getTileEntity(owner.getPos()) == owner;
     }
 
 }

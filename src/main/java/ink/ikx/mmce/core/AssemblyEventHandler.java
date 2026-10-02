@@ -61,7 +61,7 @@ public class AssemblyEventHandler {
             return;
         }
 
-        if (MachineAssemblyManager.checkMachineExist(pos)) {
+        if (MachineAssemblyManager.checkMachineExist(player.world, pos)) {
             player.sendMessage(new TextComponentTranslation("message.assembly.tip.already_assembly"));
             return;
         }
@@ -251,13 +251,13 @@ public class AssemblyEventHandler {
         ModularMachinery.EXECUTE_MANAGER.addSyncTask(() -> {
             for (final MachineAssembly assembly : assemblies) {
                 if (assembly.isControllerInvalid()) {
-                    MachineAssemblyManager.removeMachineAssembly(assembly.getCtrlPos());
+                    MachineAssemblyManager.removeMachineAssembly(assembly.getWorld(), assembly.getCtrlPos());
                     player.sendMessage(new TextComponentTranslation("message.assembly.tip.cancelled"));
                     return;
                 }
                 assembly.assembly(true);
                 if (assembly.isCompleted()) {
-                    MachineAssemblyManager.removeMachineAssembly(assembly.getCtrlPos());
+                    MachineAssemblyManager.removeMachineAssembly(assembly.getWorld(), assembly.getCtrlPos());
                     player.sendMessage(new TextComponentTranslation("message.assembly.tip.success"));
                 }
             }

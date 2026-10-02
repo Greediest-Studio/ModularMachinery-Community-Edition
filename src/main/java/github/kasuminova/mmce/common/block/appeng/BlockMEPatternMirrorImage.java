@@ -59,8 +59,10 @@ public class BlockMEPatternMirrorImage extends BlockMachineComponent {
                     final String savedName = memoryCard.getSettingsName(heldItem);
                     final NBTTagCompound data = memoryCard.getData(heldItem);
 
-                    if (mep.equals(savedName)) {
+                    if (mep.equals(savedName) && (!data.hasKey("Dimension")
+                        || data.getInteger("Dimension") == worldIn.provider.getDimension())) {
                         tileEntity.providerPos = BlockPos.fromLong(data.getLong("Pos"));
+                        tileEntity.markForUpdateSync();
                         player.sendMessage(new TextComponentTranslation("message.blockmepatternprovider.load"));
                     } else {
                         memoryCard.notifyUser(player, MemoryCardMessages.INVALID_MACHINE);

@@ -84,7 +84,8 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
 
     public void renderAll() {
         renderDefault();
-        renderBloom(true);
+        renderBloom(false);
+        scheduleNextFrame();
     }
 
     public void renderDefault() {
@@ -114,6 +115,9 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
     }
 
     public void renderBloom(boolean postProcessing) {
+        if (postProcessing) {
+            scheduleNextFrame();
+        }
         if (bloomBuffer == null && bloomTransparentBuffer == null && staticBloomBuffer == null && staticBloomTransparentBuffer == null) {
             return;
         }
@@ -136,13 +140,19 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
             ControllerModelRenderManager.INSTANCE.addBuffer(-1, RenderType.BLOOM_TRANSPARENT, texture, staticBloomTransparentBuffer);
         }
 
-        if (postProcessing) {
-            ControllerModelRenderManager.INSTANCE.addReinitializeCallback(this, () -> {
-                reinitialize();
-                ControllerModelRenderManager.INSTANCE.addToRender(ctrl);
-                MachineControllerRenderer.INSTANCE.tasks.put(ctrl, (GeoModelRenderTask) TaskExecutor.FORK_JOIN_POOL.submit(this));
-            });
-        }
+    }
+
+    private void scheduleNextFrame() {
+        ControllerModelRenderManager.INSTANCE.addReinitializeCallback(this, () -> {
+            reinitialize();
+            TaskExecutor.FORK_JOIN_POOL.submit(this);
+        });
+    }
+
+    public void dispose() {
+        quietlyJoin();
+        clean();
+        cleanStatic();
     }
 
     private void calculateBufferSize() {

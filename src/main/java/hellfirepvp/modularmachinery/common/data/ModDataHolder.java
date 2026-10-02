@@ -108,25 +108,23 @@ public class ModDataHolder {
             if (root == null || !Files.exists(root)) {
                 return;
             }
-            Iterator<Path> itr;
-            try {
-                itr = Files.walk(root).iterator();
+            try (java.util.stream.Stream<Path> paths = Files.walk(root)) {
+                Iterator<Path> itr = paths.iterator();
+                while (itr.hasNext()) {
+                    Path filePath = itr.next();
+                    if (!filePath.getFileName().toString().endsWith(".json")) {
+                        continue;
+                    }
+
+                    File target = new File(directoryTo, filePath.getFileName().toString());
+                    try (FileOutputStream fos = new FileOutputStream(target)) {
+                        Files.copy(filePath, fos);
+                    } catch (Exception exc) {
+                        ModularMachinery.log.error("Couldn't copy file from " + filePath);
+                    }
+                }
             } catch (IOException e) {
                 ModularMachinery.log.error("Error iterating through " + assetDirFrom + " Skipping copying default setup!", e);
-                return;
-            }
-            while (itr.hasNext()) {
-                Path filePath = itr.next();
-                if (!filePath.getFileName().toString().endsWith(".json")) {
-                    continue;
-                }
-
-                File target = new File(directoryTo, filePath.getFileName().toString());
-                try (FileOutputStream fos = new FileOutputStream(target)) {
-                    Files.copy(filePath, fos);
-                } catch (Exception exc) {
-                    ModularMachinery.log.error("Couldn't copy file from " + filePath);
-                }
             }
         } finally {
             IOUtils.closeQuietly(fs);

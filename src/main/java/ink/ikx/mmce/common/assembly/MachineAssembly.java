@@ -15,6 +15,7 @@ import net.minecraft.init.Items;
 import net.minecraft.init.SoundEvents;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.SoundCategory;
@@ -84,20 +85,20 @@ public class MachineAssembly {
     private static List<IFluidHandlerItem> getFluidHandlerItems(final List<ItemStack> inventory) {
         List<IFluidHandlerItem> fluidHandlers = new ArrayList<>();
         for (final ItemStack invStack : inventory) {
-            Item item = invStack.getItem();
-            // TODO Bucket are not supported at this time.
-            if (item instanceof UniversalBucket || item == Items.LAVA_BUCKET || item == Items.WATER_BUCKET) {
-                continue;
-            }
-            if (!FluidUtils.isFluidHandler(invStack)) {
-                continue;
-            }
-            IFluidHandlerItem fluidHandler = FluidUtil.getFluidHandler(invStack);
+            IFluidHandlerItem fluidHandler = getSupportedFluidHandler(invStack);
             if (fluidHandler != null) {
                 fluidHandlers.add(fluidHandler);
             }
         }
         return fluidHandlers;
+    }
+
+    private static IFluidHandlerItem getSupportedFluidHandler(ItemStack stack) {
+        Item item = stack.getItem();
+        // Buckets remain unsupported by automatic assembly.
+        if (item instanceof UniversalBucket || item == Items.LAVA_BUCKET || item == Items.WATER_BUCKET
+            || !FluidUtils.isFluidHandler(stack)) return null;
+        return FluidUtil.getFluidHandler(stack);
     }
 
     public static List<StructureIngredient.ItemIngredient> buildItemIngredients(final List<ItemStack> inventory,
@@ -288,13 +289,45 @@ public class MachineAssembly {
 
     public static boolean fillInventoryFluid(final FluidStack required, final List<IFluidHandlerItem> fluidHandlers) {
         for (final IFluidHandlerItem fluidHandler : fluidHandlers) {
-            FluidStack drained = fluidHandler.drain(required.copy(), false);
-            if (drained == null) {
-                fluidHandler.fill(required.copy(), true);
-                return true;
+            if (fluidHandler.fill(required.copy(), false) >= required.amount) {
+                return fluidHandler.fill(required.copy(), true) == required.amount;
             }
         }
         return false;
+    }
+
+    private static FluidPayment drainPlacementFluid(FluidStack required, List<ItemStack> inventory) {
+        for (int slot = 0; slot < inventory.size(); slot++) {
+            ItemStack original = inventory.get(slot);
+            IFluidHandlerItem handler = getSupportedFluidHandler(original);
+            if (handler == null) continue;
+            FluidStack simulated = handler.drain(required.copy(), false);
+            if (simulated == null || !simulated.containsFluid(required)) continue;
+            ItemStack saved = original.copy();
+            FluidStack drained = handler.drain(required.copy(), true);
+            if (drained == null || !drained.containsFluid(required)) {
+                inventory.set(slot, saved);
+                continue;
+            }
+            return new FluidPayment(slot, saved, handler.getContainer());
+        }
+        return null;
+    }
+
+    private static final class FluidPayment {
+        private final int slot;
+        private final ItemStack original;
+        private final ItemStack remainder;
+
+        private FluidPayment(int slot, ItemStack original, ItemStack remainder) {
+            this.slot = slot;
+            this.original = original;
+            this.remainder = remainder;
+        }
+
+        private void finish(List<ItemStack> inventory, boolean cancelled) {
+            inventory.set(slot, cancelled ? original : remainder);
+        }
     }
 
     public static boolean consumeInventoryFluid(final FluidStack required, final List<IFluidHandlerItem> fluidHandlers) {
@@ -452,7 +485,17 @@ public class MachineAssembly {
             TileEntity te = world.getTileEntity(realPos);
             if (te != null && ingredient.nbt() != null) {
                 try {
-                    te.readFromNBT(ingredient.nbt());
+                    NBTTagCompound tileData = te.writeToNBT(new NBTTagCompound());
+                    String tileId = tileData.getString("id");
+                    tileData.merge(ingredient.nbt());
+                    // Matching tags describe configuration, not the placed tile's identity.
+                    tileData.setString("id", tileId);
+                    tileData.setInteger("x", realPos.getX());
+                    tileData.setInteger("y", realPos.getY());
+                    tileData.setInteger("z", realPos.getZ());
+                    te.readFromNBT(tileData);
+                    te.setPos(realPos);
+                    te.markDirty();
                 } catch (Exception e) {
                     ModularMachinery.log.warn("Failed to apply NBT to TileEntity!", e);
                     world.removeTileEntity(realPos);
@@ -478,7 +521,8 @@ public class MachineAssembly {
         FluidStack required = tuple.getFirst();
         IBlockState state = tuple.getSecond();
 
-        if (consumeInventory && !consumeInventoryFluid(required, getFluidHandlerItems(player.inventory.mainInventory))) {
+        FluidPayment payment = consumeInventory ? drainPlacementFluid(required, player.inventory.mainInventory) : null;
+        if (consumeInventory && payment == null) {
             String posToString = hellfirepvp.modularmachinery.common.util.MiscUtils.posToString(realPos);
             player.sendMessage(new TextComponentTranslation("message.assembly.tip.missing", posToString));
 
@@ -501,9 +545,12 @@ public class MachineAssembly {
         BlockSnapshot blockSnapshot = new BlockSnapshot(world, realPos, state);
         BlockEvent.PlaceEvent event = new BlockEvent.PlaceEvent(blockSnapshot, originalBlockState, player, EnumHand.MAIN_HAND);
         MinecraftForge.EVENT_BUS.post(event);
+        if (payment != null) {
+            payment.finish(player.inventory.mainInventory, event.isCanceled());
+            player.inventory.markDirty();
+        }
         if (event.isCanceled()) {
             world.setBlockState(realPos, originalBlockState);
-            fillInventoryFluid(required, getFluidHandlerItems(player.inventory.mainInventory));
         } else {
             world.playSound(null, realPos, SoundEvents.ITEM_BUCKET_EMPTY, SoundCategory.BLOCKS, 1.0F, 1.0F);
         }
@@ -519,11 +566,11 @@ public class MachineAssembly {
             return false;
         }
 
-        return ctrlPos.equals(another.ctrlPos);
+        return world == another.world && ctrlPos.equals(another.ctrlPos);
     }
 
     @Override
     public int hashCode() {
-        return ctrlPos != null ? ctrlPos.hashCode() : 0;
+        return 31 * System.identityHashCode(world) + ctrlPos.hashCode();
     }
 }

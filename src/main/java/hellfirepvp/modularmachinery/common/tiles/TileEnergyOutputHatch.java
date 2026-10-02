@@ -65,7 +65,7 @@ public class TileEnergyOutputHatch extends TileEnergyHatch implements IEnergySou
     }
 
     @Override
-    public void update() {
+    public synchronized void update() {
         if (world.isRemote) {
             return;
         }
@@ -162,11 +162,7 @@ public class TileEnergyOutputHatch extends TileEnergyHatch implements IEnergySou
     @Optional.Method(modid = "gregtech")
     private long attemptGTTransfer(EnumFacing face, long transferCap, long usedAmps) {
         long voltage = this.size.getGTEnergyTransferVoltage();
-        long amperes = Math.min(usedAmps, this.size.getGtAmperage());
-        int transferableAmps = 0;
-        while (transferableAmps < amperes && (transferableAmps * voltage) <= transferCap) {
-            transferableAmps++;
-        }
+        long transferableAmps = Math.min(Math.min(usedAmps, this.size.getGtAmperage()), transferCap / voltage);
         if (transferableAmps == 0) {
             return 0L;
         }
@@ -258,7 +254,7 @@ public class TileEnergyOutputHatch extends TileEnergyHatch implements IEnergySou
 
     @Override
     @Optional.Method(modid = "ic2")
-    public void drawEnergy(double amount) {
+    public synchronized void drawEnergy(double amount) {
         this.energy.set(MiscUtils.clamp(this.energy.get() - (MathHelper.lfloor(amount) * 4L), 0, this.size.maxEnergy));
         markNoUpdateSync();
     }

@@ -97,7 +97,7 @@ public class MEGasInputBus extends MEGasBus implements SettingsTransfer {
             IMEMonitor<IAEGasStack> inv = proxy.getStorage().getInventory(channel);
             int capacity = tanks.getTanks()[0].getMaxGas();
 
-            synchronized (tanks) {
+            synchronized (handler) {
                 for (final int slot : getNeedUpdateSlots()) {
                     changedSlots[slot] = false;
                     GasStack cfgStack = config.getGasStack(slot);
@@ -115,8 +115,8 @@ public class MEGasInputBus extends MEGasBus implements SettingsTransfer {
                     if (!cfgStack.isGasEqual(invStack)) {
                         if (invStack != null) {
                             IAEGasStack left = insertStackToAE(inv, invStack);
+                            tanks.setGas(slot, left == null ? null : left.getGasStack());
                             if (left != null) {
-                                tanks.setGas(slot, left.getGasStack());
                                 continue;
                             }
                         }
@@ -165,12 +165,12 @@ public class MEGasInputBus extends MEGasBus implements SettingsTransfer {
                     }
                 }
             }
-            inTick = false;
             return successAtLeastOnce ? TickRateModulation.FASTER : TickRateModulation.SLOWER;
         } catch (GridAccessException e) {
-            inTick = false;
             changedSlots = new boolean[TANK_SLOT_AMOUNT];
             return TickRateModulation.IDLE;
+        } finally {
+            inTick = false;
         }
     }
 
