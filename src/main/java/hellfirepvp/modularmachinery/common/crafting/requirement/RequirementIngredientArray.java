@@ -57,6 +57,12 @@ public class RequirementIngredientArray extends ComponentRequirement.MultiCompPa
         this.ingredients = ingredients;
     }
 
+    public RequirementIngredientArray(RequirementTypeIngredientArray requirementType, List<ChancedIngredientStack> ingredients, IOType ioType) {
+        super(requirementType, ioType);
+
+        this.ingredients = ingredients;
+    }
+
     @Override
     public boolean isValidComponent(ProcessingComponent<?> component, RecipeCraftingContext ctx) {
         MachineComponent<?> cmp = component.component();

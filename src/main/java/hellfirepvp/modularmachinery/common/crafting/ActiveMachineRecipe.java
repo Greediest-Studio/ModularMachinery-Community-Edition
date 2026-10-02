@@ -40,11 +40,12 @@ public class ActiveMachineRecipe {
     private final MachineRecipe  recipe;
     private       NBTTagCompound data = new NBTTagCompound();
     private       int            tick = 0, totalTick;
-    private int maxParallelism, parallelism = 1;
+    private int baseMaxParallelism, maxParallelism, parallelism = 1;
 
     public ActiveMachineRecipe(MachineRecipe recipe, int maxParallelism) {
         this.recipe = recipe;
         this.totalTick = recipe.getRecipeTotalTickTime();
+        this.baseMaxParallelism = maxParallelism;
         this.maxParallelism = maxParallelism;
     }
 
@@ -55,8 +56,14 @@ public class ActiveMachineRecipe {
         if (serialized.hasKey("data", Constants.NBT.TAG_COMPOUND)) {
             data = serialized.getCompoundTag("data");
         }
+        if (serialized.hasKey("baseMaxParallelism")) {
+            baseMaxParallelism = serialized.getInteger("baseMaxParallelism");
+        }
         if (serialized.hasKey("maxParallelism")) {
             maxParallelism = serialized.getInteger("maxParallelism");
+        }
+        if (baseMaxParallelism <= 0) {
+            baseMaxParallelism = Math.max(1, maxParallelism);
         }
         if (serialized.hasKey("parallelism")) {
             parallelism = serialized.getInteger("parallelism");
@@ -66,6 +73,7 @@ public class ActiveMachineRecipe {
     public void reset() {
         this.tick = 0;
         this.parallelism = 1;
+        this.baseMaxParallelism = 1;
         this.maxParallelism = 1;
         this.data = new NBTTagCompound();
     }
@@ -76,8 +84,9 @@ public class ActiveMachineRecipe {
 
     @Nonnull
     public CraftingStatus tick(TileMultiblockMachineController ctrl, RecipeCraftingContext context) {
-        totalTick = Math.round(RecipeModifier.applyModifiers(
-            context, RequirementTypesMM.REQUIREMENT_DURATION, null, this.recipe.getRecipeTotalTickTime(), false));
+        float rawTotalTick = RecipeModifier.applyModifiers(
+            context, RequirementTypesMM.REQUIREMENT_DURATION, null, this.recipe.getRecipeTotalTickTime(), false);
+        this.totalTick = rawTotalTick < 1F ? 1 : Math.round(rawTotalTick);
 
         //Skip per-tick logic until the controller can finish the recipe
         if (this.isCompleted()) {
@@ -120,12 +129,20 @@ public class ActiveMachineRecipe {
 
     public RecipeCraftingContext.CraftingCheckResult canStartCrafting(RecipeCraftingContext context) {
         calculateExtraParallelism(context);
-        return context.canStartCrafting();
+        RecipeCraftingContext.CraftingCheckResult result = context.canStartCrafting();
+        if (result.isSuccess()) {
+            calculateExtraParallelism(context);
+        }
+        return result;
     }
 
     public RecipeCraftingContext.CraftingCheckResult canRestartCrafting(RecipeCraftingContext context) {
         calculateExtraParallelism(context);
-        return context.canRestartCrafting();
+        RecipeCraftingContext.CraftingCheckResult result = context.canRestartCrafting();
+        if (result.isSuccess()) {
+            calculateExtraParallelism(context);
+        }
+        return result;
     }
 
     public void calculateExtraParallelism(final RecipeCraftingContext context) {
@@ -133,19 +150,22 @@ public class ActiveMachineRecipe {
             context, RequirementTypesMM.REQUIREMENT_DURATION, null, this.recipe.getRecipeTotalTickTime(), false);
         if (totalTick < 0F) {
             this.totalTick = 1;
+            this.maxParallelism = this.baseMaxParallelism;
         } else if (totalTick < 1) {
             int extraParallelism = (int) (1F / totalTick);
-            this.maxParallelism *= extraParallelism;
+            this.maxParallelism = this.baseMaxParallelism * extraParallelism;
             this.totalTick = 1;
         } else {
             this.totalTick = Math.round(totalTick);
+            this.maxParallelism = this.baseMaxParallelism;
         }
     }
 
     public void start(RecipeCraftingContext context) {
         context.startCrafting();
-        totalTick = Math.round(RecipeModifier.applyModifiers(
-            context, RequirementTypesMM.REQUIREMENT_DURATION, null, this.recipe.getRecipeTotalTickTime(), false));
+        float rawTotalTick = RecipeModifier.applyModifiers(
+            context, RequirementTypesMM.REQUIREMENT_DURATION, null, this.recipe.getRecipeTotalTickTime(), false);
+        this.totalTick = rawTotalTick < 1F ? 1 : Math.round(rawTotalTick);
     }
 
     public NBTTagCompound serialize() {
@@ -153,6 +173,7 @@ public class ActiveMachineRecipe {
         tag.setInteger("tick", this.tick);
         tag.setInteger("totalTick", this.totalTick);
         tag.setString("recipeName", this.recipe.getRegistryName().toString());
+        tag.setInteger("baseMaxParallelism", this.baseMaxParallelism);
         tag.setInteger("maxParallelism", this.maxParallelism);
         tag.setInteger("parallelism", this.parallelism);
 
@@ -169,6 +190,7 @@ public class ActiveMachineRecipe {
 
     @ZenSetter("maxParallelism")
     public void setMaxParallelism(int maxParallelism) {
+        this.baseMaxParallelism = maxParallelism;
         this.maxParallelism = maxParallelism;
     }
 

@@ -126,7 +126,10 @@ public class RecipeCraftingContext {
         this.chanceModifierAppliers.clear();
         this.permanentModifierList.clear();
         this.currentRestrictions.clear();
-        this.requirements.forEach(requirement -> requirement.setTriggered(false));
+        this.requirements.forEach(requirement -> {
+            requirement.setTriggered(false);
+            requirement.reset();
+        });
         this.isCrafting = false;
 
         this.currentIOTickIndex = 0;
@@ -485,7 +488,8 @@ public class RecipeCraftingContext {
     }
 
     public CraftingCheckResult canStartCrafting() {
-        permanentModifierList.clear();
+        clearPermanentModifiers();
+        this.requirements.forEach(ComponentRequirement::reset);
         if (getParentRecipe().isParallelized() && activeRecipe.getMaxParallelism() > 1) {
             Collection<RequirementComponents> parallelizable = getAllParallelizableComponents();
             int maxParallelism = getMaxParallelism(parallelizable);
@@ -499,7 +503,8 @@ public class RecipeCraftingContext {
     }
 
     public CraftingCheckResult canRestartCrafting() {
-        permanentModifierList.clear();
+        clearPermanentModifiers();
+        this.requirements.forEach(ComponentRequirement::reset);
         int currentParallelism = activeRecipe.getParallelism();
         int maxParallelism = activeRecipe.getMaxParallelism();
 
@@ -532,6 +537,10 @@ public class RecipeCraftingContext {
             if (key < 0) continue;
             setGroupId(key);
             controller.beginSmartInterfaceRecipeCheck(key);
+            if (input) {
+                clearPermanentModifiers();
+                this.requirements.forEach(ComponentRequirement::reset);
+            }
             try {
                 List<RequirementComponents> components = this.requirementComponents.get(key);
                 List<RequirementComponents> requirements = input ? components
@@ -563,13 +572,23 @@ public class RecipeCraftingContext {
                 } else {
                     fkey = key;
                     successfulRequirements = 0;
+                    if (input) {
+                        clearPermanentModifiers();
+                        this.requirements.forEach(ComponentRequirement::reset);
+                    }
                 }
             } finally {
                 controller.endSmartInterfaceRecipeCheck();
             }
         }
 
-        if (!success) setGroupId(fkey);
+        if (!success) {
+            setGroupId(fkey);
+            if (input) {
+                clearPermanentModifiers();
+                this.requirements.forEach(ComponentRequirement::reset);
+            }
+        }
 
         currentRestrictions.clear();
         return result;
@@ -601,10 +620,13 @@ public class RecipeCraftingContext {
             if (req instanceof ComponentRequirement.MultiComponent reqMulti) {
                 List<ProcessingComponent<?>> copiedCompList = getCopiedRequirementComponents(reqCompMap, taggedReqCompMap, req, compList);
                 CraftCheck check = reqMulti.canStartCrafting(copiedCompList, this);
+                req.endRequirementCheck();
                 if (check.isSuccess()) {
                     return true;
                 }
-                result.addError(check.getUnlocalizedMessage());
+                if (!req.isOptional()) {
+                    result.addError(check.getUnlocalizedMessage());
+                }
                 return false;
             }
 
@@ -621,9 +643,15 @@ public class RecipeCraftingContext {
                     errorMessages.add(check.getUnlocalizedMessage());
                 }
             }
-            errorMessages.forEach(result::addError);
+            if (!req.isOptional()) {
+                errorMessages.forEach(result::addError);
+            }
         } else {
             // No component found that would apply for the given req
+            if (req.isOptional()) {
+                req.endRequirementCheck();
+                return false;
+            }
             result.addError(req.getMissingComponentErrorMessage(req.actionType));
         }
 
@@ -761,6 +789,26 @@ public class RecipeCraftingContext {
         }
     }
 
+    public void clearPermanentModifiers() {
+        if (this.permanentModifierList.isEmpty()) {
+            return;
+        }
+        Set<RequirementType<?, ?>> changed = new HashSet<>();
+        for (RecipeModifier modifier : this.permanentModifierList) {
+            RequirementType<?, ?> target = modifier.getTarget();
+            if (target == null) {
+                target = RequirementTypesMM.REQUIREMENT_DURATION;
+            }
+            List<RecipeModifier> list = this.modifiers.get(target);
+            if (list != null) {
+                list.remove(modifier);
+                changed.add(target);
+            }
+        }
+        this.permanentModifierList.clear();
+        changed.forEach(this::updateModifierApplier);
+    }
+
     public void updateModifierApplier(RequirementType<?, ?> reqType) {
         addModifierApplier(reqType, modifiers.computeIfAbsent(reqType, v -> new CopyOnWriteArrayList<>()));
     }
@@ -773,9 +821,13 @@ public class RecipeCraftingContext {
 
         if (!applier.isDefault()) {
             modifierAppliers.put(reqType, applier);
+        } else {
+            modifierAppliers.remove(reqType);
         }
         if (!chancedApplier.isDefault()) {
             chanceModifierAppliers.put(reqType, chancedApplier);
+        } else {
+            chanceModifierAppliers.remove(reqType);
         }
     }
 

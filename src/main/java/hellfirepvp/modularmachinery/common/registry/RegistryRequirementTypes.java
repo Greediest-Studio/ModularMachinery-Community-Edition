@@ -23,7 +23,10 @@ import hellfirepvp.modularmachinery.common.crafting.requirement.type.Requirement
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeItemDurability;
 import net.minecraft.util.ResourceLocation;
 
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeCatalyst;
+
 import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.KEY_INTERFACE_NUMBER_INPUT;
+import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.KEY_REQUIREMENT_CATALYST;
 import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.KEY_REQUIREMENT_DURATION;
 import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.KEY_REQUIREMENT_ENERGY;
 import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.KEY_REQUIREMENT_FLUID;
@@ -33,6 +36,7 @@ import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.KEY_REQ
 import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.KEY_REQUIREMENT_INGREDIENT_ARRAY;
 import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.KEY_REQUIREMENT_ITEM;
 import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.KEY_REQUIREMENT_ITEM_DURABILITY;
+import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.REQUIREMENT_CATALYST;
 import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.REQUIREMENT_DURATION;
 import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.REQUIREMENT_ENERGY;
 import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.REQUIREMENT_FLUID;
@@ -60,6 +64,7 @@ public class RegistryRequirementTypes {
         REQUIREMENT_ITEM = register(new RequirementTypeItem(), KEY_REQUIREMENT_ITEM);
         REQUIREMENT_ITEM_DURABILITY = register(new RequirementTypeItemDurability(), KEY_REQUIREMENT_ITEM_DURABILITY);
         REQUIREMENT_INGREDIENT_ARRAY = register(new RequirementTypeIngredientArray(), KEY_REQUIREMENT_INGREDIENT_ARRAY);
+        REQUIREMENT_CATALYST = register(new RequirementTypeCatalyst(), KEY_REQUIREMENT_CATALYST);
         REQUIREMENT_FLUID = register(new RequirementTypeFluid(), KEY_REQUIREMENT_FLUID);
         REQUIREMENT_FLUID_PERTICK = register(new RequirementTypeFluidPerTick(), KEY_REQUIREMENT_FLUID_PERTICK);
         if (Mods.MEKANISM.isPresent()) {

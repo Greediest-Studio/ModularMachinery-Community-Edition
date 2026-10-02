@@ -1,12 +1,15 @@
 package hellfirepvp.modularmachinery.common.crafting.requirement;
 
 import github.kasuminova.mmce.common.itemtype.ChancedIngredientStack;
+import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
 import hellfirepvp.modularmachinery.common.crafting.requirement.jei.JEIComponentCatalyst;
 import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
+import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
+import hellfirepvp.modularmachinery.common.util.ItemUtils;
 import hellfirepvp.modularmachinery.common.util.ResultChance;
 import net.minecraft.item.ItemStack;
 
@@ -18,20 +21,20 @@ import java.util.List;
 public class RequirementCatalyst extends RequirementIngredientArray {
     protected final List<RecipeModifier> modifierList = new ArrayList<>();
     protected final List<String>         toolTipList  = new ArrayList<>();
-    protected       boolean              isRequired   = false;
+    protected       boolean              active       = false;
+    protected       boolean              consumePerParallel = true;
 
     public RequirementCatalyst(ItemStack item) {
-        super(Collections.singletonList(new ChancedIngredientStack(item)));
-        setParallelizeUnaffected(true);
+        this(Collections.singletonList(new ChancedIngredientStack(item)));
     }
 
     public RequirementCatalyst(String oreDictName, int amount) {
-        super(Collections.singletonList(new ChancedIngredientStack(oreDictName, amount)));
-        setParallelizeUnaffected(true);
+        this(Collections.singletonList(new ChancedIngredientStack(oreDictName, amount)));
     }
 
     public RequirementCatalyst(List<ChancedIngredientStack> ingredients) {
-        super(ingredients);
+        super(RequirementTypesMM.REQUIREMENT_CATALYST != null ? RequirementTypesMM.REQUIREMENT_CATALYST : RequirementTypesMM.REQUIREMENT_INGREDIENT_ARRAY,
+              ingredients, IOType.INPUT);
         setParallelizeUnaffected(true);
     }
 
@@ -47,49 +50,69 @@ public class RequirementCatalyst extends RequirementIngredientArray {
         return toolTipList;
     }
 
+    public boolean isConsumePerParallel() {
+        return consumePerParallel;
+    }
+
+    public void setConsumePerParallel(boolean consumePerParallel) {
+        this.consumePerParallel = consumePerParallel;
+    }
+
+    public boolean isActive() {
+        return active;
+    }
+
+    @Override
+    public boolean isOptional() {
+        return true;
+    }
+
+    @Override
+    public void reset() {
+        this.active = false;
+    }
+
+    @Override
+    public void setParallelism(int parallelism) {
+        if (consumePerParallel) {
+            this.parallelism = parallelism;
+        } else {
+            this.parallelism = 1;
+        }
+    }
+
     @Nonnull
     @Override
     public CraftCheck canStartCrafting(List<ProcessingComponent<?>> components, RecipeCraftingContext context) {
-        if (super.canStartCrafting(components, context).isSuccess() && !isRequired) {
+        // Test consumption on a snapshot to prevent polluting copied components if insufficient
+        List<ProcessingComponent<?>> testCopied = ItemUtils.copyItemHandlerComponents(components);
+        if (super.canStartCrafting(testCopied, context).isSuccess()) {
+            super.canStartCrafting(components, context);
             addModifierToContext(context);
-            isRequired = true;
+            this.active = true;
             return CraftCheck.success();
         } else {
-            isRequired = false;
+            this.active = false;
+            return CraftCheck.skipComponent();
         }
-        return CraftCheck.skipComponent();
     }
 
     @Override
     public int getMaxParallelism(final List<ProcessingComponent<?>> components, final RecipeCraftingContext context, final int maxParallelism) {
-        int result = super.getMaxParallelism(components, context, maxParallelism);
-        if (result >= 1 && !isRequired) {
-            addModifierToContext(context);
-            isRequired = true;
-        } else {
-            isRequired = false;
-        }
-        // It is an optional input, so it should not theoretically return the maximum number of consumable quantities.
         return maxParallelism;
     }
 
     protected void addModifierToContext(final RecipeCraftingContext context) {
-        if (parallelism > 1) {
-            for (RecipeModifier mod : modifierList) {
-                context.addPermanentModifier(mod.multiply(parallelism));
-            }
-        } else {
-            for (RecipeModifier modifier : modifierList) {
-                context.addPermanentModifier(modifier);
-            }
+        for (RecipeModifier modifier : modifierList) {
+            context.addPermanentModifier(modifier);
         }
     }
 
     @Override
     public void startCrafting(List<ProcessingComponent<?>> components, RecipeCraftingContext context, ResultChance chance) {
-        if (isRequired) {
+        if (active) {
             super.startCrafting(components, context, chance);
-            isRequired = false;
+            active = false;
         }
     }
 
@@ -109,12 +132,24 @@ public class RequirementCatalyst extends RequirementIngredientArray {
                 case ITEMSTACK -> {
                     ItemStack itemStack = copied.itemStack;
                     int amt = Math.round(RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_ITEM, actionType, itemStack.getCount(), false));
+                    if (amt == itemStack.getCount() && RequirementTypesMM.REQUIREMENT_CATALYST != null) {
+                        amt = Math.round(RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_CATALYST, actionType, itemStack.getCount(), false));
+                    }
                     itemStack.setCount(amt);
                 }
-                case ORE_DICT ->
-                    copied.count = Math.round(RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_ITEM, actionType, item.count, false));
+                case ORE_DICT -> {
+                    int amt = Math.round(RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_ITEM, actionType, item.count, false));
+                    if (amt == item.count && RequirementTypesMM.REQUIREMENT_CATALYST != null) {
+                        amt = Math.round(RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_CATALYST, actionType, item.count, false));
+                    }
+                    copied.count = amt;
+                }
             }
-            copied.chance = RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_ITEM, actionType, item.chance, true);
+            float ch = RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_ITEM, actionType, item.chance, true);
+            if (ch == item.chance && RequirementTypesMM.REQUIREMENT_CATALYST != null) {
+                ch = RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_CATALYST, actionType, item.chance, true);
+            }
+            copied.chance = ch;
 
             copiedIngredients.add(copied);
         });
@@ -122,8 +157,22 @@ public class RequirementCatalyst extends RequirementIngredientArray {
         RequirementCatalyst catalyst = new RequirementCatalyst(copiedIngredients);
         catalyst.modifierList.addAll(this.modifierList);
         catalyst.toolTipList.addAll(toolTipList);
-        catalyst.chance = RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_ITEM, actionType, chance, true);
+        catalyst.consumePerParallel = this.consumePerParallel;
+        float ch = RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_ITEM, actionType, chance, true);
+        if (ch == chance && RequirementTypesMM.REQUIREMENT_CATALYST != null) {
+            ch = RecipeModifier.applyModifiers(modifiers, RequirementTypesMM.REQUIREMENT_CATALYST, actionType, chance, true);
+        }
+        catalyst.chance = ch;
         return catalyst;
+    }
+
+    @Override
+    public RequirementCatalyst postDeepCopy(ComponentRequirement<?, ?> another) {
+        super.postDeepCopy(another);
+        if (another instanceof RequirementCatalyst catalyst) {
+            this.consumePerParallel = catalyst.consumePerParallel;
+        }
+        return this;
     }
 
     @Override
@@ -131,3 +180,4 @@ public class RequirementCatalyst extends RequirementIngredientArray {
         return new JEIComponentCatalyst(this);
     }
 }
+

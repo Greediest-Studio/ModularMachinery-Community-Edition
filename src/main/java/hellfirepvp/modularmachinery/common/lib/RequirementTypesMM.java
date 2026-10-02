@@ -12,6 +12,7 @@ import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementDuration;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeEnergy;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeFluid;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeCatalyst;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeFluidPerTick;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeGas;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeGasPerTick;
@@ -40,10 +41,12 @@ public class RequirementTypesMM {
     public static final ResourceLocation                 KEY_REQUIREMENT_ENERGY           = new ResourceLocation(ModularMachinery.MODID, "energy");
     //Helper type as target for duration-type recipe modifiers
     public static final ResourceLocation                 KEY_REQUIREMENT_DURATION         = new ResourceLocation(ModularMachinery.MODID, "duration");
+    public static final ResourceLocation                 KEY_REQUIREMENT_CATALYST         = new ResourceLocation(ModularMachinery.MODID, "catalyst");
     public static final ResourceLocation                 KEY_INTERFACE_NUMBER_INPUT       = new ResourceLocation(ModularMachinery.MODID, "interface_number_input");
     public static       RequirementTypeItem              REQUIREMENT_ITEM;
     public static       RequirementTypeItemDurability    REQUIREMENT_ITEM_DURABILITY;
     public static       RequirementTypeIngredientArray   REQUIREMENT_INGREDIENT_ARRAY;
+    public static       RequirementTypeCatalyst          REQUIREMENT_CATALYST;
     public static       RequirementTypeFluid             REQUIREMENT_FLUID;
     public static       RequirementTypeFluidPerTick      REQUIREMENT_FLUID_PERTICK;
     public static       RequirementTypeGasPerTick        REQUIREMENT_GAS_PERTICK;

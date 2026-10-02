@@ -166,6 +166,20 @@ public abstract class ComponentRequirement<T, V extends RequirementType<T, ? ext
     }
 
     /**
+     * Whether this requirement is optional.
+     * Optional requirements do not fail recipe check when component is missing or requirement is skipped.
+     */
+    public boolean isOptional() {
+        return false;
+    }
+
+    /**
+     * Reset requirement state when RecipeCraftingContext is reset or recycled.
+     */
+    public void reset() {
+    }
+
+    /**
      * True if the requirement could be fulfilled by the given component.
      */
     public boolean startCrafting(ProcessingComponent<?> component, RecipeCraftingContext context, ResultChance chance) {

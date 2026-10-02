@@ -787,12 +787,17 @@ public class RecipePrimer implements PreparedRecipe {
     //----------------------------------------------------------------------------------------------
     @ZenMethod
     public RecipePrimer addCatalystInput(IIngredient input, String[] tooltips, RecipeModifier[] modifiers) {
+        return addCatalystInput(input, tooltips, modifiers, true);
+    }
+
+    @ZenMethod
+    public RecipePrimer addCatalystInput(IIngredient input, String[] tooltips, RecipeModifier[] modifiers, boolean consumePerParallel) {
         if (input instanceof IItemStack) {
-            requireCatalyst((IItemStack) input, tooltips, modifiers);
+            requireCatalyst((IItemStack) input, tooltips, modifiers, consumePerParallel);
         } else if (input instanceof IOreDictEntry) {
-            requireCatalyst(((IOreDictEntry) input).getName(), 1, tooltips, modifiers);
+            requireCatalyst(((IOreDictEntry) input).getName(), 1, tooltips, modifiers, consumePerParallel);
         } else if (input instanceof IngredientStack && input.getInternal() instanceof IOreDictEntry) {
-            requireCatalyst(((IOreDictEntry) input.getInternal()).getName(), input.getAmount(), tooltips, modifiers);
+            requireCatalyst(((IOreDictEntry) input.getInternal()).getName(), input.getAmount(), tooltips, modifiers, consumePerParallel);
         } else {
             CraftTweakerAPI.logError(String.format("[ModularMachinery] Invalid input type %s(%s)! Ignored.", input, input.getClass()));
         }
@@ -802,7 +807,12 @@ public class RecipePrimer implements PreparedRecipe {
 
     @ZenMethod
     public RecipePrimer addCatalystInput(IngredientArrayPrimer input, String[] tooltips, RecipeModifier[] modifiers) {
-        requireCatalyst(input, tooltips, modifiers);
+        return addCatalystInput(input, tooltips, modifiers, true);
+    }
+
+    @ZenMethod
+    public RecipePrimer addCatalystInput(IngredientArrayPrimer input, String[] tooltips, RecipeModifier[] modifiers, boolean consumePerParallel) {
+        requireCatalyst(input, tooltips, modifiers, consumePerParallel);
         return this;
     }
 
@@ -887,45 +897,66 @@ public class RecipePrimer implements PreparedRecipe {
         appendComponent(new RequirementItem(ioType, oreDictName, amount));
     }
 
-    private void requireCatalyst(String oreDictName, int amount, String[] tooltips, RecipeModifier[] modifiers) {
+    private void requireCatalyst(String oreDictName, int amount, String[] tooltips, RecipeModifier[] modifiers, boolean consumePerParallel) {
         RequirementCatalyst catalyst = new RequirementCatalyst(oreDictName, amount);
-        for (String tooltip : tooltips) {
-            catalyst.addTooltip(tooltip);
+        catalyst.setConsumePerParallel(consumePerParallel);
+        if (tooltips != null) {
+            for (String tooltip : tooltips) {
+                if (tooltip != null) {
+                    catalyst.addTooltip(tooltip);
+                }
+            }
         }
-        for (RecipeModifier modifier : modifiers) {
-            if (modifier != null) {
-                catalyst.addModifier(modifier);
+        if (modifiers != null) {
+            for (RecipeModifier modifier : modifiers) {
+                if (modifier != null) {
+                    catalyst.addModifier(modifier);
+                }
             }
         }
         appendComponent(catalyst);
     }
 
-    private void requireCatalyst(IItemStack stack, String[] tooltips, RecipeModifier[] modifiers) {
+    private void requireCatalyst(IItemStack stack, String[] tooltips, RecipeModifier[] modifiers, boolean consumePerParallel) {
         ItemStack mcStack = CraftTweakerMC.getItemStack(stack);
         if (mcStack.isEmpty()) {
             CraftTweakerAPI.logError("[ModularMachinery] ItemStack not found/unknown item: " + stack.toString());
             return;
         }
         RequirementCatalyst catalyst = new RequirementCatalyst(mcStack);
-        for (String tooltip : tooltips) {
-            catalyst.addTooltip(tooltip);
+        catalyst.setConsumePerParallel(consumePerParallel);
+        if (tooltips != null) {
+            for (String tooltip : tooltips) {
+                if (tooltip != null) {
+                    catalyst.addTooltip(tooltip);
+                }
+            }
         }
-        for (RecipeModifier modifier : modifiers) {
-            if (modifier != null) {
-                catalyst.addModifier(modifier);
+        if (modifiers != null) {
+            for (RecipeModifier modifier : modifiers) {
+                if (modifier != null) {
+                    catalyst.addModifier(modifier);
+                }
             }
         }
         appendComponent(catalyst);
     }
 
-    private void requireCatalyst(IngredientArrayPrimer ingredientArrayPrimer, String[] tooltips, RecipeModifier[] modifiers) {
+    private void requireCatalyst(IngredientArrayPrimer ingredientArrayPrimer, String[] tooltips, RecipeModifier[] modifiers, boolean consumePerParallel) {
         RequirementCatalyst catalyst = new RequirementCatalyst(ingredientArrayPrimer.getIngredientStackList());
-        for (String tooltip : tooltips) {
-            catalyst.addTooltip(tooltip);
+        catalyst.setConsumePerParallel(consumePerParallel);
+        if (tooltips != null) {
+            for (String tooltip : tooltips) {
+                if (tooltip != null) {
+                    catalyst.addTooltip(tooltip);
+                }
+            }
         }
-        for (RecipeModifier modifier : modifiers) {
-            if (modifier != null) {
-                catalyst.addModifier(modifier);
+        if (modifiers != null) {
+            for (RecipeModifier modifier : modifiers) {
+                if (modifier != null) {
+                    catalyst.addModifier(modifier);
+                }
             }
         }
         appendComponent(catalyst);
