@@ -485,10 +485,11 @@ public class BlockArray {
                 strElement = strElement.substring(0, indexMeta);
             }
             ResourceLocation res = new ResourceLocation(strElement);
-            Block block = ForgeRegistries.BLOCKS.getValue(res);
-            if (block == null) {
+            // Forge 会将未知注册名回退为空气，必须先检查注册名是否存在。
+            if (!ForgeRegistries.BLOCKS.containsKey(res)) {
                 throw new JsonParseException("Couldn't find block with registryName '" + res + "' !");
             }
+            Block block = ForgeRegistries.BLOCKS.getValue(res);
             if (meta == -1) {
                 return IBlockStateDescriptor.of(block);
             } else {
