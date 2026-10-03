@@ -2,7 +2,7 @@
     {
         "modid": "modularmachinery",
         "name": "Modular Machinery: Community Edition",
-        "description": "A modpack-maker toolset to create custom, massive, unique and complex machines and recipes from scratch with JSON.\n\nWiki: https://github.com/HellFirePvP/ModularMachinery/wiki",
+        "description": "A modpack-maker toolset to create custom, massive, unique and complex machines and recipes from scratch with JSON.",
         "version": "${version}",
         "mcversion": "${mcversion}",
         "url": "https://www.curseforge.com/minecraft/mc-mods/modularmachinery-community-edition",

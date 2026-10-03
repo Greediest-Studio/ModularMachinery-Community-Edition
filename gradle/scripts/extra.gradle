@@ -1,0 +1,31 @@
+// ForgeDevEnv 8f63f346 的项目适配；模组仍在 Java 8 上运行。
+base {
+    archivesName.set('ModularMachinery-CE')
+}
+
+minecraft {
+    groupsToExcludeFromAutoReobfMapping.addAll('com.diffplug', 'com.diffplug.durian', 'net.industrial-craft')
+}
+
+dependencies {
+    // MixinBooter 8.9 的注解处理器依赖，不引入整套运行时传递依赖。
+    annotationProcessor 'org.ow2.asm:asm-debug-all:5.2'
+    annotationProcessor 'com.google.guava:guava:30.0-jre'
+    annotationProcessor 'com.google.code.gson:gson:2.8.9'
+    testCompileOnly 'me.eigenraven.java8unsupported:java-8-unsupported-shim:1.0.0'
+}
+
+// 保留旧工程的 Maven 本地发布能力，不配置远程发布目标。
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
+    }
+}
+
+tasks.register('auditClasspath') {
+    doLast {
+        layout.buildDirectory.file('audit-classpath.txt').get().asFile.text = sourceSets.main.runtimeClasspath.asPath
+    }
+}
