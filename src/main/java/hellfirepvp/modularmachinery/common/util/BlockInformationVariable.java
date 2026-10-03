@@ -15,6 +15,7 @@ import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
+import hellfirepvp.modularmachinery.ModularMachinery;
 
 import java.lang.reflect.Type;
 import java.util.HashMap;
@@ -52,7 +53,15 @@ public class BlockInformationVariable {
                         if (!p.isJsonPrimitive() || !p.getAsJsonPrimitive().isString()) {
                             throw new JsonParseException("Elements of a variable have to be Blockstate descriptions! You cannot nest variables!");
                         }
-                        descriptors.add(BlockArray.BlockInformation.getDescriptor(p.getAsString()));
+                        try {
+                            descriptors.add(BlockArray.BlockInformation.getDescriptor(p.getAsString()));
+                        } catch (JsonParseException exc) {
+                            ModularMachinery.log.warn("Skipping invalid block '{}' in structure variable '{}': {}",
+                                p.getAsString(), entry.getKey(), exc.getMessage());
+                        }
+                    }
+                    if (descriptors.isEmpty()) {
+                        throw new JsonParseException("Variable '" + entry.getKey() + "' has no valid blockstate descriptions!");
                     }
                     var.variables.put(entry.getKey(), new BlockArray.BlockInformation(descriptors));
                 } else if (variableElement.isJsonPrimitive() && variableElement.getAsJsonPrimitive().isString()) {
