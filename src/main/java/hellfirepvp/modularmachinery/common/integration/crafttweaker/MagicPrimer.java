@@ -1,5 +1,23 @@
 package hellfirepvp.modularmachinery.common.integration.crafttweaker;
 
+import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
+import hellfirepvp.modularmachinery.common.crafting.helper.RequirementPrerequisiteFailedException;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementBiome;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementDimension;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementDragonBreath;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementFlux;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementHeat;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementLaser;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementMeteor;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementPotentialEnergy;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementRadiation;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementScrubber;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementVis;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementWillMultiChunk;
+import hellfirepvp.modularmachinery.common.integration.iceandfire.DragonType;
+import hellfirepvp.modularmachinery.common.tiles.TileFluxProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileVisProvider;
+
 import WayofTime.bloodmagic.soul.EnumDemonWillType;
 import crafttweaker.CraftTweakerAPI;
 import crafttweaker.annotations.ZenRegister;
@@ -239,4 +257,139 @@ public class MagicPrimer {
         primer.appendComponent(new RequirementImpetus(IOType.OUTPUT, amount));
         return primer;
     }
+
+    @FunctionalInterface
+    private interface RequirementSupplier<T extends ComponentRequirement<?, ?>> {
+        T get() throws RequirementPrerequisiteFailedException;
+    }
+
+    private static <T extends ComponentRequirement<?, ?>> RecipePrimer addRequirement(RecipePrimer primer, RequirementSupplier<T> supplier) {
+        ComponentRequirement<?, ?> requirement = supplier.get();
+        if (requirement.getRequirementType() == null) {
+            throw new RequirementPrerequisiteFailedException("Required integration mod is not loaded: " + requirement.getClass().getSimpleName());
+        }
+        primer.appendComponent(requirement);
+        return primer;
+    }
+
+    @ZenMethod
+    public static RecipePrimer addWillMultiChunkInput(RecipePrimer primer, int chunkRange, int amount, int minPerChunk, int maxPerChunk, String willType) {
+        return addRequirement(primer, () -> RequirementWillMultiChunk.from(IOType.INPUT, chunkRange, amount, minPerChunk, maxPerChunk, willType));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addWillMultiChunkInput(RecipePrimer primer, int amount, int minPerChunk, int maxPerChunk, String willType) {
+        return addWillMultiChunkInput(primer, 0, amount, minPerChunk, maxPerChunk, willType);
+    }
+
+    @ZenMethod
+    public static RecipePrimer addWillMultiChunkInput(RecipePrimer primer, int amount, String willType) {
+        return addWillMultiChunkInput(primer, 0, amount, 0, Integer.MAX_VALUE, willType);
+    }
+
+    @ZenMethod
+    public static RecipePrimer addWillMultiChunkOutput(RecipePrimer primer, int chunkRange, int amount, int minPerChunk, int maxPerChunk, String willType) {
+        return addRequirement(primer, () -> RequirementWillMultiChunk.from(IOType.OUTPUT, chunkRange, amount, minPerChunk, maxPerChunk, willType));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addWillMultiChunkOutput(RecipePrimer primer, int amount, int minPerChunk, int maxPerChunk, String willType) {
+        return addWillMultiChunkOutput(primer, 0, amount, minPerChunk, maxPerChunk, willType);
+    }
+
+    @ZenMethod
+    public static RecipePrimer addWillMultiChunkOutput(RecipePrimer primer, int amount, String willType) {
+        return addWillMultiChunkOutput(primer, 0, amount, 0, Integer.MAX_VALUE, willType);
+    }
+
+    @ZenMethod
+    public static RecipePrimer addFluxInput(RecipePrimer primer, float amount, int chunkRange) {
+        return addRequirement(primer, () -> RequirementFlux.from(IOType.INPUT, chunkRange, amount));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addFluxInput(RecipePrimer primer, float amount, int chunkRange, int minPerChunk) {
+        return addRequirement(primer, () -> RequirementFlux.from(IOType.INPUT, chunkRange, amount, minPerChunk, TileFluxProvider.Output.MAXIMUM_AMOUNT_IN_CHUNK));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addFluxInput(RecipePrimer primer, float amount) {
+        return addFluxInput(primer, amount, 0);
+    }
+
+    @ZenMethod
+    public static RecipePrimer addFluxOutput(RecipePrimer primer, float amount, int chunkRange) {
+        return addRequirement(primer, () -> RequirementFlux.from(IOType.OUTPUT, chunkRange, amount));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addFluxOutput(RecipePrimer primer, float amount, int chunkRange, int maxPerChunk) {
+        return addRequirement(primer, () -> RequirementFlux.from(IOType.OUTPUT, chunkRange, amount, 0, maxPerChunk));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addFluxOutput(RecipePrimer primer, float amount) {
+        return addFluxOutput(primer, amount, 0);
+    }
+
+    @ZenMethod
+    public static RecipePrimer addVisInput(RecipePrimer primer, float amount, int chunkRange) {
+        return addRequirement(primer, () -> RequirementVis.from(IOType.INPUT, chunkRange, amount));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addVisInput(RecipePrimer primer, float amount, int chunkRange, int minPerChunk) {
+        return addRequirement(primer, () -> RequirementVis.from(IOType.INPUT, chunkRange, amount, minPerChunk, TileVisProvider.Output.MAXIMUM_AMOUNT_IN_CHUNK));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addVisInput(RecipePrimer primer, float amount) {
+        return addVisInput(primer, amount, 0);
+    }
+
+    @ZenMethod
+    public static RecipePrimer addVisOutput(RecipePrimer primer, float amount, int chunkRange) {
+        return addRequirement(primer, () -> RequirementVis.from(IOType.OUTPUT, chunkRange, amount));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addVisOutput(RecipePrimer primer, float amount, int chunkRange, int maxPerChunk) {
+        return addRequirement(primer, () -> RequirementVis.from(IOType.OUTPUT, chunkRange, amount, 0, maxPerChunk));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addVisOutput(RecipePrimer primer, float amount) {
+        return addVisOutput(primer, amount, 0);
+    }
+
+    @ZenMethod
+    public static RecipePrimer addPotentialEnergyInput(RecipePrimer primer, float amount) {
+        return addRequirement(primer, () -> RequirementPotentialEnergy.from(IOType.INPUT, amount));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addPotentialEnergyOutput(RecipePrimer primer, float amount) {
+        return addRequirement(primer, () -> RequirementPotentialEnergy.from(IOType.OUTPUT, amount));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addFireDragonBreathInput(RecipePrimer primer, int amount) {
+        return addRequirement(primer, () -> RequirementDragonBreath.from(IOType.INPUT, DragonType.FIRE.name(), amount));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addIceDragonBreathInput(RecipePrimer primer, int amount) {
+        return addRequirement(primer, () -> RequirementDragonBreath.from(IOType.INPUT, DragonType.ICE.name(), amount));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addLightningDragonBreathInput(RecipePrimer primer, int amount) {
+        return addRequirement(primer, () -> RequirementDragonBreath.from(IOType.INPUT, DragonType.LIGHTNING.name(), amount));
+    }
+
+    @ZenMethod
+    public static RecipePrimer addMeteorOutput(RecipePrimer primer, String catalystItem) {
+        return addRequirement(primer, () -> RequirementMeteor.from(catalystItem));
+    }
+
 }

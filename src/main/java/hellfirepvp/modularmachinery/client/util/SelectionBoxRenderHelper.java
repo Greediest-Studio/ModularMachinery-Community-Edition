@@ -9,7 +9,7 @@
 package hellfirepvp.modularmachinery.client.util;
 
 import hellfirepvp.modularmachinery.client.ClientProxy;
-import hellfirepvp.modularmachinery.common.item.ItemConstructTool;
+import hellfirepvp.modularmachinery.common.item.ItemAdvancedConstructTool;
 import hellfirepvp.modularmachinery.common.selection.PlayerStructureSelectionHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.item.ItemStack;
@@ -42,7 +42,7 @@ public class SelectionBoxRenderHelper {
         if (held.isEmpty()) {
             held = Minecraft.getMinecraft().player.getHeldItemOffhand();
         }
-        if (!held.isEmpty() && held.getItem() instanceof ItemConstructTool) {
+        if (!held.isEmpty() && held.getItem() instanceof ItemAdvancedConstructTool) {
             PlayerStructureSelectionHelper.StructureSelection sel = PlayerStructureSelectionHelper.clientSelection;
             if (sel != null) {
                 List<BlockPos> toRender = sel.getSelectedPositions().stream()

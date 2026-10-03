@@ -8,6 +8,8 @@
 
 package hellfirepvp.modularmachinery.common.selection;
 
+import hellfirepvp.modularmachinery.common.data.IntegrationConfig;
+
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
 import hellfirepvp.modularmachinery.ModularMachinery;
@@ -171,7 +173,7 @@ public class PlayerStructureSelectionHelper {
                     cmp.removeTag("y");
                     cmp.removeTag("z");
 
-                    bi.setMatchingTag(cmp);
+                    if (IntegrationConfig.constructNBT) bi.setMatchingTag(cmp);
                 }
                 out.addBlock(pos.subtract(center), bi);
             }

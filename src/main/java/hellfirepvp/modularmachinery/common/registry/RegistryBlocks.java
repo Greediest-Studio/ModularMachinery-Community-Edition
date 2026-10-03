@@ -7,6 +7,38 @@
 
 package hellfirepvp.modularmachinery.common.registry;
 
+import hellfirepvp.modularmachinery.common.block.BlockBiomeProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockDimensionProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockDragonBreathInput;
+import hellfirepvp.modularmachinery.common.block.BlockFluxProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockFluxProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockHeatInput;
+import hellfirepvp.modularmachinery.common.block.BlockHeatOutput;
+import hellfirepvp.modularmachinery.common.block.BlockLaserInput;
+import hellfirepvp.modularmachinery.common.block.BlockMeteorProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockPotentialEnergyProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockPotentialEnergyProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockRadiationProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockRadiationProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockScrubberProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockVisProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockVisProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockWillMultiChunkProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockWillMultiChunkProviderOutput;
+import hellfirepvp.modularmachinery.common.lib.BlocksMM;
+import hellfirepvp.modularmachinery.common.tiles.TileBiomeProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileDimensionProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileDragonBreathProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileFluxProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileHeatProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileLaserProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileMeteorProvider;
+import hellfirepvp.modularmachinery.common.tiles.TilePotentialEnergyProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileRadiationProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileScrubberProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileVisProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileWillMultiChunkProvider;
+
 import hellfirepvp.modularmachinery.common.block.appeng.BlockMEFluidInputBus;
 import hellfirepvp.modularmachinery.common.block.appeng.BlockMEFluidOutputBus;
 import hellfirepvp.modularmachinery.common.block.appeng.BlockMEGasInputBus;
@@ -317,6 +349,74 @@ public class RegistryBlocks {
             prepareItemBlockRegister(blockManaProviderInput);
             prepareItemBlockRegister(blockManaProviderOutput);
         }
+
+        // Biome and Dimension: always registered
+        BlocksMM.blockBiomeProviderInput = prepareIntegrationBlock(new BlockBiomeProviderInput(), "blockbiomeproviderinput");
+        BlocksMM.blockDimensionProviderInput = prepareIntegrationBlock(new BlockDimensionProviderInput(), "blockdimensionproviderinput");
+
+        // NuclearCraft-related blocks
+        if (Mods.NUCLEARCRAFT_OVERHAULED.isPresent()) {
+            BlocksMM.blockRadiationProviderInput = prepareIntegrationBlock(new BlockRadiationProviderInput(), "blockradiationproviderinput");
+            BlocksMM.blockRadiationProviderOutput = prepareIntegrationBlock(new BlockRadiationProviderOutput(), "blockradiationprovideroutput");
+            BlocksMM.blockScrubberProviderInput = prepareIntegrationBlock(new BlockScrubberProviderInput(), "blockscrubberproviderinput");
+
+            prepareItemBlockRegister(BlocksMM.blockRadiationProviderInput);
+            prepareItemBlockRegister(BlocksMM.blockRadiationProviderOutput);
+            prepareItemBlockRegister(BlocksMM.blockScrubberProviderInput);
+        }
+
+        // Blood Magic (Will & meteor)
+        if (Mods.BM2.isPresent()) {
+            BlocksMM.blockWillMultiChunkProviderInput = prepareIntegrationBlock(new BlockWillMultiChunkProviderInput(), "blockwillmultichunkproviderinput");
+            BlocksMM.blockWillMultiChunkProviderOutput = prepareIntegrationBlock(new BlockWillMultiChunkProviderOutput(), "blockwillmultichunkprovideroutput");
+            BlocksMM.blockMeteorProviderOutput = prepareIntegrationBlock(new BlockMeteorProviderOutput(), "blockmeteorprovideroutput");
+
+            prepareItemBlockRegister(BlocksMM.blockWillMultiChunkProviderInput);
+            prepareItemBlockRegister(BlocksMM.blockWillMultiChunkProviderOutput);
+            prepareItemBlockRegister(BlocksMM.blockMeteorProviderOutput);
+        }
+
+        // Thaumcraft (Flux & Vis)
+        if (Mods.TC6.isPresent()) {
+            BlocksMM.blockFluxProviderInput = prepareIntegrationBlock(new BlockFluxProviderInput(), "blockfluxproviderinput");
+            BlocksMM.blockFluxProviderOutput = prepareIntegrationBlock(new BlockFluxProviderOutput(), "blockfluxprovideroutput");
+            BlocksMM.blockVisProviderInput = prepareIntegrationBlock(new BlockVisProviderInput(), "blockvisproviderinput");
+            BlocksMM.blockVisProviderOutput = prepareIntegrationBlock(new BlockVisProviderOutput(), "blockvisprovideroutput");
+
+            prepareItemBlockRegister(BlocksMM.blockFluxProviderInput);
+            prepareItemBlockRegister(BlocksMM.blockFluxProviderOutput);
+            prepareItemBlockRegister(BlocksMM.blockVisProviderInput);
+            prepareItemBlockRegister(BlocksMM.blockVisProviderOutput);
+        }
+
+        if (Mods.ABYSSALCRAFT.isPresent()) {
+            BlocksMM.blockPotentialEnergyProviderInput = prepareIntegrationBlock(new BlockPotentialEnergyProviderInput(), "blockpotentialenergyproviderinput");
+            BlocksMM.blockPotentialEnergyProviderOutput = prepareIntegrationBlock(new BlockPotentialEnergyProviderOutput(), "blockpotentialenergyprovideroutput");
+
+            prepareItemBlockRegister(BlocksMM.blockPotentialEnergyProviderInput);
+            prepareItemBlockRegister(BlocksMM.blockPotentialEnergyProviderOutput);
+        }
+
+        if (Mods.ICE_AND_FIRE.isPresent()) {
+            BlocksMM.blockDragonBreathProviderInput = prepareIntegrationBlock(new BlockDragonBreathInput(), "blockdragonbreathinput");
+
+            prepareItemBlockRegister(BlocksMM.blockDragonBreathProviderInput);
+        }
+
+        if (Mods.MEKANISM.isPresent()) {
+            BlocksMM.blockLaserProviderInput = prepareIntegrationBlock(new BlockLaserInput(), "blocklaserinput");
+            BlocksMM.blockHeatProviderInput = prepareIntegrationBlock(new BlockHeatInput(), "blockheatinput");
+            BlocksMM.blockHeatProviderOutput = prepareIntegrationBlock(new BlockHeatOutput(), "blockheatoutput");
+
+            prepareItemBlockRegister(BlocksMM.blockLaserProviderInput);
+            prepareItemBlockRegister(BlocksMM.blockHeatProviderInput);
+            prepareItemBlockRegister(BlocksMM.blockHeatProviderOutput);
+        }
+
+        // Always register
+        prepareItemBlockRegister(BlocksMM.blockBiomeProviderInput);
+        prepareItemBlockRegister(BlocksMM.blockDimensionProviderInput);
+
     }
 
     private static void registerTiles() {
@@ -381,6 +481,45 @@ public class RegistryBlocks {
             GameRegistry.registerTileEntity(TileImpetusComponent.Input.class, new ResourceLocation(ModularMachinery.MODID, "impetusinput"));
             GameRegistry.registerTileEntity(TileImpetusComponent.Output.class, new ResourceLocation(ModularMachinery.MODID, "impetusoutput"));
         }
+
+        if (Mods.NUCLEARCRAFT_OVERHAULED.isPresent()) {
+            registerIntegrationTile(TileRadiationProvider.Input.class);
+            registerIntegrationTile(TileRadiationProvider.Output.class);
+            registerIntegrationTile(TileScrubberProvider.class);
+        }
+
+        if (Mods.BM2.isPresent()) {
+            registerIntegrationTile(TileWillMultiChunkProvider.Input.class);
+            registerIntegrationTile(TileWillMultiChunkProvider.Output.class);
+            registerIntegrationTile(TileMeteorProvider.Output.class);
+        }
+
+        if (Mods.TC6.isPresent()) {
+            registerIntegrationTile(TileFluxProvider.Input.class);
+            registerIntegrationTile(TileFluxProvider.Output.class);
+            registerIntegrationTile(TileVisProvider.Input.class);
+            registerIntegrationTile(TileVisProvider.Output.class);
+        }
+
+        if (Mods.ABYSSALCRAFT.isPresent()) {
+            registerIntegrationTile(TilePotentialEnergyProvider.Input.class);
+            registerIntegrationTile(TilePotentialEnergyProvider.Output.class);
+        }
+
+        if (Mods.ICE_AND_FIRE.isPresent()) {
+            registerIntegrationTile(TileDragonBreathProvider.class);
+        }
+
+        if (Mods.MEKANISM.isPresent()) {
+            registerIntegrationTile(TileLaserProvider.class);
+            registerIntegrationTile(TileHeatProvider.Input.class);
+            registerIntegrationTile(TileHeatProvider.Output.class);
+        }
+
+        // Always present
+        registerIntegrationTile(TileBiomeProvider.class);
+        registerIntegrationTile(TileDimensionProvider.class);
+
     }
 
     private static void registerExampleStatedMachineComponent() {
@@ -559,4 +698,16 @@ public class RegistryBlocks {
         inputStream.close();
         fileOutputStream.close();
     }
+
+    private static <T extends Block> T prepareIntegrationBlock(T block, String path) {
+        block.setRegistryName(ModularMachinery.MODID, path);
+        block.setTranslationKey(ModularMachinery.MODID + '.' + path);
+        return prepareRegisterWithCustomName(block);
+    }
+
+    private static void registerIntegrationTile(Class<? extends TileEntity> tile) {
+        String path = tile.getCanonicalName().substring(tile.getPackage().getName().length()).replace(".", "").toLowerCase(java.util.Locale.ROOT);
+        GameRegistry.registerTileEntity(tile, new ResourceLocation(ModularMachinery.MODID, path));
+    }
+
 }

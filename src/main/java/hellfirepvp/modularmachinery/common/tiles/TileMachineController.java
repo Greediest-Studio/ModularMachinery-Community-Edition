@@ -8,6 +8,9 @@
 
 package hellfirepvp.modularmachinery.common.tiles;
 
+import hellfirepvp.modularmachinery.common.event.machine.MachineControllerRedstoneAffectedEvent;
+import hellfirepvp.modularmachinery.common.event.machine.MachineNotFormedEvent;
+
 import hellfirepvp.modularmachinery.common.world.MachineComponentManager;
 
 import hellfirepvp.modularmachinery.common.event.Phase;
@@ -75,6 +78,7 @@ public class TileMachineController extends TileMultiblockMachineController {
     @Override
     public void doControllerTick() {
         if (getStrongPower() > 0) {
+            if (!redstoneEffected) new MachineControllerRedstoneAffectedEvent(this, true).postEvent();
             redstoneEffected = true;
             return;
         }
@@ -242,6 +246,7 @@ public class TileMachineController extends TileMultiblockMachineController {
     protected boolean canCheckStructure() {
         if (redstoneEffected) {
             redstoneEffected = false;
+            new MachineControllerRedstoneAffectedEvent(this, false).postEvent();
             return true;
         }
         return super.canCheckStructure();
@@ -405,6 +410,10 @@ public class TileMachineController extends TileMultiblockMachineController {
 
     @Override
     public void setControllerStatus(CraftingStatus status) {
+        if (status.getStatus() == CraftingStatus.MISSING_STRUCTURE.getStatus()
+            || status.getStatus() == CraftingStatus.CHUNK_UNLOADED.getStatus()) {
+            new MachineNotFormedEvent(this).postEvent();
+        }
         recipeThread.setStatus(status);
     }
 

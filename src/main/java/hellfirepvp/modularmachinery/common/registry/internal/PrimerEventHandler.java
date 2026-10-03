@@ -8,6 +8,9 @@
 
 package hellfirepvp.modularmachinery.common.registry.internal;
 
+import hellfirepvp.modularmachinery.common.registry.RegistryEntities;
+import net.minecraftforge.fml.common.registry.EntityEntry;
+
 import hellfirepvp.modularmachinery.common.crafting.ComponentType;
 import hellfirepvp.modularmachinery.common.crafting.adapter.RecipeAdapter;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementType;
@@ -46,6 +49,11 @@ public class PrimerEventHandler {
     @SubscribeEvent
     public void registerRegistries(RegistryEvent.NewRegistry event) {
         RegistryRegistries.buildRegistries();
+    }
+
+    @SubscribeEvent
+    public void registerEntities(RegistryEvent.Register<EntityEntry> event) {
+        RegistryEntities.register(event.getRegistry());
     }
 
     @SubscribeEvent

@@ -8,6 +8,8 @@
 
 package hellfirepvp.modularmachinery;
 
+import hellfirepvp.modularmachinery.common.command.CommandGetCacheInfo;
+
 import hellfirepvp.modularmachinery.common.concurrent.TaskExecutor;
 import hellfirepvp.modularmachinery.common.network.*;
 import hellfirepvp.modularmachinery.common.network.PktAutoAssemblyRequest;
@@ -65,7 +67,8 @@ import org.apache.logging.log4j.Logger;
                 "after:appliedenergistics2@[rv6-stable-7,);" +
                 "after:fluxnetworks@[4.1.0,);" +
                 "after:tconstruct@[1.12.2-2.12.0.157,);" +
-                "after:thermalexpansion@[5.5.0,);",
+                "after:thermalexpansion@[5.5.0,);" +
+                "after:nuclearcraft@[2o.9.6,);",
         acceptedMinecraftVersions = "[1.12, 1.13)",
         acceptableRemoteVersions = "[2.1.0, 2.4.0)"
 )
@@ -156,7 +159,15 @@ public class ModularMachinery {
     }
 
     @Mod.EventHandler
+    public void onServerStopped(net.minecraftforge.fml.common.event.FMLServerStoppedEvent event) {
+        hellfirepvp.modularmachinery.common.integration.nuclearcraft.ScrubbedChunksCache.clear();
+    }
+
+    @Mod.EventHandler
     public void onServerStart(FMLServerStartingEvent event) {
+        if (Mods.NUCLEARCRAFT_OVERHAULED.isPresent()) {
+            event.registerServerCommand(new CommandGetCacheInfo());
+        }
         //Cmd registration
         event.registerServerCommand(new CommandSyntax());
         event.registerServerCommand(new CommandHand());

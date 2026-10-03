@@ -58,4 +58,17 @@ public class RequirementTypesMM {
     private RequirementTypesMM() {
     }
 
+    public static final ResourceLocation KEY_REQUIREMENT_RADIATION = new ResourceLocation(ModularMachinery.MODID, "radiation");
+    public static final ResourceLocation KEY_REQUIREMENT_SCRUBBER = new ResourceLocation(ModularMachinery.MODID, "scrubber");
+    public static final ResourceLocation KEY_REQUIREMENT_METEOR = new ResourceLocation(ModularMachinery.MODID, "meteor");
+    public static final ResourceLocation KEY_REQUIREMENT_WILL_MULTI_CHUNK = new ResourceLocation(ModularMachinery.MODID, "will_multi_chunk");
+    public static final ResourceLocation KEY_REQUIREMENT_FLUX = new ResourceLocation(ModularMachinery.MODID, "flux");
+    public static final ResourceLocation KEY_REQUIREMENT_VIS = new ResourceLocation(ModularMachinery.MODID, "vis");
+    public static final ResourceLocation KEY_REQUIREMENT_BIOME = new ResourceLocation(ModularMachinery.MODID, "biome");
+    public static final ResourceLocation KEY_REQUIREMENT_DIMENSION = new ResourceLocation(ModularMachinery.MODID, "dimension");
+    public static final ResourceLocation KEY_REQUIREMENT_POTENTIAL_ENERGY = new ResourceLocation(ModularMachinery.MODID, "potential_energy");
+    public static final ResourceLocation KEY_REQUIREMENT_DRAGON_BREATH = new ResourceLocation(ModularMachinery.MODID, "dragon_breath");
+    public static final ResourceLocation KEY_REQUIREMENT_LASER = new ResourceLocation(ModularMachinery.MODID, "laser");
+    public static final ResourceLocation KEY_REQUIREMENT_HEAT = new ResourceLocation(ModularMachinery.MODID, "heat");
+
 }

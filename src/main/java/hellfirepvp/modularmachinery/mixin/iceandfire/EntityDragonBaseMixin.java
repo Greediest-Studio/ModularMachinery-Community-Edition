@@ -1,0 +1,25 @@
+// 部分实现来自 MMCE-Addons (Alecsio)，按 GPL-3.0 许可并入本体。
+package hellfirepvp.modularmachinery.mixin.iceandfire;
+
+import com.github.alexthe666.iceandfire.entity.EntityDragonBase;
+import com.github.alexthe666.iceandfire.entity.tile.TileEntityDragonforgeInput;
+import hellfirepvp.modularmachinery.common.integration.iceandfire.IDragonBreathAcceptor;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+@Mixin(value = EntityDragonBase.class, remap = false)
+public abstract class EntityDragonBaseMixin {
+
+    @Redirect(
+            method = "updateBurnTarget",
+            at = @At(
+                    value = "CONSTANT",
+                    args = "classValue=com.github.alexthe666.iceandfire.entity.tile.TileEntityDragonforgeInput",
+                    ordinal = 0
+            )
+    )
+    private boolean MMCEA$allowDragonBreathAcceptor(Object obj, Class<?> originalClass) {
+        return obj instanceof TileEntityDragonforgeInput || obj instanceof IDragonBreathAcceptor;
+    }
+}

@@ -8,6 +8,10 @@
 
 package hellfirepvp.modularmachinery.client;
 
+import hellfirepvp.modularmachinery.client.renderer.entity.MeteorRenderFactory;
+import hellfirepvp.modularmachinery.common.entity.EntityImprovedMeteor;
+import net.minecraftforge.fml.client.registry.RenderingRegistry;
+
 import hellfirepvp.modularmachinery.client.gui.*;
 import hellfirepvp.modularmachinery.client.renderer.MachineControllerRenderer;
 import hellfirepvp.modularmachinery.client.resource.GeoModelExternalLoader;
@@ -156,6 +160,9 @@ public class ClientProxy extends CommonProxy {
 
     @Override
     public void preInit() {
+        if (Mods.BM2.isPresent()) {
+            RenderingRegistry.registerEntityRenderingHandler(EntityImprovedMeteor.class, new MeteorRenderFactory());
+        }
         MinecraftForge.EVENT_BUS.register(clientScheduler);
         MinecraftForge.EVENT_BUS.register(this);
         MinecraftForge.EVENT_BUS.register(new DebugOverlayHelper());
@@ -222,7 +229,6 @@ public class ClientProxy extends CommonProxy {
 
         registerPendingIBlockColorBlocks();
         registerPendingIItemColorItems();
-
 
         BlockColors blockColors = Minecraft.getMinecraft().getBlockColors();
         ItemColors itemColors = Minecraft.getMinecraft().getItemColors();

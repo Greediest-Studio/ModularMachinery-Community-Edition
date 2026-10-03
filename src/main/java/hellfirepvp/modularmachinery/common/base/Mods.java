@@ -112,7 +112,16 @@ public enum Mods {
     ALFHEIM("alfheim"),
     THERMAL_EXPANSION("thermalexpansion"),
     DRAGON_RESEARCH("dragonresearch"),
+    ABYSSALCRAFT("abyssalcraft"),
+    ICE_AND_FIRE("iceandfire"),
     ;
+
+    public static final String NUCLEARCRAFT_ID = "nuclearcraft";
+    public static final String BLOODMAGIC_ID = "bloodmagic";
+    public static final String THAUMCRAFT_ID = "thaumcraft";
+    public static final String ABYSSALCRAFT_ID = "abyssalcraft";
+    public static final String ICE_AND_FIRE_ID = "iceandfire";
+    public static final String MEKANISM_ID = "mekanism";
 
     public final  String  modid;
     private final boolean loaded;

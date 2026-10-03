@@ -8,6 +8,21 @@
 
 package hellfirepvp.modularmachinery.common.registry;
 
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeBiome;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeDimension;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeDragonBreath;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeFlux;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeHeat;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeLaser;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeMeteor;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypePotentialEnergy;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeRadiation;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeScrubber;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeVis;
+import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementTypeWillMultiChunk;
+import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
+import static hellfirepvp.modularmachinery.common.lib.RequirementTypesMM.*;
+
 import hellfirepvp.modularmachinery.common.CommonProxy;
 import hellfirepvp.modularmachinery.common.base.Mods;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementDuration;
@@ -77,6 +92,38 @@ public class RegistryRequirementTypes {
         REQUIREMENT_INTERFACE_NUMBER_INPUT = register(new RequirementTypeInterfaceNumInput(), KEY_INTERFACE_NUMBER_INPUT);
 
         REQUIREMENT_DURATION = register(new RequirementDuration(), KEY_REQUIREMENT_DURATION);
+
+        register(new RequirementTypeBiome(), KEY_REQUIREMENT_BIOME);
+        register(new RequirementTypeDimension(), KEY_REQUIREMENT_DIMENSION);
+
+        if (Mods.NUCLEARCRAFT_OVERHAULED.isPresent()) {
+            register(new RequirementTypeRadiation(), KEY_REQUIREMENT_RADIATION);
+            register(new RequirementTypeScrubber(), KEY_REQUIREMENT_SCRUBBER);
+        }
+
+        if (Mods.BM2.isPresent()) {
+            register(new RequirementTypeWillMultiChunk(), KEY_REQUIREMENT_WILL_MULTI_CHUNK);
+            register(new RequirementTypeMeteor(), KEY_REQUIREMENT_METEOR);
+        }
+
+        if (Mods.TC6.isPresent()) {
+            register(new RequirementTypeFlux(), KEY_REQUIREMENT_FLUX);
+            register(new RequirementTypeVis(), KEY_REQUIREMENT_VIS);
+        }
+
+        if (Mods.ABYSSALCRAFT.isPresent()) {
+            register(new RequirementTypePotentialEnergy(), KEY_REQUIREMENT_POTENTIAL_ENERGY);
+        }
+
+        if (Mods.ICE_AND_FIRE.isPresent()) {
+            register(new RequirementTypeDragonBreath(), KEY_REQUIREMENT_DRAGON_BREATH);
+        }
+
+        if (Mods.MEKANISM.isPresent()) {
+            register(new RequirementTypeLaser(), KEY_REQUIREMENT_LASER);
+            register(new RequirementTypeHeat(), KEY_REQUIREMENT_HEAT);
+        }
+
     }
 
     private static <T extends RequirementType<?, ?>> T register(T requirementType, ResourceLocation key) {

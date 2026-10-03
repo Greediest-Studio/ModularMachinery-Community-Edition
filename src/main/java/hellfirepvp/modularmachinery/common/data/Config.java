@@ -61,6 +61,7 @@ public class Config {
     }
 
     private static void load() {
+        IntegrationConfig.loadFromConfig(lastReadConfig);
         FluidHatchSize.loadFromConfig(lastReadConfig);
         EnergyHatchData.loadFromConfig(lastReadConfig);
         ParallelControllerData.loadFromConfig(lastReadConfig);

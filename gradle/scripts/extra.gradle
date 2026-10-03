@@ -29,3 +29,8 @@ tasks.register('auditClasspath') {
         layout.buildDirectory.file('audit-classpath.txt').get().asFile.text = sourceSets.main.runtimeClasspath.asPath
     }
 }
+
+tasks.withType(Test).configureEach {
+    workingDir = layout.buildDirectory.dir("test-run").get().asFile
+    doFirst { workingDir.mkdirs() }
+}

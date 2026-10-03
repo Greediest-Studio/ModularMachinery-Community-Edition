@@ -1,5 +1,7 @@
 package hellfirepvp.modularmachinery.common.tiles.base;
 
+import hellfirepvp.modularmachinery.common.event.machine.MachineControllerInvalidatedEvent;
+
 import com.mojang.authlib.GameProfile;
 import crafttweaker.api.block.IBlockDefinition;
 import crafttweaker.api.block.IBlockStateMatcher;
@@ -1107,7 +1109,6 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         }
     }
 
-
     protected void updateMultiBlockModifiers() {
         for (MultiBlockModifierReplacement mod : foundMachine.getMultiBlockModifiers()) {
             if (!mod.matches(this)) {
@@ -1656,6 +1657,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
     @Override
     public void invalidate() {
+        if (world != null && !world.isRemote) new MachineControllerInvalidatedEvent(this).postEvent();
         super.invalidate();
         loaded = false;
         this.foundComponents.forEach((i, map) -> map.forEach((te,c) -> MachineComponentManager.INSTANCE.removeOwner(te, this)));
@@ -1675,6 +1677,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
     @Override
     public void onChunkUnload() {
+        if (world != null && !world.isRemote) new MachineControllerInvalidatedEvent(this).postEvent();
         super.onChunkUnload();
     }
 

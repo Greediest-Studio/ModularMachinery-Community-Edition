@@ -11,3 +11,9 @@
 ```
 
 项目设置位于 `gradle.properties`，依赖位于 `gradle/scripts/dependencies.gradle`，项目适配位于 `gradle/scripts/extra.gradle`。`libs/lumenized-1.0.3-dev.jar` 是本地依赖。
+
+## MMCE-Addons 融合
+
+联动仓口已直接并入本体。
+
+从原 MMCE + Addons 迁移 `.zs` 脚本，见 [CraftTweaker 迁移指南](CraftTweaker迁移指南.md)。

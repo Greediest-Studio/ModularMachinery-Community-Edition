@@ -8,6 +8,25 @@
 
 package hellfirepvp.modularmachinery.common.lib;
 
+import hellfirepvp.modularmachinery.common.block.BlockBiomeProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockDimensionProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockDragonBreathInput;
+import hellfirepvp.modularmachinery.common.block.BlockFluxProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockFluxProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockHeatInput;
+import hellfirepvp.modularmachinery.common.block.BlockHeatOutput;
+import hellfirepvp.modularmachinery.common.block.BlockLaserInput;
+import hellfirepvp.modularmachinery.common.block.BlockMeteorProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockPotentialEnergyProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockPotentialEnergyProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockRadiationProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockRadiationProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockScrubberProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockVisProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockVisProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockWillMultiChunkProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockWillMultiChunkProviderOutput;
+
 import hellfirepvp.modularmachinery.common.block.appeng.BlockMEFluidInputBus;
 import hellfirepvp.modularmachinery.common.block.appeng.BlockMEFluidOutputBus;
 import hellfirepvp.modularmachinery.common.block.appeng.BlockMEGasInputBus;
@@ -110,4 +129,24 @@ public class BlocksMM {
 
     public static BlockAspectProviderInput  blockAspectProviderInput;
     public static BlockAspectProviderOutput blockAspectProviderOutput;
+
+    public static BlockBiomeProviderInput blockBiomeProviderInput;
+    public static BlockDimensionProviderInput blockDimensionProviderInput;
+    public static BlockRadiationProviderInput blockRadiationProviderInput;
+    public static BlockRadiationProviderOutput blockRadiationProviderOutput;
+    public static BlockScrubberProviderInput blockScrubberProviderInput;
+    public static BlockWillMultiChunkProviderInput blockWillMultiChunkProviderInput;
+    public static BlockWillMultiChunkProviderOutput blockWillMultiChunkProviderOutput;
+    public static BlockMeteorProviderOutput blockMeteorProviderOutput;
+    public static BlockFluxProviderInput blockFluxProviderInput;
+    public static BlockFluxProviderOutput blockFluxProviderOutput;
+    public static BlockVisProviderInput blockVisProviderInput;
+    public static BlockVisProviderOutput blockVisProviderOutput;
+    public static BlockPotentialEnergyProviderInput blockPotentialEnergyProviderInput;
+    public static BlockPotentialEnergyProviderOutput blockPotentialEnergyProviderOutput;
+    public static BlockDragonBreathInput blockDragonBreathProviderInput;
+    public static BlockLaserInput blockLaserProviderInput;
+    public static BlockHeatInput blockHeatProviderInput;
+    public static BlockHeatOutput blockHeatProviderOutput;
+
 }

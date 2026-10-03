@@ -8,6 +8,8 @@
 
 package hellfirepvp.modularmachinery.common;
 
+import hellfirepvp.modularmachinery.common.integration.nuclearcraft.RadiationHandler;
+
 import appeng.me.helpers.IGridProxyable;
 import hellfirepvp.modularmachinery.common.capability.CapabilityUpgrade;
 import hellfirepvp.modularmachinery.common.concurrent.TaskExecutor;
@@ -150,6 +152,9 @@ public class CommonProxy implements IGuiHandler {
         MachineRegistry.preloadMachines();
 
         CapabilityUpgrade.register();
+        if (Mods.NUCLEARCRAFT_OVERHAULED.isPresent()) {
+            MinecraftForge.EVENT_BUS.register(new RadiationHandler());
+        }
 
         MinecraftForge.EVENT_BUS.register(ModularMachinery.EXECUTE_MANAGER);
         MinecraftForge.EVENT_BUS.register(AssemblyEventHandler.INSTANCE);

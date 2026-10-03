@@ -8,6 +8,23 @@
 
 package hellfirepvp.modularmachinery.common.integration.crafttweaker;
 
+import hellfirepvp.modularmachinery.common.crafting.helper.RequirementPrerequisiteFailedException;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementBiome;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementDimension;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementDragonBreath;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementFlux;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementHeat;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementLaser;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementMeteor;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementPotentialEnergy;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementRadiation;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementScrubber;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementVis;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementWillMultiChunk;
+import hellfirepvp.modularmachinery.common.integration.iceandfire.DragonType;
+import hellfirepvp.modularmachinery.common.tiles.TileFluxProvider;
+import hellfirepvp.modularmachinery.common.tiles.TileVisProvider;
+
 import crafttweaker.CraftTweakerAPI;
 import crafttweaker.annotations.ZenRegister;
 import crafttweaker.api.data.IData;
@@ -1091,4 +1108,59 @@ public class RecipePrimer implements PreparedRecipe {
         this.loadJEI = load;
         return this;
     }
+
+    @FunctionalInterface
+    private interface RequirementSupplier<T extends ComponentRequirement<?, ?>> {
+        T get() throws RequirementPrerequisiteFailedException;
+    }
+
+    private static <T extends ComponentRequirement<?, ?>> RecipePrimer addRequirement(RecipePrimer primer, RequirementSupplier<T> supplier) {
+        ComponentRequirement<?, ?> requirement = supplier.get();
+        if (requirement.getRequirementType() == null) {
+            throw new RequirementPrerequisiteFailedException("Required integration mod is not loaded: " + requirement.getClass().getSimpleName());
+        }
+        primer.appendComponent(requirement);
+        return primer;
+    }
+
+    @ZenMethod
+    public RecipePrimer addScrubber(int chunkRange) {
+        return addRequirement(this, () -> RequirementScrubber.from(chunkRange));
+    }
+
+    @ZenMethod
+    public RecipePrimer addRadiationInput(int chunkRange, int amount) {
+        return addRequirement(this, () -> RequirementRadiation.from(IOType.INPUT, chunkRange, amount));
+    }
+
+    @ZenMethod
+    public RecipePrimer addRadiationOutput(int chunkRange, int amount) {
+        return addRequirement(this, () -> RequirementRadiation.from(IOType.OUTPUT, chunkRange, amount));
+    }
+
+    @ZenMethod
+    public RecipePrimer addBiomeInput(String biomeRegistryName) {
+        return addRequirement(this, () -> RequirementBiome.from(IOType.INPUT, biomeRegistryName));
+    }
+
+    @ZenMethod
+    public RecipePrimer addDimensionInput(int id) {
+        return addRequirement(this, () -> RequirementDimension.from(IOType.INPUT, id));
+    }
+
+    @ZenMethod
+    public RecipePrimer addLaserInput(double amount) {
+        return addRequirement(this, () -> RequirementLaser.from(IOType.INPUT, amount));
+    }
+
+    @ZenMethod
+    public RecipePrimer addHeatInput(double amount) {
+        return addRequirement(this, () -> RequirementHeat.from(IOType.INPUT, amount));
+    }
+
+    @ZenMethod
+    public RecipePrimer addHeatOutput(double amount) {
+        return addRequirement(this, () -> RequirementHeat.from(IOType.OUTPUT, amount));
+    }
+
 }

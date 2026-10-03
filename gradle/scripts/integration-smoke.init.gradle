@@ -1,0 +1,43 @@
+// 运行：gradlew -I gradle/scripts/integration-smoke.init.gradle runClient -PmmceSmokeAll=true
+// 不修改 run/，所有生成文件和测试世界位于 build/integration-smoke-*。
+gradle.projectsEvaluated {
+    def p = rootProject
+    boolean all = p.findProperty('mmceSmokeAll') == 'true'
+    if (all) {
+        p.dependencies {
+            runtimeOnly p.dependencies.rfg.deobf('curse.maven:nuclearcraft-overhauled-336895:8133450')
+            runtimeOnly p.dependencies.rfg.deobf('curse.maven:thaumcraft-223628:2629023')
+            runtimeOnly p.dependencies.rfg.deobf('curse.maven:baubles-227083:2518667')
+            runtimeOnly p.dependencies.rfg.deobf('curse.maven:abyssal-53686:7253998')
+            runtimeOnly p.dependencies.rfg.deobf('curse.maven:ice-and-fire-457668:5738729')
+            runtimeOnly p.dependencies.rfg.deobf('curse.maven:llibrary-243298:2505007')
+        }
+    }
+    def smoke = p.sourceSets.create('integrationSmoke')
+    smoke.java.srcDir(p.file('src/integrationTest/java'))
+    smoke.compileClasspath = p.sourceSets.main.compileClasspath.filter { !it.name.contains('jabel') } + p.sourceSets.main.output
+    p.tasks.named(smoke.compileJavaTaskName, JavaCompile).configure {
+        sourceCompatibility = '8'
+        targetCompatibility = '8'
+        options.encoding = 'UTF-8'
+        options.compilerArgs += ['-proc:none']
+    }
+    p.tasks.named('runClient', JavaExec).configure {
+        dependsOn(smoke.classesTaskName)
+        classpath += smoke.output
+        workingDir = p.file('build/integration-smoke-' + (all ? 'all' : 'base'))
+        systemProperty 'mmce.smoke.all', all
+        doFirst {
+            workingDir.mkdirs()
+            p.copy {
+                from p.file('examples/addons/resources')
+                into new File(workingDir, 'resources')
+            }
+            p.copy {
+                from p.file('examples/addons')
+                include 'machinery/**', 'recipes/**'
+                into new File(workingDir, 'config/modularmachinery')
+            }
+        }
+    }
+}

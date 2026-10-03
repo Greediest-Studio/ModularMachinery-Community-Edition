@@ -1,5 +1,8 @@
 package hellfirepvp.modularmachinery.common.integration;
 
+import hellfirepvp.modularmachinery.common.base.Mods;
+import hellfirepvp.modularmachinery.common.integration.theoneprobe.*;
+
 import hellfirepvp.modularmachinery.common.integration.theoneprobe.MachineryHatchInfoProvider;
 import hellfirepvp.modularmachinery.common.integration.theoneprobe.MMInfoProvider;
 import mcjty.theoneprobe.TheOneProbe;
@@ -22,6 +25,20 @@ public class ModIntegrationTOP {
 
         top.registerProvider(new MMInfoProvider());
         top.registerProvider(new MachineryHatchInfoProvider());
+
+        top.registerProvider(new SnapshotMachineComponentInfoProvider());
+        if (Mods.ABYSSALCRAFT.isPresent()) {
+            top.registerProvider(new PotentialEnergyInfoProvider());
+        }
+        if (Mods.ICE_AND_FIRE.isPresent()) {
+            top.registerProvider(new DragonBreathInfoProvider());
+        }
+
+        if (Mods.MEKANISM.isPresent()) {
+            top.registerProvider(new LaserInfoProvider());
+            top.registerProvider(new HeatInfoProvider());
+        }
+
     }
 
     public static void loadFromConfig(Configuration cfg) {

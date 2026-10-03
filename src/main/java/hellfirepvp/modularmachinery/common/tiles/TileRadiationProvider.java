@@ -1,0 +1,165 @@
+// 部分实现来自 MMCE-Addons (Alecsio)，按 GPL-3.0 许可并入本体。
+package hellfirepvp.modularmachinery.common.tiles;
+
+import hellfirepvp.modularmachinery.common.crafting.helper.snapshot.RadiationSnapshot;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementRadiation;
+import hellfirepvp.modularmachinery.common.machine.component.MachineComponentRadiationProvider;
+
+import hellfirepvp.modularmachinery.common.tiles.base.AbstractSnapshotMachineComponent;
+import hellfirepvp.modularmachinery.common.crafting.helper.snapshot.ISnapshot;
+import hellfirepvp.modularmachinery.common.crafting.helper.IRequirementHandler;
+import hellfirepvp.modularmachinery.common.crafting.helper.ChunksReader;
+import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
+import hellfirepvp.modularmachinery.common.machine.IOType;
+import hellfirepvp.modularmachinery.common.machine.MachineComponent;
+import hellfirepvp.modularmachinery.common.tiles.base.MachineComponentTile;
+import nc.capability.radiation.source.IRadiationSource;
+import nc.radiation.RadiationHelper;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.chunk.Chunk;
+
+import javax.annotation.Nullable;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public abstract class TileRadiationProvider extends AbstractSnapshotMachineComponent<RequirementRadiation> implements MachineComponentTile {
+
+    protected RadiationSnapshot radiationSnapshot;
+    protected final ChunksReader chunksReader = ChunksReader.getInstance();
+    protected volatile int largestChunkRange = 0;
+
+    public BlockPos getBlockInChunk(Chunk chunk) {
+        // Get chunk's starting block position
+        int chunkStartX = chunk.getPos().x * 16;
+        int chunkStartZ = chunk.getPos().z * 16;
+
+        return new BlockPos(chunkStartX, 0, chunkStartZ);
+    }
+
+    protected String getKeyForRequirement(RequirementRadiation requirement) {
+        return requirement.getIOType().equals(IOType.INPUT) ? "error.modularmachinery.requirement.missing.multichunk.input" : "error.modularmachinery.requirement.missing.multichunk.output";
+    }
+
+    @Override
+    protected void updateSnapshot() {
+        Map<Long, Double> localChunkToRads = new HashMap<>();
+
+        for (Chunk chunk : chunksReader.getSurroundingChunks(this.world, this.pos, largestChunkRange)) {
+            long chunkAsLong = ChunkPos.asLong(chunk.x, chunk.z);
+            IRadiationSource radiationSource = RadiationHelper.getRadiationSource(chunk);
+
+            if (radiationSource == null) {
+                continue;
+            }
+
+            double radiationAmount = radiationSource.getRadiationLevel();
+            localChunkToRads.put(chunkAsLong, radiationAmount);
+        }
+
+        RadiationSnapshot localSnapshot = new RadiationSnapshot(largestChunkRange, this.pos, localChunkToRads);
+
+        lock.writeLock().lock();
+        try {
+            this.radiationSnapshot = localSnapshot;
+            markNoUpdateSync();
+        } finally {
+            lock.writeLock().unlock();
+        }
+    }
+
+    public static class Input extends TileRadiationProvider {
+        @Nullable
+        @Override
+        public MachineComponent<IRequirementHandler<RequirementRadiation>> provideComponent() {
+            return new MachineComponentRadiationProvider(IOType.INPUT, this);
+        }
+
+        @Override
+        protected CraftCheck checkSnapshot(RequirementRadiation requirement) {
+            if (requirement.getChunkRange() > radiationSnapshot.getCoveredRange()) {
+                largestChunkRange = requirement.getChunkRange();
+                markNoUpdateSync();
+                return CraftCheck.failure(getKeyForRequirement(requirement));
+            }
+
+            ISnapshot<RequirementRadiation> snapshot = radiationSnapshot.getSnapshotForRange(requirement.getChunkRange());
+            return snapshot.canHandleInput(requirement) ? CraftCheck.success() : CraftCheck.failure(getKeyForRequirement(requirement));
+        }
+
+        @Override
+        public void handle(RequirementRadiation requirement) {
+            List<Chunk> chunks = chunksReader.getSurroundingChunks(this.world, this.pos, requirement.getChunkRange());
+            double remaining = requirement.getAmount();
+
+            double minPerChunk = requirement.getMinPerChunk();
+
+            for (Chunk chunk : chunks) {
+                if (remaining <= 0.0D) break;
+
+                IRadiationSource source = RadiationHelper.getRadiationSource(chunk);
+                if (source == null) continue;
+                double stored = source.getRadiationLevel();
+                double available = Math.max(0.0D, stored - minPerChunk);
+                if (available <= 0.0D) continue;
+
+                double toDrain = Math.min(available, remaining);
+                source.setRadiationLevel(stored - toDrain);
+                remaining -= toDrain;
+            }
+
+            super.handle(requirement);
+        }
+    }
+
+    public static class Output extends TileRadiationProvider {
+        @Nullable
+        @Override
+        public MachineComponent<IRequirementHandler<RequirementRadiation>> provideComponent() {
+            return new MachineComponentRadiationProvider(IOType.OUTPUT, this);
+        }
+
+        @Override
+        protected CraftCheck checkSnapshot(RequirementRadiation requirement) {
+            if (requirement.getChunkRange() > radiationSnapshot.getCoveredRange()) {
+                largestChunkRange = requirement.getChunkRange();
+                markNoUpdateSync();
+                return CraftCheck.failure(getKeyForRequirement(requirement));
+            }
+
+            ISnapshot<RequirementRadiation> snapshot = radiationSnapshot.getSnapshotForRange(requirement.getChunkRange());
+            return snapshot.canHandleOutput(requirement) ? CraftCheck.success() : CraftCheck.failure(getKeyForRequirement(requirement));
+        }
+
+        @Override
+        public void handle(RequirementRadiation requirement) {
+            List<Chunk> chunks = chunksReader.getSurroundingChunks(this.world, this.pos, requirement.getChunkRange());
+            double remaining = requirement.getAmount();
+
+            chunks.sort(Comparator.comparingDouble(chunk -> {
+                IRadiationSource source = RadiationHelper.getRadiationSource(chunk);
+                return source == null ? Double.MAX_VALUE : source.getRadiationLevel();
+            }));
+
+            double maxPerChunk = requirement.getMaxPerChunk();
+
+            for (Chunk chunk : chunks) {
+                if (remaining <= 0.0D) break;
+
+                IRadiationSource source = RadiationHelper.getRadiationSource(chunk);
+                if (source == null) continue;
+                double stored = source.getRadiationLevel();
+                double capacity = Math.max(0.0D, maxPerChunk - stored);
+                if (capacity <= 0.0D) continue;
+
+                double toFill = Math.min(capacity, remaining);
+                source.setRadiationLevel(stored + toFill);
+                remaining -= toFill;
+            }
+
+            super.handle(requirement);
+        }
+    }
+}

@@ -6,6 +6,11 @@ repositories {
         url 'https://api.modrinth.com/maven'
         content { includeGroup 'maven.modrinth' }
     }
+    maven {
+        name 'Cleanroom CurseMaven'
+        url 'https://curse.cleanroommc.com'
+        content { includeGroup 'curse.maven' }
+    }
     flatDir { dirs 'libs' }
     maven { url 'https://maven.aliyun.com/nexus/content/groups/public/' }
     maven { url 'https://maven.aliyun.com/nexus/content/repositories/jcenter' }
@@ -57,7 +62,10 @@ dependencies {
     implementation rfg.deobf('curse.maven:the-one-probe-245211:2667280')
     implementation rfg.deobf('curse.maven:Mekanism-268560:2835175')
     compileOnly rfg.deobf('curse.maven:industrialcraft-2-242638:3078604')
-    compileOnly rfg.deobf('curse.maven:nuclearcraft-overhauled-336895:3862197')
+    compileOnly rfg.deobf('curse.maven:nuclearcraft-overhauled-336895:8133450')
+    compileOnly 'curse.maven:abyssal-53686:7253999' // AbyssalCraft 开发 API。
+    compileOnly rfg.deobf('curse.maven:ice-and-fire-457668:5738729')
+    compileOnly rfg.deobf('curse.maven:llibrary-243298:2505007')
     compileOnly rfg.deobf('curse.maven:flux-networks-248020:3178199')
     compileOnly rfg.deobf('curse.maven:tinkers-construct-74072:2902483')
     compileOnly rfg.deobf('curse.maven:mantle-74924:2713386')

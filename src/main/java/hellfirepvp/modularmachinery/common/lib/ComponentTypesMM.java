@@ -44,4 +44,17 @@ public class ComponentTypesMM {
     private ComponentTypesMM() {
     }
 
+    public static final ResourceLocation KEY_COMPONENT_RADIATION = new ResourceLocation(ModularMachinery.MODID, "radiation");
+    public static final ResourceLocation KEY_COMPONENT_SCRUBBER = new ResourceLocation(ModularMachinery.MODID, "scrubber");
+    public static final ResourceLocation KEY_COMPONENT_METEOR = new ResourceLocation(ModularMachinery.MODID, "meteor");
+    public static final ResourceLocation KEY_COMPONENT_WILL = new ResourceLocation(ModularMachinery.MODID, "will_multi_chunk");
+    public static final ResourceLocation KEY_COMPONENT_FLUX = new ResourceLocation(ModularMachinery.MODID, "flux");
+    public static final ResourceLocation KEY_COMPONENT_VIS = new ResourceLocation(ModularMachinery.MODID, "vis");
+    public static final ResourceLocation KEY_COMPONENT_BIOME = new ResourceLocation(ModularMachinery.MODID, "biome");
+    public static final ResourceLocation KEY_COMPONENT_DIMENSION = new ResourceLocation(ModularMachinery.MODID, "dimension");
+    public static final ResourceLocation KEY_COMPONENT_POTENTIAL_ENERGY = new ResourceLocation(ModularMachinery.MODID, "potential_energy");
+    public static final ResourceLocation KEY_COMPONENT_DRAGON_BREATH = new ResourceLocation(ModularMachinery.MODID, "dragon_breath");
+    public static final ResourceLocation KEY_COMPONENT_LASER = new ResourceLocation(ModularMachinery.MODID, "laser");
+    public static final ResourceLocation KEY_COMPONENT_HEAT = new ResourceLocation(ModularMachinery.MODID, "heat");
+
 }

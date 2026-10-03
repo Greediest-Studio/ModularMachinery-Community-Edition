@@ -12,7 +12,7 @@ import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.CommonProxy;
 import hellfirepvp.modularmachinery.common.item.ItemBlockCustomName;
 import hellfirepvp.modularmachinery.common.item.ItemBlueprint;
-import hellfirepvp.modularmachinery.common.item.ItemConstructTool;
+import hellfirepvp.modularmachinery.common.item.ItemAdvancedConstructTool;
 import hellfirepvp.modularmachinery.common.item.ItemDynamicColor;
 import hellfirepvp.modularmachinery.common.item.ItemModularium;
 import net.minecraft.item.Item;
@@ -43,7 +43,10 @@ public class RegistryItems {
     public static void initialize() {
         blueprint = prepareRegister(new ItemBlueprint());
         modularium = prepareRegister(new ItemModularium());
-        constructTool = prepareRegister(new ItemConstructTool());
+        constructTool = new ItemAdvancedConstructTool();
+        constructTool.setRegistryName(ModularMachinery.MODID, "advancedconstructtool");
+        constructTool.setTranslationKey(ModularMachinery.MODID + ".itemadvancedconstructtool");
+        register(constructTool);
         prepareRegisterWithCustomName(MachineProjector.INSTANCE);
 
         registerItemBlocks();
@@ -77,8 +80,9 @@ public class RegistryItems {
 
     private static void registerItemModels() {
         ITEM_MODEL_REGISTER.stream()
-                           .filter(item -> !(item instanceof ItemBlockCustomName))
+                           .filter(item -> !(item instanceof ItemBlockCustomName) && item != constructTool)
                            .forEach(ModularMachinery.proxy::registerItemModel);
+        ModularMachinery.proxy.registerItemModelWithCustomName(constructTool);
     }
 
     private static void registerCustomNameItemBlocks() {
