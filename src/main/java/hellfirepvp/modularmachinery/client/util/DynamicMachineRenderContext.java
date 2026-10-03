@@ -8,7 +8,7 @@
 
 package hellfirepvp.modularmachinery.client.util;
 
-import github.kasuminova.mmce.common.util.DynamicPattern;
+import hellfirepvp.modularmachinery.common.util.DynamicPattern;
 import hellfirepvp.modularmachinery.client.ClientScheduler;
 import hellfirepvp.modularmachinery.common.block.BlockController;
 import hellfirepvp.modularmachinery.common.block.BlockFactoryController;

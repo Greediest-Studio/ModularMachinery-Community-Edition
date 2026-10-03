@@ -8,7 +8,7 @@
 
 package hellfirepvp.modularmachinery.client.util;
 
-import github.kasuminova.mmce.common.util.BlockPos2ValueMap;
+import hellfirepvp.modularmachinery.common.util.BlockPos2ValueMap;
 import hellfirepvp.modularmachinery.client.ClientScheduler;
 import hellfirepvp.modularmachinery.common.util.BlockArray;
 import hellfirepvp.modularmachinery.common.util.BlockCompatHelper;

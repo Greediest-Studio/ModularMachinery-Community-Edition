@@ -1,6 +1,6 @@
 package hellfirepvp.modularmachinery.common.crafting.helper;
 
-import github.kasuminova.mmce.common.concurrent.Sync;
+import hellfirepvp.modularmachinery.common.concurrent.Sync;
 import hellfirepvp.modularmachinery.common.util.ItemUtils;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.items.IItemHandlerModifiable;

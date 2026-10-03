@@ -1,6 +1,5 @@
 package hellfirepvp.modularmachinery.common.util;
 
-import github.kasuminova.mmce.common.util.DynamicPattern;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.machine.TaggedPositionBlockArray;

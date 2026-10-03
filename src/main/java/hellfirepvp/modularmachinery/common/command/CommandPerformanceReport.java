@@ -10,10 +10,10 @@ import net.minecraft.util.text.TextFormatting;
 
 import javax.annotation.Nonnull;
 
-import static github.kasuminova.mmce.common.concurrent.TaskExecutor.executedCount;
-import static github.kasuminova.mmce.common.concurrent.TaskExecutor.taskUsedTime;
-import static github.kasuminova.mmce.common.concurrent.TaskExecutor.totalExecuted;
-import static github.kasuminova.mmce.common.concurrent.TaskExecutor.totalUsedTime;
+import static hellfirepvp.modularmachinery.common.concurrent.TaskExecutor.executedCount;
+import static hellfirepvp.modularmachinery.common.concurrent.TaskExecutor.taskUsedTime;
+import static hellfirepvp.modularmachinery.common.concurrent.TaskExecutor.totalExecuted;
+import static hellfirepvp.modularmachinery.common.concurrent.TaskExecutor.totalUsedTime;
 
 public class CommandPerformanceReport extends CommandBase {
     private static final String LANG_KEY = "command.modularmachinery.performance_report";

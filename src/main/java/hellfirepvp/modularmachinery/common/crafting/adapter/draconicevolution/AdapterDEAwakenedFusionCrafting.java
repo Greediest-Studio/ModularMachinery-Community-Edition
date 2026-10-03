@@ -4,7 +4,7 @@ import com.brandon3055.draconicevolution.api.fusioncrafting.FusionRecipeAPI;
 import com.brandon3055.draconicevolution.api.fusioncrafting.IFusionRecipe;
 import com.brandon3055.draconicevolution.api.OreDictHelper;
 import crafttweaker.util.IEventHandler;
-import github.kasuminova.mmce.common.event.recipe.RecipeEvent;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeEvent;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.adapter.RecipeAdapter;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;

@@ -1,6 +1,6 @@
 package hellfirepvp.modularmachinery.client.gui;
 
-import github.kasuminova.mmce.common.event.client.ControllerGUIRenderEvent;
+import hellfirepvp.modularmachinery.common.event.client.ControllerGUIRenderEvent;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.client.gui.widget.GuiScrollbar;
 import hellfirepvp.modularmachinery.common.container.ContainerFactoryController;

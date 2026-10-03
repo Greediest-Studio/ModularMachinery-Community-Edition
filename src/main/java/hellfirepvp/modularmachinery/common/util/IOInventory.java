@@ -8,8 +8,8 @@
 
 package hellfirepvp.modularmachinery.common.util;
 
-import github.kasuminova.mmce.client.util.ItemStackUtils;
-import github.kasuminova.mmce.common.util.concurrent.ReadWriteLockProvider;
+import hellfirepvp.modularmachinery.client.util.ItemStackUtils;
+import hellfirepvp.modularmachinery.common.util.concurrent.ReadWriteLockProvider;
 import hellfirepvp.modularmachinery.common.tiles.base.SelectiveUpdateTileEntity;
 import hellfirepvp.modularmachinery.common.tiles.base.TileEntitySynchronized;
 import net.minecraft.item.ItemStack;

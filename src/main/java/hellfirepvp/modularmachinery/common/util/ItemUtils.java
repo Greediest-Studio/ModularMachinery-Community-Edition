@@ -8,8 +8,7 @@
 
 package hellfirepvp.modularmachinery.common.util;
 
-import github.kasuminova.mmce.common.helper.AdvancedItemChecker;
-import github.kasuminova.mmce.common.util.OredictCache;
+import hellfirepvp.modularmachinery.common.helper.AdvancedItemChecker;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
 import hellfirepvp.modularmachinery.common.machine.MachineComponent;

@@ -7,7 +7,7 @@ import crafttweaker.api.item.IItemStack;
 import crafttweaker.api.item.IngredientStack;
 import crafttweaker.api.minecraft.CraftTweakerMC;
 import crafttweaker.api.oredict.IOreDictEntry;
-import github.kasuminova.mmce.common.itemtype.ChancedIngredientStack;
+import hellfirepvp.modularmachinery.common.itemtype.ChancedIngredientStack;
 import hellfirepvp.modularmachinery.common.integration.crafttweaker.helper.AdvancedItemCheckerCT;
 import hellfirepvp.modularmachinery.common.integration.crafttweaker.helper.AdvancedItemModifierCT;
 import net.minecraft.item.ItemStack;

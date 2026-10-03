@@ -8,7 +8,7 @@
 
 package hellfirepvp.modularmachinery.common.tiles.base;
 
-import github.kasuminova.mmce.common.util.Sides;
+import hellfirepvp.modularmachinery.common.util.Sides;
 import hellfirepvp.modularmachinery.client.ClientProxy;
 import hellfirepvp.modularmachinery.common.data.Config;
 import net.minecraft.nbt.NBTTagCompound;

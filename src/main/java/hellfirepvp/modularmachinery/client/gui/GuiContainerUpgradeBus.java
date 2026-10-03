@@ -1,7 +1,7 @@
 package hellfirepvp.modularmachinery.client.gui;
 
-import github.kasuminova.mmce.common.upgrade.MachineUpgrade;
-import github.kasuminova.mmce.common.upgrade.UpgradeType;
+import hellfirepvp.modularmachinery.common.upgrade.MachineUpgrade;
+import hellfirepvp.modularmachinery.common.upgrade.UpgradeType;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.client.gui.widget.GuiScrollbar;
 import hellfirepvp.modularmachinery.common.container.ContainerUpgradeBus;

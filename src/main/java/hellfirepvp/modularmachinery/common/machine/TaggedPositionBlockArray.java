@@ -9,7 +9,7 @@
 package hellfirepvp.modularmachinery.common.machine;
 
 import crafttweaker.annotations.ZenRegister;
-import github.kasuminova.mmce.common.util.BlockPos2ValueMap;
+import hellfirepvp.modularmachinery.common.util.BlockPos2ValueMap;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentSelectorTag;
 import hellfirepvp.modularmachinery.common.util.BlockArray;
 import hellfirepvp.modularmachinery.common.util.MiscUtils;

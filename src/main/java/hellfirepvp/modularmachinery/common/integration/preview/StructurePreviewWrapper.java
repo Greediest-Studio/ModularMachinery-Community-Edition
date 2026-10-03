@@ -8,11 +8,11 @@
 
 package hellfirepvp.modularmachinery.common.integration.preview;
 
-import github.kasuminova.mmce.client.gui.integration.GuiBlueprintScreenJEI;
-import github.kasuminova.mmce.client.gui.util.RenderPos;
-import github.kasuminova.mmce.client.gui.widget.base.WidgetController;
-import github.kasuminova.mmce.client.gui.widget.base.WidgetGui;
-import github.kasuminova.mmce.client.preivew.PreviewPanels;
+import hellfirepvp.modularmachinery.client.gui.integration.GuiBlueprintScreenJEI;
+import hellfirepvp.modularmachinery.client.gui.util.RenderPos;
+import hellfirepvp.modularmachinery.client.gui.widget.base.WidgetController;
+import hellfirepvp.modularmachinery.client.gui.widget.base.WidgetGui;
+import hellfirepvp.modularmachinery.client.preview.PreviewPanels;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.base.Mods;
 import hellfirepvp.modularmachinery.common.block.BlockController;

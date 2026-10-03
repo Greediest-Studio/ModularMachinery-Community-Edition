@@ -8,15 +8,15 @@
 
 package hellfirepvp.modularmachinery;
 
-import github.kasuminova.mmce.common.concurrent.TaskExecutor;
-import github.kasuminova.mmce.common.network.*;
-import github.kasuminova.mmce.common.network.PktAutoAssemblyRequest;
-import github.kasuminova.mmce.common.network.PktMEInputBusInvAction;
-import github.kasuminova.mmce.common.network.PktMEOutputBusStackSizeChange;
-import github.kasuminova.mmce.common.network.PktMEPatternProviderAction;
-import github.kasuminova.mmce.common.network.PktMEPatternProviderHandlerItems;
-import github.kasuminova.mmce.common.network.PktPerformanceReport;
-import github.kasuminova.mmce.common.network.PktSwitchGuiMEOutputBus;
+import hellfirepvp.modularmachinery.common.concurrent.TaskExecutor;
+import hellfirepvp.modularmachinery.common.network.*;
+import hellfirepvp.modularmachinery.common.network.PktAutoAssemblyRequest;
+import hellfirepvp.modularmachinery.common.network.PktMEInputBusInvAction;
+import hellfirepvp.modularmachinery.common.network.PktMEOutputBusStackSizeChange;
+import hellfirepvp.modularmachinery.common.network.PktMEPatternProviderAction;
+import hellfirepvp.modularmachinery.common.network.PktMEPatternProviderHandlerItems;
+import hellfirepvp.modularmachinery.common.network.PktPerformanceReport;
+import hellfirepvp.modularmachinery.common.network.PktSwitchGuiMEOutputBus;
 import hellfirepvp.modularmachinery.common.CommonProxy;
 import hellfirepvp.modularmachinery.common.base.Mods;
 import hellfirepvp.modularmachinery.common.command.CommandGetBluePrint;
@@ -31,8 +31,8 @@ import hellfirepvp.modularmachinery.common.network.PktInteractFluidTankGui;
 import hellfirepvp.modularmachinery.common.network.PktParallelControllerUpdate;
 import hellfirepvp.modularmachinery.common.network.PktSmartInterfaceUpdate;
 import hellfirepvp.modularmachinery.common.network.PktSyncSelection;
-import kport.modularmagic.common.event.RegistrationEvent;
-import kport.modularmagic.common.network.StarlightMessage;
+import hellfirepvp.modularmachinery.common.event.RegistrationEvent;
+import hellfirepvp.modularmachinery.common.network.StarlightMessage;
 import net.minecraft.launchwrapper.Launch;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.fluids.FluidRegistry;

@@ -9,9 +9,9 @@
 package hellfirepvp.modularmachinery.common.crafting.adapter;
 
 import crafttweaker.util.IEventHandler;
-import github.kasuminova.mmce.common.event.Phase;
-import github.kasuminova.mmce.common.event.recipe.RecipeCheckEvent;
-import github.kasuminova.mmce.common.event.recipe.RecipeEvent;
+import hellfirepvp.modularmachinery.common.event.Phase;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeCheckEvent;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeEvent;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementEnergy;

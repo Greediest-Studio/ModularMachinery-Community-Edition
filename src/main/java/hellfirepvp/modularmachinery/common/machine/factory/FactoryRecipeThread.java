@@ -2,8 +2,8 @@ package hellfirepvp.modularmachinery.common.machine.factory;
 
 import crafttweaker.CraftTweakerAPI;
 import crafttweaker.annotations.ZenRegister;
-import github.kasuminova.mmce.common.concurrent.FactoryRecipeSearchTask;
-import github.kasuminova.mmce.common.util.concurrent.Action;
+import hellfirepvp.modularmachinery.common.concurrent.FactoryRecipeSearchTask;
+import hellfirepvp.modularmachinery.common.util.concurrent.Action;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.crafting.ActiveMachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;

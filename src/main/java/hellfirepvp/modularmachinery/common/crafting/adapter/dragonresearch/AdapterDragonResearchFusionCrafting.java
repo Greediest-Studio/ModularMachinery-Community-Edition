@@ -1,7 +1,7 @@
 package hellfirepvp.modularmachinery.common.crafting.adapter.dragonresearch;
 
 import crafttweaker.util.IEventHandler;
-import github.kasuminova.mmce.common.event.recipe.RecipeEvent;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeEvent;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.adapter.RecipeAdapter;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;

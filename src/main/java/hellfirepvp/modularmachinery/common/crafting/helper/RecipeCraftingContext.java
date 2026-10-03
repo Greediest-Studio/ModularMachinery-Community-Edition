@@ -8,9 +8,9 @@
 
 package hellfirepvp.modularmachinery.common.crafting.helper;
 
-import github.kasuminova.mmce.common.concurrent.Sync;
-import github.kasuminova.mmce.common.event.Phase;
-import github.kasuminova.mmce.common.event.recipe.ResultChanceCreateEvent;
+import hellfirepvp.modularmachinery.common.concurrent.Sync;
+import hellfirepvp.modularmachinery.common.event.Phase;
+import hellfirepvp.modularmachinery.common.event.recipe.ResultChanceCreateEvent;
 import hellfirepvp.modularmachinery.common.crafting.ActiveMachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementCatalyst;
@@ -28,7 +28,6 @@ import hellfirepvp.modularmachinery.common.util.ResultChance;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import it.unimi.dsi.fastutil.objects.Object2ObjectArrayMap;
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectLists;
 import net.minecraft.tileentity.TileEntity;

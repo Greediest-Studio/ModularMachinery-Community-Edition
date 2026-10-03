@@ -1,6 +1,6 @@
 package hellfirepvp.modularmachinery.common.tiles;
 
-import github.kasuminova.mmce.common.event.machine.SmartInterfaceUpdateEvent;
+import hellfirepvp.modularmachinery.common.event.machine.SmartInterfaceUpdateEvent;
 import hellfirepvp.modularmachinery.common.crafting.ComponentType;
 import hellfirepvp.modularmachinery.common.lib.ComponentTypesMM;
 import hellfirepvp.modularmachinery.common.machine.IOType;

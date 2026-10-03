@@ -8,10 +8,9 @@
 
 package hellfirepvp.modularmachinery.client.gui;
 
-import github.kasuminova.mmce.client.gui.GuiScreenDynamic;
-import github.kasuminova.mmce.client.gui.widget.base.WidgetController;
-import github.kasuminova.mmce.client.gui.widget.base.WidgetGui;
-import github.kasuminova.mmce.client.preivew.PreviewPanels;
+import hellfirepvp.modularmachinery.client.gui.widget.base.WidgetController;
+import hellfirepvp.modularmachinery.client.gui.widget.base.WidgetGui;
+import hellfirepvp.modularmachinery.client.preview.PreviewPanels;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import net.minecraft.client.renderer.GlStateManager;

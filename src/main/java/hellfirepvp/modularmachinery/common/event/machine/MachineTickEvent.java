@@ -1,0 +1,17 @@
+package hellfirepvp.modularmachinery.common.event.machine;
+
+import crafttweaker.annotations.ZenRegister;
+import hellfirepvp.modularmachinery.common.event.Phase;
+import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
+import stanhebben.zenscript.annotations.ZenClass;
+
+@ZenRegister
+@ZenClass("mods.modularmachinery.MachineTickEvent")
+public class MachineTickEvent extends MachineEvent {
+    public final Phase phase;
+
+    public MachineTickEvent(TileMultiblockMachineController controller, Phase phase) {
+        super(controller);
+        this.phase = phase;
+    }
+}

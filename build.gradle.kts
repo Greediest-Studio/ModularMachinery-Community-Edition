@@ -3,8 +3,6 @@ import org.jetbrains.gradle.ext.RunConfigurationContainer
 import java.util.*
 
 plugins {
-    kotlin("jvm") version "2.2.0"
-    kotlin("plugin.serialization") version "2.2.0"
     id("java-library")
     id("maven-publish")
     id("org.jetbrains.gradle.plugin.idea-ext") version "1.1.7"
@@ -18,6 +16,9 @@ version = "2.3.3"
 
 // Set the toolchain version to decouple the Java we run Gradle with from the Java used to compile and run the mod
 java {
+    // Keep generated classes and auxiliary source sets compatible with Minecraft 1.12.2.
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))
         // Azul covers the most platforms for Java 8 toolchains, crucially including MacOS arm64
@@ -26,10 +27,6 @@ java {
     // Generate sources and javadocs jars when building and publishing
     withSourcesJar()
     withJavadocJar()
-}
-
-kotlin {
-    jvmToolchain(8)
 }
 
 // Most RFG configuration lives here, see the JavaDoc for com.gtnewhorizons.retrofuturagradle.MinecraftExtension
@@ -49,7 +46,7 @@ minecraft {
     val args = mutableListOf("-ea:${project.group}")
 
     // Mixin args
-    args.add("-Dfml.coreMods.load=github.kasuminova.mmce.mixin.MMCEEarlyMixinLoader")
+    args.add("-Dfml.coreMods.load=hellfirepvp.modularmachinery.mixin.MMCEEarlyMixinLoader")
     args.add("-Dmixin.hotSwap=true")
     args.add("-Dmixin.checks.interfaces=true")
     args.add("-Dmixin.debug.export=true")
@@ -90,7 +87,7 @@ tasks.compileJava.configure {
 tasks.jar.configure {
     manifest {
         val attributes = manifest.attributes
-        attributes["FMLCorePlugin"] = "github.kasuminova.mmce.mixin.MMCEEarlyMixinLoader"
+        attributes["FMLCorePlugin"] = "hellfirepvp.modularmachinery.mixin.MMCEEarlyMixinLoader"
         attributes["FMLCorePluginContainsFMLMod"] = true
     }
 }
@@ -119,6 +116,12 @@ listOf(configurations.runtimeClasspath, configurations.testRuntimeClasspath).for
 
 // Dependencies
 repositories {
+    maven {
+        url = uri("https://api.modrinth.com/maven")
+        content {
+            includeGroup("maven.modrinth")
+        }
+    }
     flatDir {
         dirs("libs")
     }
@@ -161,6 +164,8 @@ repositories {
 }
 
 dependencies {
+    // Java sources use these annotations independently of Kotlin.
+    compileOnly("org.jetbrains:annotations:24.1.0")
     annotationProcessor("com.github.bsideup.jabel:jabel-javac-plugin:0.4.2")
     compileOnly("com.github.bsideup.jabel:jabel-javac-plugin:0.4.2")
     // workaround for https://github.com/bsideup/jabel/issues/174
@@ -186,12 +191,10 @@ dependencies {
         isTransitive = false
     }
 
-    // Kotlin Support
-    runtimeOnly("io.github.chaosunity.forgelin:Forgelin-Continuous:2.2.0.0") {
+    // Compile against Alfheim's real API without bundling its lighting engine.
+    compileOnly(rfg.deobf("maven.modrinth:alfheim-lighting-engine:1.6").toString()) {
         isTransitive = false
     }
-    compileOnly("org.jetbrains.kotlin:kotlin-stdlib:2.2.0")
-    compileOnly("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.1")
 
     implementation("CraftTweaker2:CraftTweaker2-MC1120-Main:1.12-4.+")
     implementation(rfg.deobf("curse.maven:had-enough-items-557549:4810661"))

@@ -1,0 +1,11 @@
+package hellfirepvp.modularmachinery.client.gui.widget.event;
+
+import hellfirepvp.modularmachinery.client.gui.widget.base.WidgetGui;
+
+public class WorldRendererCacheCleanEvent extends GuiEvent {
+
+    public WorldRendererCacheCleanEvent(final WidgetGui gui) {
+        super(gui);
+    }
+
+}

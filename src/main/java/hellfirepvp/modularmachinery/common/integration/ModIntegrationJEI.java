@@ -9,7 +9,7 @@
 package hellfirepvp.modularmachinery.common.integration;
 
 import com.google.common.collect.Lists;
-import github.kasuminova.mmce.common.container.handler.MEInputRecipeTransferHandler;
+import hellfirepvp.modularmachinery.common.container.handler.MEInputRecipeTransferHandler;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.base.Mods;
 import hellfirepvp.modularmachinery.common.block.BlockController;

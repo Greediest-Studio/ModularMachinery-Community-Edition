@@ -9,9 +9,9 @@
 package hellfirepvp.modularmachinery.common.crafting.requirement;
 
 import com.google.common.collect.Lists;
-import github.kasuminova.mmce.common.concurrent.Sync;
-import github.kasuminova.mmce.common.helper.AdvancedItemChecker;
-import github.kasuminova.mmce.common.helper.AdvancedItemModifier;
+import hellfirepvp.modularmachinery.common.concurrent.Sync;
+import hellfirepvp.modularmachinery.common.helper.AdvancedItemChecker;
+import hellfirepvp.modularmachinery.common.helper.AdvancedItemModifier;
 import hellfirepvp.modularmachinery.common.crafting.ComponentType;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;

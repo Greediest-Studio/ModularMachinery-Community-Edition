@@ -2,7 +2,7 @@ package hellfirepvp.modularmachinery.common.integration.crafttweaker.helper;
 
 import crafttweaker.annotations.ZenRegister;
 import crafttweaker.api.item.IItemStack;
-import github.kasuminova.mmce.common.helper.IMachineController;
+import hellfirepvp.modularmachinery.common.helper.IMachineController;
 import stanhebben.zenscript.annotations.ZenClass;
 
 @ZenRegister

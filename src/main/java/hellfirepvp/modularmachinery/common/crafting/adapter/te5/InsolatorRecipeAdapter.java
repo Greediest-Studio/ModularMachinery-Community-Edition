@@ -2,8 +2,8 @@ package hellfirepvp.modularmachinery.common.crafting.adapter.te5;
 
 import cofh.thermalexpansion.util.managers.machine.InsolatorManager;
 import crafttweaker.util.IEventHandler;
-import github.kasuminova.mmce.common.event.recipe.RecipeEvent;
-import github.kasuminova.mmce.common.util.HashedItemStack;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeEvent;
+import hellfirepvp.modularmachinery.common.util.HashedItemStack;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.adapter.RecipeAdapter;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;

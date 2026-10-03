@@ -8,7 +8,6 @@
 
 package hellfirepvp.modularmachinery.common.util;
 
-import github.kasuminova.mmce.common.util.IExtendedGasHandler;
 import mekanism.api.gas.Gas;
 import mekanism.api.gas.GasStack;
 import mekanism.api.gas.GasTank;

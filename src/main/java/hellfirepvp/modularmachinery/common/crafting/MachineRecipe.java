@@ -17,7 +17,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import crafttweaker.util.IEventHandler;
-import github.kasuminova.mmce.common.event.recipe.RecipeEvent;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeEvent;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.crafting.command.RecipeCommandContainer;
 import hellfirepvp.modularmachinery.common.crafting.command.RecipeRunnableCommand;

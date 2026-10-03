@@ -1,9 +1,9 @@
 package hellfirepvp.modularmachinery.common.crafting.requirement;
 
-import github.kasuminova.mmce.common.concurrent.Sync;
-import github.kasuminova.mmce.common.helper.AdvancedItemChecker;
-import github.kasuminova.mmce.common.helper.AdvancedItemModifier;
-import github.kasuminova.mmce.common.itemtype.ChancedIngredientStack;
+import hellfirepvp.modularmachinery.common.concurrent.Sync;
+import hellfirepvp.modularmachinery.common.helper.AdvancedItemChecker;
+import hellfirepvp.modularmachinery.common.helper.AdvancedItemModifier;
+import hellfirepvp.modularmachinery.common.itemtype.ChancedIngredientStack;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.crafting.ComponentType;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;

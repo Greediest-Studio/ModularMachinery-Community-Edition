@@ -1,5 +1,5 @@
 {
-    "package": "github.kasuminova.mmce.mixin.jei",
+    "package": "hellfirepvp.modularmachinery.mixin.jei",
     "refmap": "mixins.mmce.refmap.json",
     "target": "@env(DEFAULT)",
     "minVersion": "0.8",

@@ -1,6 +1,6 @@
 package hellfirepvp.modularmachinery.common.crafting.requirement;
 
-import github.kasuminova.mmce.common.util.IExtendedGasHandler;
+import hellfirepvp.modularmachinery.common.util.IExtendedGasHandler;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;

@@ -2,9 +2,9 @@ package hellfirepvp.modularmachinery.common.integration.crafttweaker;
 
 import crafttweaker.CraftTweakerAPI;
 import crafttweaker.annotations.ZenRegister;
-import github.kasuminova.mmce.client.model.DynamicMachineModelRegistry;
-import github.kasuminova.mmce.client.model.MachineControllerModel;
-import github.kasuminova.mmce.common.util.concurrent.Action;
+import hellfirepvp.modularmachinery.client.model.DynamicMachineModelRegistry;
+import hellfirepvp.modularmachinery.client.model.MachineControllerModel;
+import hellfirepvp.modularmachinery.common.util.concurrent.Action;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.machine.MachineRegistry;

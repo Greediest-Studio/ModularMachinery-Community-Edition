@@ -1,11 +1,7 @@
 package hellfirepvp.modularmachinery.common.util;
 
 import com.google.common.collect.Lists;
-import github.kasuminova.mmce.common.concurrent.Sync;
-import github.kasuminova.mmce.common.util.IExtendedGasHandler;
-import github.kasuminova.mmce.common.util.IOneToOneFluidHandler;
-import github.kasuminova.mmce.common.util.MultiFluidTank;
-import github.kasuminova.mmce.common.util.MultiGasTank;
+import hellfirepvp.modularmachinery.common.concurrent.Sync;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.machine.MachineComponent;

@@ -9,13 +9,13 @@
 package hellfirepvp.modularmachinery.common.integration;
 
 import crafttweaker.mc1120.events.ScriptRunEvent;
-import github.kasuminova.mmce.client.model.DynamicMachineModelRegistry;
-import github.kasuminova.mmce.client.resource.GeoModelExternalLoader;
-import github.kasuminova.mmce.common.concurrent.RecipeCraftingContextPool;
-import github.kasuminova.mmce.common.upgrade.registry.RegistryUpgrade;
-import github.kasuminova.mmce.common.util.OredictCache;
-import github.kasuminova.mmce.common.util.Sides;
-import github.kasuminova.mmce.common.util.concurrent.Action;
+import hellfirepvp.modularmachinery.client.model.DynamicMachineModelRegistry;
+import hellfirepvp.modularmachinery.client.resource.GeoModelExternalLoader;
+import hellfirepvp.modularmachinery.common.concurrent.RecipeCraftingContextPool;
+import hellfirepvp.modularmachinery.common.upgrade.registry.RegistryUpgrade;
+import hellfirepvp.modularmachinery.common.util.OredictCache;
+import hellfirepvp.modularmachinery.common.util.Sides;
+import hellfirepvp.modularmachinery.common.util.concurrent.Action;
 import hellfirepvp.modularmachinery.client.ClientProxy;
 import hellfirepvp.modularmachinery.common.base.Mods;
 import hellfirepvp.modularmachinery.common.crafting.RecipeRegistry;

@@ -18,8 +18,8 @@ import hellfirepvp.modularmachinery.common.block.prop.UpgradeBusData;
 import hellfirepvp.modularmachinery.common.integration.ModIntegrationTOP;
 import hellfirepvp.modularmachinery.common.machine.RecipeFailureActions;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
-import ink.ikx.mmce.core.AssemblyConfig;
-import kport.modularmagic.common.tile.TileManaProvider;
+import hellfirepvp.modularmachinery.common.machine.assembly.AssemblyConfig;
+import hellfirepvp.modularmachinery.common.tiles.TileManaProvider;
 import net.minecraftforge.common.config.Configuration;
 
 import java.io.File;

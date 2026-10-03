@@ -8,13 +8,13 @@
 
 package hellfirepvp.modularmachinery.common.tiles;
 
-import github.kasuminova.mmce.common.world.MachineComponentManager;
+import hellfirepvp.modularmachinery.common.world.MachineComponentManager;
 
-import github.kasuminova.mmce.common.event.Phase;
-import github.kasuminova.mmce.common.event.recipe.RecipeFailureEvent;
-import github.kasuminova.mmce.common.event.recipe.RecipeFinishEvent;
-import github.kasuminova.mmce.common.event.recipe.RecipeStartEvent;
-import github.kasuminova.mmce.common.event.recipe.RecipeTickEvent;
+import hellfirepvp.modularmachinery.common.event.Phase;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeFailureEvent;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeFinishEvent;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeStartEvent;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeTickEvent;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.block.BlockController;
 import hellfirepvp.modularmachinery.common.crafting.ActiveMachineRecipe;

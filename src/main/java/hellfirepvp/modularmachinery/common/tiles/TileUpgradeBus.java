@@ -1,11 +1,11 @@
 package hellfirepvp.modularmachinery.common.tiles;
 
-import github.kasuminova.mmce.common.capability.CapabilityUpgrade;
-import github.kasuminova.mmce.common.upgrade.DynamicMachineUpgrade;
-import github.kasuminova.mmce.common.upgrade.MachineUpgrade;
-import github.kasuminova.mmce.common.upgrade.UpgradeType;
-import github.kasuminova.mmce.common.upgrade.registry.RegistryUpgrade;
-import github.kasuminova.mmce.common.util.BlockPos2ValueMap;
+import hellfirepvp.modularmachinery.common.capability.CapabilityUpgrade;
+import hellfirepvp.modularmachinery.common.upgrade.DynamicMachineUpgrade;
+import hellfirepvp.modularmachinery.common.upgrade.MachineUpgrade;
+import hellfirepvp.modularmachinery.common.upgrade.UpgradeType;
+import hellfirepvp.modularmachinery.common.upgrade.registry.RegistryUpgrade;
+import hellfirepvp.modularmachinery.common.util.BlockPos2ValueMap;
 import hellfirepvp.modularmachinery.common.crafting.ComponentType;
 import hellfirepvp.modularmachinery.common.lib.ComponentTypesMM;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;

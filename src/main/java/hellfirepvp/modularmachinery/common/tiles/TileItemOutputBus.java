@@ -8,8 +8,7 @@
 
 package hellfirepvp.modularmachinery.common.tiles;
 
-import github.kasuminova.mmce.common.tile.MEPatternProvider;
-import github.kasuminova.mmce.common.tile.base.MEItemBus;
+import hellfirepvp.modularmachinery.common.tiles.base.MEItemBus;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.base.Mods;
 import hellfirepvp.modularmachinery.common.block.prop.ItemBusSize;

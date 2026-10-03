@@ -1,8 +1,8 @@
 package hellfirepvp.modularmachinery.common.crafting.adapter.tc6;
 
 import crafttweaker.util.IEventHandler;
-import github.kasuminova.mmce.common.event.recipe.RecipeEvent;
-import github.kasuminova.mmce.common.itemtype.ChancedIngredientStack;
+import hellfirepvp.modularmachinery.common.event.recipe.RecipeEvent;
+import hellfirepvp.modularmachinery.common.itemtype.ChancedIngredientStack;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.adapter.RecipeAdapter;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
@@ -12,7 +12,7 @@ import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
 import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import hellfirepvp.modularmachinery.common.util.ItemUtils;
-import kport.modularmagic.common.crafting.requirement.RequirementAspect;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementAspect;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTBase;
 import net.minecraft.util.ResourceLocation;

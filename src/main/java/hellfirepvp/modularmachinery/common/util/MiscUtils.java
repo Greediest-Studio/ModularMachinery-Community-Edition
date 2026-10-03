@@ -38,6 +38,15 @@ import static net.minecraft.client.gui.GuiScreen.isKeyComboCtrlX;
  * Date: 30.03.2018 / 16:50
  */
 public class MiscUtils {
+    public static boolean areNull(Object... objects) {
+        for (Object object : objects) {
+            if (object == null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat("#,###.##");
 
     public static <K, V, N> Map<K, N> remap(Map<K, V> map, Function<V, N> remapFct) {

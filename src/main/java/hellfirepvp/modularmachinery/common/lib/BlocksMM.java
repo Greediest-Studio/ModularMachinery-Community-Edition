@@ -8,14 +8,14 @@
 
 package hellfirepvp.modularmachinery.common.lib;
 
-import github.kasuminova.mmce.common.block.appeng.BlockMEFluidInputBus;
-import github.kasuminova.mmce.common.block.appeng.BlockMEFluidOutputBus;
-import github.kasuminova.mmce.common.block.appeng.BlockMEGasInputBus;
-import github.kasuminova.mmce.common.block.appeng.BlockMEGasOutputBus;
-import github.kasuminova.mmce.common.block.appeng.BlockMEItemInputBus;
-import github.kasuminova.mmce.common.block.appeng.BlockMEItemOutputBus;
-import github.kasuminova.mmce.common.block.appeng.BlockMEPatternMirrorImage;
-import github.kasuminova.mmce.common.block.appeng.BlockMEPatternProvider;
+import hellfirepvp.modularmachinery.common.block.appeng.BlockMEFluidInputBus;
+import hellfirepvp.modularmachinery.common.block.appeng.BlockMEFluidOutputBus;
+import hellfirepvp.modularmachinery.common.block.appeng.BlockMEGasInputBus;
+import hellfirepvp.modularmachinery.common.block.appeng.BlockMEGasOutputBus;
+import hellfirepvp.modularmachinery.common.block.appeng.BlockMEItemInputBus;
+import hellfirepvp.modularmachinery.common.block.appeng.BlockMEItemOutputBus;
+import hellfirepvp.modularmachinery.common.block.appeng.BlockMEPatternMirrorImage;
+import hellfirepvp.modularmachinery.common.block.appeng.BlockMEPatternProvider;
 import hellfirepvp.modularmachinery.common.block.BlockCasing;
 import hellfirepvp.modularmachinery.common.block.BlockController;
 import hellfirepvp.modularmachinery.common.block.BlockEnergyInputHatch;
@@ -29,24 +29,24 @@ import hellfirepvp.modularmachinery.common.block.BlockParallelEqualizerHatch;
 import hellfirepvp.modularmachinery.common.block.BlockParallelController;
 import hellfirepvp.modularmachinery.common.block.BlockSmartInterface;
 import hellfirepvp.modularmachinery.common.block.BlockUpgradeBus;
-import kport.modularmagic.common.block.BlockAspectProviderInput;
-import kport.modularmagic.common.block.BlockAspectProviderOutput;
-import kport.modularmagic.common.block.BlockAuraProviderInput;
-import kport.modularmagic.common.block.BlockAuraProviderOutput;
-import kport.modularmagic.common.block.BlockConstellationProvider;
-import kport.modularmagic.common.block.BlockGridProviderInput;
-import kport.modularmagic.common.block.BlockGridProviderOutput;
-import kport.modularmagic.common.block.BlockImpetusProviderInput;
-import kport.modularmagic.common.block.BlockImpetusProviderOutput;
-import kport.modularmagic.common.block.BlockLifeEssenceProviderInput;
-import kport.modularmagic.common.block.BlockLifeEssenceProviderOutput;
-import kport.modularmagic.common.block.BlockManaProviderInput;
-import kport.modularmagic.common.block.BlockManaProviderOutput;
-import kport.modularmagic.common.block.BlockRainbowProvider;
-import kport.modularmagic.common.block.BlockStarlightProviderInput;
-import kport.modularmagic.common.block.BlockStarlightProviderOutput;
-import kport.modularmagic.common.block.BlockWillProviderInput;
-import kport.modularmagic.common.block.BlockWillProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockAspectProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockAspectProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockAuraProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockAuraProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockConstellationProvider;
+import hellfirepvp.modularmachinery.common.block.BlockGridProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockGridProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockImpetusProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockImpetusProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockLifeEssenceProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockLifeEssenceProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockManaProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockManaProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockRainbowProvider;
+import hellfirepvp.modularmachinery.common.block.BlockStarlightProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockStarlightProviderOutput;
+import hellfirepvp.modularmachinery.common.block.BlockWillProviderInput;
+import hellfirepvp.modularmachinery.common.block.BlockWillProviderOutput;
 
 /**
  * This class is part of the Modular Machinery Mod

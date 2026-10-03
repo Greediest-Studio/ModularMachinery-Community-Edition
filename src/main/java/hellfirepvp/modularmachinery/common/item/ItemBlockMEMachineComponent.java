@@ -1,7 +1,7 @@
 package hellfirepvp.modularmachinery.common.item;
 
 import appeng.me.helpers.AENetworkProxy;
-import github.kasuminova.mmce.common.tile.base.MEMachineComponent;
+import hellfirepvp.modularmachinery.common.tiles.base.MEMachineComponent;
 import net.minecraft.block.Block;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;

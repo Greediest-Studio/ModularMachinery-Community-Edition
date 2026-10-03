@@ -1,6 +1,6 @@
 package hellfirepvp.modularmachinery.common.integration;
 
-import github.kasuminova.mmce.common.integration.theoneprobe.MachineryHatchInfoProvider;
+import hellfirepvp.modularmachinery.common.integration.theoneprobe.MachineryHatchInfoProvider;
 import hellfirepvp.modularmachinery.common.integration.theoneprobe.MMInfoProvider;
 import mcjty.theoneprobe.TheOneProbe;
 import mcjty.theoneprobe.apiimpl.TheOneProbeImp;

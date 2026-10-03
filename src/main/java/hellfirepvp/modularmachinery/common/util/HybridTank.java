@@ -8,7 +8,7 @@
 
 package hellfirepvp.modularmachinery.common.util;
 
-import github.kasuminova.mmce.common.util.concurrent.ReadWriteLockProvider;
+import hellfirepvp.modularmachinery.common.util.concurrent.ReadWriteLockProvider;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTank;
 import net.minecraftforge.fml.common.Optional;

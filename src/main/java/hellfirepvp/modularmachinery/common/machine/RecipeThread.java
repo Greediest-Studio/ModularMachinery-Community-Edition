@@ -1,8 +1,8 @@
 package hellfirepvp.modularmachinery.common.machine;
 
 import crafttweaker.annotations.ZenRegister;
-import github.kasuminova.mmce.common.concurrent.RecipeCraftingContextPool;
-import github.kasuminova.mmce.common.concurrent.RecipeSearchTask;
+import hellfirepvp.modularmachinery.common.concurrent.RecipeCraftingContextPool;
+import hellfirepvp.modularmachinery.common.concurrent.RecipeSearchTask;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.crafting.ActiveMachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftingStatus;
