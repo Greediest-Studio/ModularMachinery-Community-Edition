@@ -3,27 +3,17 @@ package hellfirepvp.modularmachinery.common.machine.assembly;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import hellfirepvp.modularmachinery.common.network.PktAutoAssemblyRequest;
-import hellfirepvp.modularmachinery.common.util.DynamicPattern;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.client.ClientProxy;
 import hellfirepvp.modularmachinery.client.util.DynamicMachineRenderContext;
-import hellfirepvp.modularmachinery.common.block.BlockController;
-import hellfirepvp.modularmachinery.common.block.BlockFactoryController;
 import hellfirepvp.modularmachinery.common.lib.ItemsMM;
-import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
-import hellfirepvp.modularmachinery.common.util.BlockArray;
-import hellfirepvp.modularmachinery.common.util.BlockArrayCache;
-import hellfirepvp.modularmachinery.common.util.StructureIngredient;
-import net.minecraft.block.Block;
-import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Items;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumActionResult;
-import net.minecraft.util.EnumFacing;
 import net.minecraft.util.EnumHand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.text.TextComponentTranslation;
@@ -36,8 +26,6 @@ import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 
-import java.util.Collection;
-import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
@@ -49,79 +37,8 @@ public class AssemblyEventHandler {
                                                                                           .expireAfterWrite(1, TimeUnit.SECONDS)
                                                                                           .build();
 
-    private static void assemblyBefore(final DynamicMachine machine,
-                                       final EntityPlayer player,
-                                       final BlockPos pos,
-                                       int dynamicPatternSize,
-                                       final EnumFacing controllerFacing) {
-        if (machine == null) {
-            player.sendMessage(new TextComponentTranslation("message.assembly.tip.no_machine"));
-            return;
-        }
-
-        if (MachineAssemblyManager.checkMachineExist(player.world, pos)) {
-            player.sendMessage(new TextComponentTranslation("message.assembly.tip.already_assembly"));
-            return;
-        }
-
-        BlockArray machinePattern = new BlockArray(BlockArrayCache.getBlockArrayCache(machine.getPattern(), controllerFacing));
-
-        Map<String, DynamicPattern> dynamicPatterns = machine.getDynamicPatterns();
-        for (final DynamicPattern pattern : dynamicPatterns.values()) {
-            dynamicPatternSize = Math.max(dynamicPatternSize, pattern.getMinSize());
-        }
-
-        for (final DynamicPattern pattern : dynamicPatterns.values()) {
-            pattern.addPatternToBlockArray(
-                machinePattern,
-                Math.min(Math.max(pattern.getMinSize(), dynamicPatternSize), pattern.getMaxSize()),
-                pattern.getFaces().iterator().next(),
-                controllerFacing);
-        }
-
-        MachineAssembly assembly = new MachineAssembly(
-            player.world, pos, player,
-            StructureIngredient.of(player.world, pos, machinePattern)
-        );
-
-        if (player.isCreative()) {
-            assembly.assemblyCreative();
-            return;
-        }
-
-        if (MachineAssembly.checkAllItems(player, assembly.getIngredient().copy())) {
-            assembly.buildIngredients(false);
-            MachineAssemblyManager.addMachineAssembly(assembly);
-            return;
-        }
-
-        if (!AssemblyConfig.needAllBlocks) {
-            player.sendMessage(new TextComponentTranslation("message.assembly.tip.partial_assembly"));
-            assembly.buildIngredients(false);
-            MachineAssemblyManager.addMachineAssembly(assembly);
-        }
-    }
-
     private static ItemStack getBlueprint(TileMultiblockMachineController controller) {
         return controller.getInventory().getStackInSlot(TileMultiblockMachineController.BLUEPRINT_SLOT);
-    }
-
-    private static EnumFacing getAutoAssemblyFacing(final World world,
-                                                    final BlockPos pos,
-                                                    final TileMultiblockMachineController ctrl) {
-        IBlockState state = world.getBlockState(pos);
-        EnumFacing controllerFacing = ctrl.getControllerRotation();
-
-        if ((controllerFacing == null || !controllerFacing.getAxis().isHorizontal())
-            && state.getBlock() instanceof BlockController) {
-            controllerFacing = state.getValue(BlockController.FACING);
-        }
-
-        if (controllerFacing == null || !controllerFacing.getAxis().isHorizontal()) {
-            controllerFacing = EnumFacing.NORTH;
-        }
-
-        return controllerFacing;
     }
 
     @SubscribeEvent
@@ -201,7 +118,6 @@ public class AssemblyEventHandler {
 
         World world = player.world;
         TileEntity te = world.getTileEntity(pos);
-        Block block = world.getBlockState(pos).getBlock();
 
         Item item = Item.getByNameOrId(AssemblyConfig.itemName);
         if (item == null) {
@@ -217,53 +133,25 @@ public class AssemblyEventHandler {
         }
 
         if (handStack.isItemEqual(new ItemStack(item, 1, AssemblyConfig.itemMeta))) {
-            DynamicMachine machine = ctrl.getBlueprintMachine();
-            if (machine == null) {
-                if (block instanceof BlockController) {
-                    machine = ((BlockController) block).getParentMachine();
-                }
-                if (block instanceof BlockFactoryController) {
-                    machine = ((BlockFactoryController) block).getParentMachine();
-                }
-            }
-
-            EnumFacing controllerFacing = getAutoAssemblyFacing(world, pos, ctrl);
-            assemblyBefore(machine, player, pos, dynamicPatternSize, controllerFacing);
+            AssemblyService.start(player, pos, AssemblyOptions.simple(dynamicPatternSize));
         }
     }
 
     @SubscribeEvent(priority = EventPriority.HIGH)
     public void onPlayerTick(TickEvent.PlayerTickEvent event) {
-        EntityPlayer player = event.player;
-        World world = player.world;
-        if (event.phase == TickEvent.Phase.START || world.isRemote || world.getTotalWorldTime() % AssemblyConfig.tickBlock != 0) {
-            return;
-        }
-
-        Collection<MachineAssembly> assemblies = MachineAssemblyManager.getMachineAssemblyListFromPlayer(player);
-
-        if (assemblies == null || assemblies.isEmpty()) {
-            return;
-        }
-
-        ModularMachinery.EXECUTE_MANAGER.addSyncTask(() -> {
-            for (final MachineAssembly assembly : assemblies) {
-                if (assembly.isControllerInvalid()) {
-                    MachineAssemblyManager.removeMachineAssembly(assembly.getWorld(), assembly.getCtrlPos());
-                    player.sendMessage(new TextComponentTranslation("message.assembly.tip.cancelled"));
-                    return;
-                }
-                assembly.assembly(true);
-                if (assembly.isCompleted()) {
-                    MachineAssemblyManager.removeMachineAssembly(assembly.getWorld(), assembly.getCtrlPos());
-                    player.sendMessage(new TextComponentTranslation("message.assembly.tip.success"));
-                }
-            }
-        });
+        if (event.phase == TickEvent.Phase.END && !event.player.world.isRemote) MachineAssemblyManager.tick(event.player);
     }
-
     @SubscribeEvent
     public void onPlayerLogOut(PlayerEvent.PlayerLoggedOutEvent event) {
-        MachineAssemblyManager.removeMachineAssembly(event.player);
+        MachineAssemblyManager.cancelPlayer(event.player, false);
+        ASSEMBLY_ACCESS_TOKEN.invalidate(event.player);
+    }
+    @SubscribeEvent
+    public void onDimensionChange(PlayerEvent.PlayerChangedDimensionEvent event) {
+        MachineAssemblyManager.cancelPlayer(event.player, false);
+    }
+    @SubscribeEvent
+    public void onWorldUnload(net.minecraftforge.event.world.WorldEvent.Unload event) {
+        if (!event.getWorld().isRemote) MachineAssemblyManager.clearWorld(event.getWorld());
     }
 }

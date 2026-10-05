@@ -41,6 +41,8 @@ public class RegistryItems {
     protected static final List<Item>             ITEM_MODEL_REGISTER          = new ArrayList<>();
 
     public static void initialize() {
+        hellfirepvp.modularmachinery.common.lib.ItemsMM.advancedBuilderTool = register(new hellfirepvp.modularmachinery.common.item.ItemAdvancedBuilderTool());
+        hellfirepvp.modularmachinery.common.lib.ItemsMM.builderFluidReturn = register(new hellfirepvp.modularmachinery.common.item.ItemBuilderFluidReturn());
         blueprint = prepareRegister(new ItemBlueprint());
         modularium = prepareRegister(new ItemModularium());
         constructTool = new ItemAdvancedConstructTool();
@@ -80,9 +82,13 @@ public class RegistryItems {
 
     private static void registerItemModels() {
         ITEM_MODEL_REGISTER.stream()
-                           .filter(item -> !(item instanceof ItemBlockCustomName) && item != constructTool)
+                           .filter(item -> !(item instanceof ItemBlockCustomName) && item != constructTool
+                               && item != hellfirepvp.modularmachinery.common.lib.ItemsMM.advancedBuilderTool
+                               && item != hellfirepvp.modularmachinery.common.lib.ItemsMM.builderFluidReturn)
                            .forEach(ModularMachinery.proxy::registerItemModel);
         ModularMachinery.proxy.registerItemModelWithCustomName(constructTool);
+        ModularMachinery.proxy.registerItemModelWithCustomName(hellfirepvp.modularmachinery.common.lib.ItemsMM.advancedBuilderTool);
+        ModularMachinery.proxy.registerItemModelWithCustomName(hellfirepvp.modularmachinery.common.lib.ItemsMM.builderFluidReturn);
     }
 
     private static void registerCustomNameItemBlocks() {

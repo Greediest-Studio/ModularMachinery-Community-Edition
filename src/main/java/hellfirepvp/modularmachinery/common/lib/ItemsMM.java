@@ -21,6 +21,8 @@ import net.minecraft.item.Item;
  * Date: 28.06.2017 / 18:39
  */
 public class ItemsMM {
+    public static hellfirepvp.modularmachinery.common.item.ItemAdvancedBuilderTool advancedBuilderTool;
+    public static hellfirepvp.modularmachinery.common.item.ItemBuilderFluidReturn builderFluidReturn;
 
     public static ItemBlueprint     blueprint;
     public static ItemModularium    modularium;

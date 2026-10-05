@@ -75,6 +75,9 @@ dependencies {
     implementation rfg.deobf('curse.maven:thermal-foundation-222880:2926428')
     implementation rfg.deobf('curse.maven:thermal-expansion-69163:2926431')
 
+    // 高级搭建工具的附属模块接口；不附带 Complement。
+    compileOnly rfg.deobf("curse.maven:mmceC-1563518:8830125")
+
     // AE2 兼容。
     implementation rfg.deobf('curse.maven:ae2-extended-life-570458:6302098')
     implementation rfg.deobf('curse.maven:ae2-fluid-crafting-rework-623955:5504001')

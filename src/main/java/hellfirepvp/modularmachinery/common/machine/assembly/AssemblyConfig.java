@@ -20,7 +20,12 @@ public class AssemblyConfig {
     @Config.Comment("Set whether to skip blocks containing NBTs, default: false")
     public static boolean skipBlockContainNBT = false;
 
+    public static int advancedTickInterval = 1;
+    public static int advancedOperationsPerTick = 64;
+
     public static void loadFormConfig(Configuration config) {
+        advancedTickInterval = config.getInt("advancedTickInterval", "auto-assembly", 1, 1, 1000, "Advanced builder task interval.");
+        advancedOperationsPerTick = config.getInt("advancedOperationsPerTick", "auto-assembly", 64, 1, 4096, "Advanced builder operations per batch.");
         itemName = config.getString("itemName", "auto-assembly", "minecraft:stick",
             "Set the Item auto-assembly.");
         itemMeta = config.getInt("itemMeta", "auto-assembly", 0,

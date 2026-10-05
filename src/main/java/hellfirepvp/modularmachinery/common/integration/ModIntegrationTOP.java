@@ -24,7 +24,9 @@ public class ModIntegrationTOP {
         TheOneProbeImp top = TheOneProbe.theOneProbeImp;
 
         top.registerProvider(new MMInfoProvider());
-        top.registerProvider(new MachineryHatchInfoProvider());
+        if (Mods.AE2.isPresent()) {
+            top.registerProvider(new MachineryHatchInfoProvider());
+        }
 
         top.registerProvider(new SnapshotMachineComponentInfoProvider());
         if (Mods.ABYSSALCRAFT.isPresent()) {

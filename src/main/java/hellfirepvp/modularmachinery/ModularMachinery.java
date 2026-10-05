@@ -108,6 +108,9 @@ public class ModularMachinery {
         log = event.getModLog();
         devEnvCache = (Boolean) Launch.blackboard.get("fml.deobfuscatedEnvironment");
 
+        NET_CHANNEL.registerMessage(hellfirepvp.modularmachinery.common.network.PktBuilderData.class, hellfirepvp.modularmachinery.common.network.PktBuilderData.class, 6, Side.CLIENT);
+        NET_CHANNEL.registerMessage(hellfirepvp.modularmachinery.common.network.PktBuilderConfig.class, hellfirepvp.modularmachinery.common.network.PktBuilderConfig.class, 110, Side.SERVER);
+        NET_CHANNEL.registerMessage(hellfirepvp.modularmachinery.common.network.PktBuilderVariable.class, hellfirepvp.modularmachinery.common.network.PktBuilderVariable.class, 111, Side.SERVER);
         NET_CHANNEL.registerMessage(PktCopyToClipboard.class, PktCopyToClipboard.class, 0, Side.CLIENT);
         NET_CHANNEL.registerMessage(PktSyncSelection.class, PktSyncSelection.class, 1, Side.CLIENT);
         NET_CHANNEL.registerMessage(PktPerformanceReport.class, PktPerformanceReport.class, 2, Side.CLIENT);
@@ -160,6 +163,7 @@ public class ModularMachinery {
 
     @Mod.EventHandler
     public void onServerStopped(net.minecraftforge.fml.common.event.FMLServerStoppedEvent event) {
+        hellfirepvp.modularmachinery.common.machine.assembly.MachineAssemblyManager.clear();
         hellfirepvp.modularmachinery.common.integration.nuclearcraft.ScrubbedChunksCache.clear();
     }
 

@@ -30,6 +30,7 @@ import hellfirepvp.modularmachinery.common.modifier.MultiBlockModifierReplacemen
 import hellfirepvp.modularmachinery.common.modifier.SingleBlockModifierReplacement;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import hellfirepvp.modularmachinery.common.util.BlockArray;
+import hellfirepvp.modularmachinery.common.util.BlockVariableGroup;
 import hellfirepvp.modularmachinery.common.util.IBlockStateDescriptor;
 import hellfirepvp.modularmachinery.common.util.SmartInterfaceType;
 import hellfirepvp.modularmachinery.common.util.nbt.NBTJsonDeserializer;
@@ -572,6 +573,7 @@ public class DynamicMachine extends AbstractMachine {
                         descr = new BlockArray.BlockInformation(Lists.newArrayList(BlockArray.BlockInformation.getDescriptor(partElement.getAsString())));
                     } else {
                         descr = descr.copy(); //Avoid NBT-definitions bleed into variable context
+                        descr.setVariableGroups(java.util.Collections.singletonList(new BlockVariableGroup(strDesc, descr.getMatchingStates())));
                     }
                     if (matchNBT != null) {
                         descr.setMatchingTag(matchNBT);
@@ -582,6 +584,7 @@ public class DynamicMachine extends AbstractMachine {
                     addDescriptorWithPattern(pattern, descr, part);
                 } else if (partElement.isJsonArray()) {
                     JsonArray elementArray = partElement.getAsJsonArray();
+                    List<BlockVariableGroup> groups = new java.util.ArrayList<>();
                     List<IBlockStateDescriptor> descriptors = Lists.newArrayList();
                     for (int xx = 0; xx < elementArray.size(); xx++) {
                         JsonElement p = elementArray.get(xx);
@@ -591,15 +594,20 @@ public class DynamicMachine extends AbstractMachine {
                         String prim = p.getAsString();
                         BlockArray.BlockInformation descr = MachineLoader.VARIABLE_CONTEXT.get(prim);
                         if (descr != null) {
-                            descriptors.addAll(descr.copy().getMatchingStates());
+                            List<IBlockStateDescriptor> group = descr.copy().getMatchingStates();
+                            descriptors.addAll(group);
+                            groups.add(new BlockVariableGroup(prim, group));
                         } else {
-                            descriptors.add(BlockArray.BlockInformation.getDescriptor(prim));
+                            IBlockStateDescriptor direct = BlockArray.BlockInformation.getDescriptor(prim);
+                            descriptors.add(direct);
+                            groups.add(new BlockVariableGroup(null, java.util.Collections.singletonList(direct)));
                         }
                     }
                     if (descriptors.isEmpty()) {
                         throw new JsonParseException("'elements' array didn't contain any blockstate descriptors!");
                     }
                     BlockArray.BlockInformation bi = new BlockArray.BlockInformation(descriptors);
+                    if (groups.stream().anyMatch(group -> group.alias != null)) bi.setVariableGroups(groups);
                     if (matchNBT != null) {
                         bi.setMatchingTag(matchNBT);
                     }

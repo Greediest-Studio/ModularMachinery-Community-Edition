@@ -6,8 +6,6 @@ import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineContr
 import hellfirepvp.modularmachinery.common.util.ItemUtils;
 import hellfirepvp.modularmachinery.common.util.FluidUtils;
 import hellfirepvp.modularmachinery.common.util.StructureIngredient;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockLiquid;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -17,19 +15,15 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
-import net.minecraft.util.EnumHand;
 import net.minecraft.util.SoundCategory;
 import net.minecraft.util.Tuple;
 import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.text.TextComponentTranslation;
 import net.minecraft.world.World;
-import net.minecraftforge.common.IPlantable;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.util.BlockSnapshot;
 import net.minecraftforge.event.world.BlockEvent;
 import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidUtil;
-import net.minecraftforge.fluids.IFluidBlock;
 import net.minecraftforge.fluids.UniversalBucket;
 import net.minecraftforge.fluids.capability.IFluidHandlerItem;
 
@@ -39,17 +33,29 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class MachineAssembly {
-    private final World               world;
-    private final BlockPos            ctrlPos;
-    private final EntityPlayer        player;
+public class MachineAssembly implements BuildTask {
+    protected final World               world;
+    protected final BlockPos            ctrlPos;
+    protected final EntityPlayer        player;
+    private final TileEntity controller;
     private       StructureIngredient ingredient;
 
-    public MachineAssembly(final World world, final BlockPos ctrlPos, final EntityPlayer player, final StructureIngredient ingredient) {
+    protected final MissingMaterialsReport missingMaterials = new MissingMaterialsReport();
+    protected final AssemblyOptions options;
+    protected MaterialPayment payment;
+    private boolean cancelled;
+
+    public MachineAssembly(World world, BlockPos pos, EntityPlayer player, StructureIngredient ingredient, AssemblyOptions options) {
         this.world = world;
-        this.ctrlPos = ctrlPos;
+        this.ctrlPos = pos;
         this.player = player;
+        this.controller = world.getTileEntity(pos);
         this.ingredient = ingredient;
+        this.options = options;
+    }
+
+    public MachineAssembly(final World world, final BlockPos ctrlPos, final EntityPlayer player, final StructureIngredient ingredient) {
+        this(world, ctrlPos, player, ingredient, AssemblyOptions.simple(0));
     }
 
     public static List<StructureIngredient.FluidIngredient> buildFluidIngredients(final List<ItemStack> inventory,
@@ -203,7 +209,7 @@ public class MachineAssembly {
 
             List<FluidStack> stackIngList = ingredient.ingredientList()
                                                       .stream()
-                                                      .map(Tuple::getFirst)
+                                                      .map(tuple -> tuple.getFirst().copy())
                                                       .collect(Collectors.toList());
 
             if (stackIngList.size() == 1) {
@@ -240,7 +246,7 @@ public class MachineAssembly {
             @SuppressWarnings("SimplifyStreamApiCallChains")
             List<ItemStack> stackIngList = itemIng.ingredientList()
                                                   .stream()
-                                                  .map(Tuple::getFirst)
+                                                  .map(tuple -> tuple.getFirst().copy())
                                                   .collect(Collectors.toList());
             if (stackIngList.size() == 1) {
                 ItemStack ing = stackIngList.get(0);
@@ -278,11 +284,14 @@ public class MachineAssembly {
     }
 
     public static boolean consumeInventoryItem(final ItemStack required, final List<ItemStack> inventory) {
-        for (final ItemStack invStack : inventory) {
-            if (ItemUtils.matchStacks(invStack, required)) {
-                invStack.shrink(required.getCount());
-                return true;
-            }
+        int available = inventory.stream().filter(stack -> ItemUtils.matchStacks(stack, required)).mapToInt(ItemStack::getCount).sum();
+        if (available < required.getCount()) return false;
+        int remaining = required.getCount();
+        for (ItemStack stack : inventory) {
+            if (!ItemUtils.matchStacks(stack, required)) continue;
+            int taken = Math.min(remaining, stack.getCount());
+            stack.shrink(taken); remaining -= taken;
+            if (remaining == 0) return true;
         }
         return false;
     }
@@ -294,40 +303,6 @@ public class MachineAssembly {
             }
         }
         return false;
-    }
-
-    private static FluidPayment drainPlacementFluid(FluidStack required, List<ItemStack> inventory) {
-        for (int slot = 0; slot < inventory.size(); slot++) {
-            ItemStack original = inventory.get(slot);
-            IFluidHandlerItem handler = getSupportedFluidHandler(original);
-            if (handler == null) continue;
-            FluidStack simulated = handler.drain(required.copy(), false);
-            if (simulated == null || !simulated.containsFluid(required)) continue;
-            ItemStack saved = original.copy();
-            FluidStack drained = handler.drain(required.copy(), true);
-            if (drained == null || !drained.containsFluid(required)) {
-                inventory.set(slot, saved);
-                continue;
-            }
-            return new FluidPayment(slot, saved, handler.getContainer());
-        }
-        return null;
-    }
-
-    private static final class FluidPayment {
-        private final int slot;
-        private final ItemStack original;
-        private final ItemStack remainder;
-
-        private FluidPayment(int slot, ItemStack original, ItemStack remainder) {
-            this.slot = slot;
-            this.original = original;
-            this.remainder = remainder;
-        }
-
-        private void finish(List<ItemStack> inventory, boolean cancelled) {
-            inventory.set(slot, cancelled ? original : remainder);
-        }
     }
 
     public static boolean consumeInventoryFluid(final FluidStack required, final List<IFluidHandlerItem> fluidHandlers) {
@@ -343,234 +318,119 @@ public class MachineAssembly {
         return false;
     }
 
-    public static boolean replaceCheck(final BlockPos realPos, final World world, final EntityPlayer player) {
-        if (world.isOutsideBuildHeight(realPos)) {
-            String posToString = hellfirepvp.modularmachinery.common.util.MiscUtils.posToString(realPos);
-            player.sendMessage(new TextComponentTranslation("message.assembly.tip.too_high", posToString));
-            player.sendMessage(new TextComponentTranslation("message.assembly.tip.skipped", posToString));
-            return false;
-        }
-
-        IBlockState blockState = world.getBlockState(realPos);
-        Block block = blockState.getBlock();
-        if (world.isAirBlock(realPos) ||
-            block instanceof IPlantable ||
-            block instanceof BlockLiquid ||
-            block instanceof IFluidBlock) {
-            return true;
-        }
-
-        String posToString = hellfirepvp.modularmachinery.common.util.MiscUtils.posToString(realPos);
-        player.sendMessage(new TextComponentTranslation("message.assembly.tip.cannot_replace", posToString));
-        player.sendMessage(new TextComponentTranslation("message.assembly.tip.skipped", posToString));
-
-        return false;
+    public World getWorld() { return world; }
+    public BlockPos getCtrlPos() { return ctrlPos; }
+    public EntityPlayer getPlayer() { return player; }
+    public StructureIngredient getIngredient() { return ingredient; }
+    public int getTickInterval() { return options.tickInterval(); }
+    public int getOperationsPerTick() { return options.operationsPerTick(); }
+    public boolean isCompleted() { return ingredient.itemIngredient().isEmpty() && ingredient.fluidIngredient().isEmpty(); }
+    public boolean isCancelled() { return cancelled; }
+    public void cancel() { cancelled = true; }
+    public boolean isControllerInvalid() {
+        return !world.isBlockLoaded(ctrlPos) || !(controller instanceof TileMultiblockMachineController)
+            || world.getTileEntity(ctrlPos) != controller;
     }
-
-    public World getWorld() {
-        return world;
-    }
-
-    public BlockPos getCtrlPos() {
-        return ctrlPos;
-    }
-
-    public EntityPlayer getPlayer() {
-        return player;
-    }
-
-    public StructureIngredient getIngredient() {
-        return ingredient;
+    public void tick() { assembly(!player.isCreative()); }
+    public void report() { missingMaterials.report(player, isCompleted()); }
+    public String getCancelledMessageKey() { return "message.modularmachinery.builder.cancelled"; }
+    public String getSuccessMessageKey() {
+        return missingMaterials.hasSkipped() ? "message.modularmachinery.builder.partial" : "message.modularmachinery.builder.success";
     }
 
     public void buildIngredients(boolean consumeInventory) {
         List<ItemStack> inventory = player.inventory.mainInventory;
-        if (!consumeInventory) {
-            inventory = inventory.stream()
-                                 .map(ItemStack::copy)
-                                 .collect(Collectors.toList());
-        }
-
-        List<StructureIngredient.ItemIngredient> newItemIngredients = buildItemIngredients(inventory, ingredient.itemIngredient());
-        List<StructureIngredient.FluidIngredient> newFluidIngredients = buildFluidIngredients(inventory, ingredient.fluidIngredient());
-
-        ingredient = new StructureIngredient(newItemIngredients, newFluidIngredients);
-    }
-
-    public boolean isCompleted() {
-        return ingredient.itemIngredient().isEmpty() && ingredient.fluidIngredient().isEmpty();
-    }
-
-    public boolean isControllerInvalid() {
-        TileEntity te = world.getTileEntity(ctrlPos);
-        return !(te instanceof TileMultiblockMachineController);
+        if (!consumeInventory) inventory = inventory.stream().map(ItemStack::copy).collect(Collectors.toList());
+        ingredient = new StructureIngredient(buildItemIngredients(inventory, ingredient.itemIngredient()),
+            buildFluidIngredients(inventory, ingredient.fluidIngredient()));
     }
 
     public void assembly(boolean consumeInventory) {
-        List<StructureIngredient.ItemIngredient> itemIngredient = ingredient.itemIngredient();
-        List<StructureIngredient.FluidIngredient> fluidIngredient = ingredient.fluidIngredient();
-
-        if (!itemIngredient.isEmpty()) {
-            assemblyItemBlocks(consumeInventory, itemIngredient);
-        } else if (!fluidIngredient.isEmpty()) {
-            assemblyFluidBlocks(consumeInventory, fluidIngredient);
+        if (!ingredient.itemIngredient().isEmpty()) {
+            StructureIngredient.ItemIngredient entry = ingredient.itemIngredient().remove(0);
+            BlockPos pos = ctrlPos.add(entry.pos());
+            if (!replaceCheck(pos)) return;
+            if (!options.advanced && AssemblyConfig.skipBlockContainNBT && entry.nbt() != null) {
+                missingMaterials.markSkipped();
+                return;
+            }
+            for (Tuple<ItemStack, IBlockState> candidate : selectItemCandidatesForPosition(entry.pos(), entry.ingredientList())) {
+                payment = MaterialPayment.FREE;
+                if (consumeInventory && !consumeItem(entry.pos(), candidate.getFirst())) continue;
+                if (placeAssemblyBlock(pos, candidate.getSecond())) applyTileNbt(world, pos, entry.nbt());
+                else { payment.refund(); missingMaterials.markSkipped(); }
+                return;
+            }
+            if (entry.ingredientList().isEmpty()) { missingMaterials.markSkipped(); return; }
+            ItemStack required = selectRequirementItemStack(entry.pos(), entry.ingredientList());
+            if (shouldWaitForItemCraft(entry.pos(), required)) ingredient.itemIngredient().add(entry);
+            else { missingMaterials.addItem(required); missingMaterials.markSkipped(); }
+        } else if (!ingredient.fluidIngredient().isEmpty()) {
+            StructureIngredient.FluidIngredient entry = ingredient.fluidIngredient().remove(0);
+            BlockPos pos = ctrlPos.add(entry.pos());
+            if (!replaceCheck(pos)) return;
+            for (Tuple<FluidStack, IBlockState> candidate : selectFluidCandidatesForPosition(entry.pos(), entry.ingredientList())) {
+                payment = MaterialPayment.FREE;
+                if (consumeInventory && !consumeFluid(entry.pos(), candidate.getFirst())) continue;
+                if (!placeAssemblyBlock(pos, candidate.getSecond())) { payment.refund(); missingMaterials.markSkipped(); }
+                return;
+            }
+            if (entry.ingredientList().isEmpty()) { missingMaterials.markSkipped(); return; }
+            FluidStack required = selectRequirementFluidStack(entry.pos(), entry.ingredientList());
+            if (shouldWaitForFluidCraft(entry.pos(), required)) ingredient.fluidIngredient().add(entry);
+            else { missingMaterials.addFluid(required); missingMaterials.markSkipped(); }
         }
     }
 
-    public void assemblyCreative() {
-        for (final StructureIngredient.ItemIngredient itemIngredient : ingredient.itemIngredient()) {
-            List<Tuple<ItemStack, IBlockState>> ingredientList = itemIngredient.ingredientList();
-            if (ingredientList.isEmpty()) {
-                continue;
-            }
-
-            IBlockState state = ingredientList.get(0).getSecond();
-            world.setBlockState(ctrlPos.add(itemIngredient.pos()), state);
-        }
-        for (final StructureIngredient.FluidIngredient fluidIngredient : ingredient.fluidIngredient()) {
-            List<Tuple<FluidStack, IBlockState>> ingredientList = fluidIngredient.ingredientList();
-            if (ingredientList.isEmpty()) {
-                continue;
-            }
-
-            IBlockState state = ingredientList.get(0).getSecond();
-            world.setBlockState(ctrlPos.add(fluidIngredient.pos()), state);
-        }
-        world.playSound(null, ctrlPos, SoundEvents.BLOCK_STONE_PLACE, SoundCategory.BLOCKS, 1.0F, 1.0F);
-        player.sendMessage(new TextComponentTranslation("message.assembly.tip.success"));
+    protected List<Tuple<ItemStack, IBlockState>> selectItemCandidatesForPosition(BlockPos pos, List<Tuple<ItemStack, IBlockState>> candidates) { return candidates; }
+    protected List<Tuple<FluidStack, IBlockState>> selectFluidCandidatesForPosition(BlockPos pos, List<Tuple<FluidStack, IBlockState>> candidates) { return candidates; }
+    protected ItemStack selectRequirementItemStack(BlockPos pos, List<Tuple<ItemStack, IBlockState>> candidates) { return candidates.get(0).getFirst(); }
+    protected FluidStack selectRequirementFluidStack(BlockPos pos, List<Tuple<FluidStack, IBlockState>> candidates) { return candidates.get(0).getFirst(); }
+    protected boolean shouldWaitForItemCraft(BlockPos pos, ItemStack item) { return false; }
+    protected boolean shouldWaitForFluidCraft(BlockPos pos, FluidStack fluid) { return false; }
+    protected boolean consumeItem(BlockPos pos, ItemStack required) { return takeInventoryItem(required); }
+    protected boolean consumeFluid(BlockPos pos, FluidStack required) { return takeInventoryFluid(required); }
+    protected boolean takeInventoryItem(ItemStack required) {
+        payment = InventoryMaterials.takeItem(player, required);
+        return payment != null;
+    }
+    protected boolean takeInventoryFluid(FluidStack required) {
+        payment = InventoryMaterials.takeFluid(player, required);
+        return payment != null;
     }
 
-    private void assemblyItemBlocks(final boolean consumeInventory, final List<StructureIngredient.ItemIngredient> itemIngredient) {
-        Iterator<StructureIngredient.ItemIngredient> iterator = itemIngredient.iterator();
-        StructureIngredient.ItemIngredient ingredient = iterator.next();
-        BlockPos realPos = ctrlPos.add(ingredient.pos());
-
-        if (!replaceCheck(realPos, world, player)) {
-            iterator.remove();
-            return;
-        }
-
-        Tuple<ItemStack, IBlockState> tuple = ingredient.ingredientList().get(0);
-        ItemStack required = tuple.getFirst();
-        IBlockState state = tuple.getSecond();
-
-        if (consumeInventory && !consumeInventoryItem(required, player.inventory.mainInventory)) {
-            String posToString = hellfirepvp.modularmachinery.common.util.MiscUtils.posToString(realPos);
-            player.sendMessage(new TextComponentTranslation("message.assembly.tip.missing", posToString));
-
-            List<List<ItemStack>> itemStackIngList = new ArrayList<>();
-            itemStackIngList.add(Collections.singletonList(required));
-            PktAssemblyReport pkt = new PktAssemblyReport(
-                itemStackIngList,
-                new ArrayList<>());
-            if (player instanceof EntityPlayerMP) {
-                ModularMachinery.NET_CHANNEL.sendTo(pkt, (EntityPlayerMP) player);
-            }
-            player.sendMessage(new TextComponentTranslation("message.assembly.tip.skipped", posToString));
-
-            iterator.remove();
-            return;
-        }
-
-        IBlockState originalBlockState = getWorld().getBlockState(realPos);
-        world.setBlockState(realPos, state);
-        BlockSnapshot blockSnapshot = new BlockSnapshot(world, realPos, state);
-        BlockEvent.PlaceEvent event = new BlockEvent.PlaceEvent(blockSnapshot, originalBlockState, player, EnumHand.MAIN_HAND);
-        MinecraftForge.EVENT_BUS.post(event);
-        if (event.isCanceled()) {
-            world.setBlockState(realPos, originalBlockState);
-            player.inventory.addItemStackToInventory(required);
-        } else {
-            world.playSound(null, realPos, SoundEvents.BLOCK_STONE_PLACE, SoundCategory.BLOCKS, 1.0F, 1.0F);
-            TileEntity te = world.getTileEntity(realPos);
-            if (te != null && ingredient.nbt() != null) {
-                try {
-                    NBTTagCompound tileData = te.writeToNBT(new NBTTagCompound());
-                    String tileId = tileData.getString("id");
-                    tileData.merge(ingredient.nbt());
-                    // Matching tags describe configuration, not the placed tile's identity.
-                    tileData.setString("id", tileId);
-                    tileData.setInteger("x", realPos.getX());
-                    tileData.setInteger("y", realPos.getY());
-                    tileData.setInteger("z", realPos.getZ());
-                    te.readFromNBT(tileData);
-                    te.setPos(realPos);
-                    te.markDirty();
-                } catch (Exception e) {
-                    ModularMachinery.log.warn("Failed to apply NBT to TileEntity!", e);
-                    world.removeTileEntity(realPos);
-                    world.setTileEntity(realPos, state.getBlock().createTileEntity(world, state));
-                }
-            }
-        }
-
-        iterator.remove();
-    }
-
-    private void assemblyFluidBlocks(final boolean consumeInventory, final List<StructureIngredient.FluidIngredient> fluidIngredient) {
-        Iterator<StructureIngredient.FluidIngredient> iterator = fluidIngredient.iterator();
-        StructureIngredient.FluidIngredient ingredient = iterator.next();
-        BlockPos realPos = ctrlPos.add(ingredient.pos());
-
-        if (!replaceCheck(realPos, world, player)) {
-            iterator.remove();
-            return;
-        }
-
-        Tuple<FluidStack, IBlockState> tuple = ingredient.ingredientList().get(0);
-        FluidStack required = tuple.getFirst();
-        IBlockState state = tuple.getSecond();
-
-        FluidPayment payment = consumeInventory ? drainPlacementFluid(required, player.inventory.mainInventory) : null;
-        if (consumeInventory && payment == null) {
-            String posToString = hellfirepvp.modularmachinery.common.util.MiscUtils.posToString(realPos);
-            player.sendMessage(new TextComponentTranslation("message.assembly.tip.missing", posToString));
-
-            List<List<FluidStack>> fluidStackIngList = new ArrayList<>();
-            fluidStackIngList.add(Collections.singletonList(required));
-            PktAssemblyReport pkt = new PktAssemblyReport(
-                new ArrayList<>(),
-                fluidStackIngList);
-            if (player instanceof EntityPlayerMP) {
-                ModularMachinery.NET_CHANNEL.sendTo(pkt, (EntityPlayerMP) player);
-            }
-            player.sendMessage(new TextComponentTranslation("message.assembly.tip.skipped", posToString));
-
-            iterator.remove();
-            return;
-        }
-
-        IBlockState originalBlockState = getWorld().getBlockState(realPos);
-        world.setBlockState(realPos, state);
-        BlockSnapshot blockSnapshot = new BlockSnapshot(world, realPos, state);
-        BlockEvent.PlaceEvent event = new BlockEvent.PlaceEvent(blockSnapshot, originalBlockState, player, EnumHand.MAIN_HAND);
-        MinecraftForge.EVENT_BUS.post(event);
-        if (payment != null) {
-            payment.finish(player.inventory.mainInventory, event.isCanceled());
-            player.inventory.markDirty();
-        }
-        if (event.isCanceled()) {
-            world.setBlockState(realPos, originalBlockState);
-        } else {
-            world.playSound(null, realPos, SoundEvents.ITEM_BUCKET_EMPTY, SoundCategory.BLOCKS, 1.0F, 1.0F);
-        }
-        iterator.remove();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (!(o instanceof final MachineAssembly another)) {
+    private boolean replaceCheck(BlockPos pos) {
+        if (pos.equals(ctrlPos)) return false;
+        if (!world.isBlockLoaded(pos) || world.isOutsideBuildHeight(pos) || !AssemblyUtils.isReplaceableForAssembly(world, pos)
+            || !world.isBlockModifiable(player, pos) || !player.canPlayerEdit(pos, net.minecraft.util.EnumFacing.UP, player.getHeldItem(options.hand))) {
+            missingMaterials.markSkipped();
             return false;
         }
-
-        return world == another.world && ctrlPos.equals(another.ctrlPos);
+        return true;
     }
 
-    @Override
-    public int hashCode() {
-        return 31 * System.identityHashCode(world) + ctrlPos.hashCode();
+    /** 使用真实原方块快照触发 Forge 放置事件；取消时还原方块和 TE。 */
+    protected boolean placeAssemblyBlock(BlockPos pos, IBlockState state) {
+        BlockSnapshot snapshot = BlockSnapshot.getBlockSnapshot(world, pos);
+        IBlockState original = world.getBlockState(pos);
+        if (!world.setBlockState(pos, state)) return false;
+        BlockEvent.PlaceEvent event = new BlockEvent.PlaceEvent(snapshot, original, player, options.hand);
+        MinecraftForge.EVENT_BUS.post(event);
+        if (event.isCanceled()) { snapshot.restore(true, false); return false; }
+        world.playSound(null, pos, SoundEvents.BLOCK_STONE_PLACE, SoundCategory.BLOCKS, 1F, 1F);
+        return true;
+    }
+
+    public static void applyTileNbt(World world, BlockPos pos, NBTTagCompound nbt) {
+        TileEntity tile = world.getTileEntity(pos);
+        if (tile == null || nbt == null) return;
+        NBTTagCompound data = tile.writeToNBT(new NBTTagCompound());
+        String id = data.getString("id");
+        data.merge(nbt.copy());
+        data.setString("id", id);
+        data.setInteger("x", pos.getX()); data.setInteger("y", pos.getY()); data.setInteger("z", pos.getZ());
+        tile.readFromNBT(data);
+        tile.setPos(pos);
+        tile.markDirty();
     }
 }

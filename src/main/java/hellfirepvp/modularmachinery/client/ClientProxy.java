@@ -1,6 +1,6 @@
 /*******************************************************************************
  * HellFirePvP / Modular Machinery 2019
- *
+ * <p>
  * This project is licensed under GNU GENERAL PUBLIC LICENSE Version 3.
  * The source code is available on github: https://github.com/HellFirePvP/ModularMachinery
  * For further details, see the License file there.
@@ -278,6 +278,7 @@ public class ClientProxy extends CommonProxy {
             }
         }
         switch (type) {
+            case BUILDER_TOOL -> { return new hellfirepvp.modularmachinery.client.gui.GuiBuilderTool(new hellfirepvp.modularmachinery.common.container.ContainerBuilderTool(player, x)); }
             case CONTROLLER -> {
                 return new GuiMachineController((TileMachineController) present, player);
             }

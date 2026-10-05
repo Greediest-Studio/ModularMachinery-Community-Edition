@@ -238,6 +238,7 @@ public class CommonProxy implements IGuiHandler {
         }
 
         switch (type) {
+            case BUILDER_TOOL -> { return new hellfirepvp.modularmachinery.common.container.ContainerBuilderTool(player, x); }
             case CONTROLLER -> {
                 return new ContainerController((TileMachineController) present, player);
             }
@@ -354,7 +355,8 @@ public class CommonProxy implements IGuiHandler {
         ME_GAS_INPUT_BUS(Mods.AE2EL.isPresent() && Mods.MEKENG.isPresent() ? MEGasInputBus.class : null),
         ME_PATTERN_PROVIDER(Mods.AE2.isPresent() ? MEPatternProvider.class : null),
         GUI_ESSENCE_PROVIDER(Mods.BM2.isPresent() ? TileLifeEssenceProvider.class : null),
-        GUI_GROUP_INPUT_CONFIG(TileEntity.class)
+        GUI_GROUP_INPUT_CONFIG(TileEntity.class),
+        BUILDER_TOOL(null)
         ;
 
         public final Class<? extends TileEntity> requiredTileEntity;

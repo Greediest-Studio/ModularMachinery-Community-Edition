@@ -84,6 +84,7 @@ public class JeiPlugin implements IModPlugin {
     @Override
     public void register(IModRegistry registry) {
         GUI_HELPER = registry.getJeiHelpers().getGuiHelper();
+        registry.addGhostIngredientHandler(hellfirepvp.modularmachinery.client.gui.GuiBuilderTool.class, new hellfirepvp.modularmachinery.common.integration.jei.BuilderGhostIngredientHandler());
     }
 
     @Override

@@ -58,6 +58,8 @@ public enum Mods {
     FLUX_NETWORKS("fluxnetworks"),
     ZEN_UTILS("zenutils"),
     TCONSTRUCT("tconstruct"),
+    BAUBLES("baubles"),
+    MMCE_COMPLEMENT("mmce_complement"),
     AE2("appliedenergistics2"),
     AE2EL("appliedenergistics2") {
         private boolean initialized = false;

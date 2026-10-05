@@ -12,6 +12,7 @@
     "mixins": [
         "MixinContainerInterfaceTerminal",
         "MixinContainerInterfaceTerminal$AccessorInvTracker",
-        "MixinDualityInterface"
+        "MixinDualityInterface",
+        "MixinContainerCraftConfirm"
     ]
 }

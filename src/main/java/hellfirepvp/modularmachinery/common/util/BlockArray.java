@@ -455,6 +455,33 @@ public class BlockArray {
         private NBTTagCompound previewTag  = null;
 
         private AdvancedBlockChecker nbtChecker = null;
+        private List<BlockVariableGroup> variableGroups = Collections.emptyList();
+
+        public void setVariableGroups(List<BlockVariableGroup> groups) {
+            variableGroups = Collections.unmodifiableList(new ArrayList<>(groups));
+        }
+
+        public List<BlockVariableGroup> getVariableGroups() { return variableGroups; }
+
+        public BlockInformation withBuilderSelections(Map<String, String> selections) {
+            if (variableGroups.isEmpty() || selections.isEmpty()) return copy();
+            List<IBlockStateDescriptor> descriptors = new ArrayList<>();
+            for (BlockVariableGroup group : variableGroups) {
+                String selected = group.alias == null ? null : selections.getOrDefault("all", selections.get(group.alias));
+                if (selected == null || selected.isEmpty()) descriptors.addAll(group.descriptors);
+                else {
+                    try { descriptors.addAll(group.selected(selected)); }
+                    catch (JsonParseException ignored) { descriptors.addAll(group.descriptors); }
+                }
+            }
+            BlockInformation result = new BlockInformation(descriptors);
+            result.matchingTag = matchingTag;
+            result.previewTag = previewTag;
+            result.nbtChecker = nbtChecker;
+            result.variableGroups = variableGroups;
+            return result;
+        }
+
 
         public BlockInformation(List<IBlockStateDescriptor> matching) {
             this.matchingStates.addAll(matching);
@@ -614,6 +641,7 @@ public class BlockArray {
             bi.previewTag = this.previewTag;
             bi.nbtChecker = this.nbtChecker;
 
+            bi.variableGroups = variableGroups.stream().map(group -> group.copy(true)).collect(Collectors.toList());
             return bi;
         }
 
@@ -626,6 +654,7 @@ public class BlockArray {
             bi.matchingTag = this.matchingTag;
             bi.previewTag = this.previewTag;
             bi.nbtChecker = this.nbtChecker;
+            bi.variableGroups = variableGroups.stream().map(group -> group.copy(false)).collect(Collectors.toList());
             return bi;
         }
 
@@ -685,7 +714,7 @@ public class BlockArray {
 
         @Override
         public int hashCode() {
-            return Objects.hash(matchingStates, matchingTag, previewTag, nbtChecker);
+            return Objects.hash(matchingStates, matchingTag, previewTag, nbtChecker, variableGroups);
         }
 
         @Override
@@ -694,7 +723,7 @@ public class BlockArray {
                 return matchingStates.equals(another.matchingStates) &&
                     Objects.equals(matchingTag, another.matchingTag) &&
                     Objects.equals(previewTag, another.previewTag) &&
-                    Objects.equals(nbtChecker, another.nbtChecker);
+                    Objects.equals(nbtChecker, another.nbtChecker) && variableGroups.equals(another.variableGroups);
             }
             return false;
         }

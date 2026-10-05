@@ -1,0 +1,46 @@
+// 独立测试目录：不会读取或修改 run/ 内的存档。
+// gradlew -I gradle/scripts/builder-smoke.init.gradle runServer -PbuilderSmoke=base
+// builderSmoke: base（无 AE）/ ae（仅 AE）/ full（AE + 流体合成 + Baubles）/ complement
+gradle.projectsEvaluated {
+    def p = rootProject
+    String variant = p.findProperty('builderSmoke') ?: 'base'
+    if (variant in ['full', 'complement']) p.dependencies.add('runtimeOnly', p.dependencies.rfg.deobf('curse.maven:baubles-227083:2518667'))
+    if (variant == 'complement') p.dependencies.add('runtimeOnly', p.dependencies.rfg.deobf('curse.maven:mmceC-1563518:8830125'))
+    def smoke = p.sourceSets.create('builderSmoke')
+    smoke.java.srcDir(p.file('src/integrationTest/java'))
+    smoke.compileClasspath = p.sourceSets.main.compileClasspath.filter { !it.name.contains('jabel') } + p.sourceSets.main.output
+    p.tasks.named(smoke.compileJavaTaskName, JavaCompile).configure {
+        sourceCompatibility = '8'
+        targetCompatibility = '8'
+        options.encoding = 'UTF-8'
+        options.compilerArgs += ['-proc:none']
+    }
+    ['runServer', 'runClient'].each { name ->
+        p.tasks.named(name, JavaExec).configure {
+            dependsOn(smoke.classesTaskName)
+            classpath = classpath.filter {
+                String n = it.name.toLowerCase()
+                if (variant == 'base' && (n.contains('ae2') || n.contains('mekanism-energistics') || n.contains('baubles'))) return false
+                if (variant == 'ae' && (n.contains('ae2-fluid') || n.contains('ae2fluid') || n.contains('baubles'))) return false
+                return true
+            } + smoke.output
+            workingDir = p.file('build/builder-smoke-' + variant + '-' + name)
+            timeout = java.time.Duration.ofMinutes(5)
+            systemProperty 'mmce.builder.smoke', variant
+            if (name == 'runServer') args 'nogui'
+            doFirst {
+                workingDir.mkdirs()
+                new File(workingDir, 'builder-smoke-result.txt').delete()
+                new File(workingDir, 'eula.txt').text = 'eula=true\n'
+                new File(workingDir, 'server.properties').text = 'server-ip=127.0.0.1\nserver-port=0\nonline-mode=false\nlevel-type=FLAT\nmax-tick-time=-1\nview-distance=2\n'
+                new File(workingDir, 'options.txt').text = 'lang:zh_cn\nguiScale:2\n'
+            }
+            doLast {
+                def result = new File(workingDir, 'builder-smoke-result.txt')
+                if (!result.isFile() || !result.text.startsWith('PASS:')) {
+                    throw new GradleException(result.isFile() ? result.text : 'Builder smoke did not complete; inspect the game log.')
+                }
+            }
+        }
+    }
+}
