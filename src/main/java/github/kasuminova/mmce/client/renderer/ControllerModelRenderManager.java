@@ -1,5 +1,6 @@
 package github.kasuminova.mmce.client.renderer;
 
+import github.kasuminova.mmce.client.util.OptifineFogCompat;
 import github.kasuminova.mmce.client.util.ReusableVBOUploader;
 import github.kasuminova.mmce.common.util.concurrent.Action;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
@@ -16,6 +17,7 @@ import net.minecraft.client.renderer.OpenGlHelper;
 import net.minecraft.client.renderer.texture.TextureMap;
 import net.minecraft.client.renderer.tileentity.TileEntityRendererDispatcher;
 import net.minecraft.util.ResourceLocation;
+import org.lwjgl.opengl.GL11;
 
 import java.util.EnumMap;
 import java.util.List;
@@ -84,6 +86,25 @@ public class ControllerModelRenderManager {
      * TODO: Prevents precision overflow due to oversize coordinates.
      */
     public void draw() {
+        if (!OptifineFogCompat.shouldDisableFog(Minecraft.getMinecraft())) {
+            drawBuffers();
+            return;
+        }
+        // 其他方块实体可能重新开启雾效；批量绘制前重新应用 OptiFine 的关闭设置。
+        boolean fogEnabled = GL11.glIsEnabled(GL11.GL_FOG);
+        GlStateManager.disableFog();
+        try {
+            drawBuffers();
+        } finally {
+            if (fogEnabled) {
+                GlStateManager.enableFog();
+            } else {
+                GlStateManager.disableFog();
+            }
+        }
+    }
+
+    private void drawBuffers() {
         GlStateManager.pushMatrix();
         GlStateManager.translate(-TileEntityRendererDispatcher.staticPlayerX, -TileEntityRendererDispatcher.staticPlayerY, -TileEntityRendererDispatcher.staticPlayerZ);
 

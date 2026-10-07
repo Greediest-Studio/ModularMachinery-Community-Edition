@@ -477,6 +477,10 @@ public class BlockArray {
         }
 
         public static IBlockStateDescriptor getDescriptor(String strElement) throws JsonParseException {
+            return getDescriptor(strElement, false);
+        }
+
+        static IBlockStateDescriptor getDescriptor(String strElement, boolean requireRegistered) throws JsonParseException {
             int meta = -1;
             int indexMeta = strElement.indexOf('@');
             if (indexMeta != -1 && indexMeta != strElement.length() - 1) {
@@ -488,11 +492,14 @@ public class BlockArray {
                 strElement = strElement.substring(0, indexMeta);
             }
             ResourceLocation res = new ResourceLocation(strElement);
-            // Forge 会将未知注册名回退为空气，必须先检查注册名是否存在。
-            if (!ForgeRegistries.BLOCKS.containsKey(res)) {
+            // 仅可变方块候选检查注册名，避免未知方块回退为空气，同时保留普通结构的兼容行为。
+            if (requireRegistered && !ForgeRegistries.BLOCKS.containsKey(res)) {
                 throw new JsonParseException("Couldn't find block with registryName '" + res + "' !");
             }
             Block block = ForgeRegistries.BLOCKS.getValue(res);
+            if (block == null) {
+                throw new JsonParseException("Couldn't find block with registryName '" + res + "' !");
+            }
             if (meta == -1) {
                 return IBlockStateDescriptor.of(block);
             } else {

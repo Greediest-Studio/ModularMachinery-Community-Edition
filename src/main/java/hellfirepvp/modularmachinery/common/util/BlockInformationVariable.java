@@ -54,7 +54,7 @@ public class BlockInformationVariable {
                             throw new JsonParseException("Elements of a variable have to be Blockstate descriptions! You cannot nest variables!");
                         }
                         try {
-                            descriptors.add(BlockArray.BlockInformation.getDescriptor(p.getAsString()));
+                            descriptors.add(BlockArray.BlockInformation.getDescriptor(p.getAsString(), true));
                         } catch (JsonParseException exc) {
                             ModularMachinery.log.warn("Skipping invalid block '{}' in structure variable '{}': {}",
                                 p.getAsString(), entry.getKey(), exc.getMessage());
