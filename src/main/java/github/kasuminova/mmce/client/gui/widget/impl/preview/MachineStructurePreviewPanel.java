@@ -75,6 +75,7 @@ public class MachineStructurePreviewPanel extends Row {
         Button machineExtraInfo = new Button();
         Button5State toggleFormed = new Button5State();
         Button5State showUpgrades = new Button5State();
+        Button5State toggleControllerHighlight = new Button5State();
         Button4State resetCenter = new Button4State();
 
         // Ingredient list, at panel bottom...
@@ -175,6 +176,16 @@ public class MachineStructurePreviewPanel extends Row {
                         ? Collections.singletonList(I18n.format("gui.preview.button.toggle_upgrade_display.disable.tip"))
                         : Collections.singletonList(I18n.format("gui.preview.button.toggle_upgrade_display.enable.tip")))
                     .setWidthHeight(13, 13);
+        toggleControllerHighlight.setClickedTexture(73, 15)
+                                 .setMouseDownTexture(58, 15)
+                                 .setHoveredTexture(43, 15)
+                                 .setTexture(28, 15)
+                                 .setTextureLocation(WIDGETS_TEX_LOCATION_SECOND)
+                                 .setTooltipFunction(btn -> Collections.singletonList(I18n.format(
+                                     toggleControllerHighlight.isClicked()
+                                         ? "gui.preview.button.toggle_controller_highlight.disable.tip"
+                                         : "gui.preview.button.toggle_controller_highlight.enable.tip")))
+                                 .setWidthHeight(13, 13);
         resetCenter.setMouseDownTexture(184 + 15 + 15, 229)
                    .setHoveredTexture(184 + 15, 229)
                    .setTexture(184, 229)
@@ -215,7 +226,10 @@ public class MachineStructurePreviewPanel extends Row {
         if (hasModifier) {
             rightTopMenu.addWidgets(showUpgrades.setClicked(true).setMarginRight(2));
         }
-        rightTopMenu.addWidgets(resetCenter.setMarginRight(2), toggleFormed.setMarginRight(2), machineExtraInfo.setMarginRight(2));
+        rightTopMenu.addWidgets(
+            toggleControllerHighlight.setClicked(renderer.isHighlightController()).setMarginRight(2),
+            resetCenter.setMarginRight(2), toggleFormed.setMarginRight(2), machineExtraInfo.setMarginRight(2)
+        );
         rightTopMenu.setAbsXY(PANEL_WIDTH - (rightTopMenu.getWidth() + 6), 28);
 
         // Right menu
@@ -248,6 +262,7 @@ public class MachineStructurePreviewPanel extends Row {
             dynamicPatternSubtract.setOnClickedListener(btn -> handleDynamicPatternSubtractButton());
         }
 
+        toggleControllerHighlight.setOnClickedListener(btn -> renderer.setHighlightController(toggleControllerHighlight.isClicked()));
         resetCenter.setOnClickedListener(btn -> handleResetCenterButton());
         toggleFormed.setOnClickedListener(btn -> handleToggleFormedButton(toggleFormed));
         if (hasModifier) {

@@ -86,6 +86,8 @@ public class WorldSceneRendererWidget extends DynamicWidget {
 
     protected boolean requireRefreshPattern = false;
 
+    protected boolean highlightController = true;
+
     protected boolean cycleBlocks = true;
     protected long    tickSnap    = ClientScheduler.getClientTick();
 
@@ -248,23 +250,42 @@ public class WorldSceneRendererWidget extends DynamicWidget {
                     color.getAlpha() / 255f,
                     1.01f)
             );
-            if (!structureFormed) {
-                return;
-            }
-            TileEntity te = renderer.getWorld().getTileEntity(BlockPos.ORIGIN.add(offset));
-            if (te instanceof TileMultiblockMachineController ctrl) {
-                MachineControllerModel model = DynamicMachineModelRegistry.INSTANCE.getMachineDefaultModel(machine);
-                if (model != null) {
-                    GlStateManager.pushMatrix();
-                    GlStateManager.translate(0, offset.getY(), 0);
-                    MachineControllerRenderer.INSTANCE.renderDummy(ctrl, model);
-                    GlStateManager.popMatrix();
+            if (structureFormed) {
+                TileEntity te = renderer.getWorld().getTileEntity(BlockPos.ORIGIN.add(offset));
+                if (te instanceof TileMultiblockMachineController ctrl) {
+                    MachineControllerModel model = DynamicMachineModelRegistry.INSTANCE.getMachineDefaultModel(machine);
+                    if (model != null) {
+                        GlStateManager.pushMatrix();
+                        GlStateManager.translate(0, offset.getY(), 0);
+                        MachineControllerRenderer.INSTANCE.renderDummy(ctrl, model);
+                        GlStateManager.popMatrix();
+                    }
                 }
             }
+            renderControllerHighlight();
         });
         renderer.setCameraLookAt(center, zoom.get(), Math.toRadians(rotationPitch), Math.toRadians(rotationYaw));
         checkCacheRenderer();
         lastPatternUpdate = System.currentTimeMillis();
+    }
+
+    protected void renderControllerHighlight() {
+        // 控制器位于结构原点；分层判断使用结构坐标，绘制时再加预览世界偏移。
+        if (!highlightController || (useLayerRender && renderLayer != 0)) {
+            return;
+        }
+
+        // 最后绘制并关闭深度测试，让高亮在方块和成型模型遮挡时仍然可见。
+        GlStateManager.pushMatrix();
+        GlStateManager.disableDepth();
+        GlStateManager.depthMask(false);
+        GlStateManager.disableLighting();
+        RenderUtils.renderBlockOverLay(BlockPos.ORIGIN.add(offset), .1f, .55f, 1f, .4f, 1.01f);
+        GlStateManager.enableLighting();
+        GlStateManager.depthMask(true);
+        GlStateManager.enableDepth();
+        GlStateManager.disableBlend();
+        GlStateManager.popMatrix();
     }
 
     protected void checkCacheRenderer() {
@@ -540,6 +561,15 @@ public class WorldSceneRendererWidget extends DynamicWidget {
 
     public BlockPos getSelected() {
         return selected;
+    }
+
+    public boolean isHighlightController() {
+        return highlightController;
+    }
+
+    public WorldSceneRendererWidget setHighlightController(final boolean highlightController) {
+        this.highlightController = highlightController;
+        return this;
     }
 
     public WorldSceneRendererWidget addBlockOverlays(Map<BlockPos, Color> overlayMap) {
