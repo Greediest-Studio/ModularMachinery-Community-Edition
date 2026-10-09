@@ -7,7 +7,11 @@ import hellfirepvp.modularmachinery.common.container.ContainerBase;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import hellfirepvp.modularmachinery.common.util.MiscUtils;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.renderer.texture.TextureManager;
+import net.minecraft.client.renderer.texture.TextureUtil;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.util.ResourceLocation;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
@@ -85,6 +89,29 @@ public abstract class GuiControllerBase<T extends ContainerBase<? extends TileMu
     }
 
     protected abstract void addControllerStatus();
+
+    protected boolean drawCustomBackground(boolean factoryController) {
+        // 未成型时仍可从专属控制器或蓝图取得背景，每帧取值以响应蓝图切换。
+        DynamicMachine machine = container.getOwner().getControllerModeMachine();
+        if (machine == null) {
+            return false;
+        }
+        ResourceLocation background = factoryController
+            ? machine.getFactoryGuiBackground() : machine.getControllerGuiBackground();
+        if (background == null) {
+            return false;
+        }
+
+        TextureManager textures = mc.getTextureManager();
+        textures.bindTexture(background);
+        // 复用纹理管理器的失败缓存；F3+T 会清除此缓存并允许重新加载。
+        if (textures.getTexture(background) == TextureUtil.MISSING_TEXTURE) {
+            return false;
+        }
+        // 自定义图片使用完整 UV，按面板尺寸缩放，不沿用原图的图集裁切。
+        Gui.drawModalRectWithCustomSizedTexture(guiLeft, guiTop, 0, 0, xSize, ySize, xSize, ySize);
+        return true;
+    }
 
     protected void addPerformanceInfo() {
         statusPanel.addLine(String.format("Avg: %sμs/t (Search: %sms), WorkMode: %s",

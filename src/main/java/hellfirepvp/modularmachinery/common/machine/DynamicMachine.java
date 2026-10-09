@@ -39,6 +39,7 @@ import net.minecraft.nbt.NBTException;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.util.EnumFacing;
 import net.minecraft.util.JsonUtils;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.util.math.AxisAlignedBB;
 import net.minecraft.util.math.BlockPos;
 
@@ -83,6 +84,9 @@ public class DynamicMachine extends AbstractMachine {
     private boolean hideComponentsWhenFormed = false;
 
     private AxisAlignedBB controllerBoundingBox = Block.FULL_BLOCK_AABB;
+
+    private ResourceLocation controllerGuiBackground;
+    private ResourceLocation factoryGuiBackground;
 
     public DynamicMachine(String registryName) {
         super(registryName);
@@ -224,6 +228,16 @@ public class DynamicMachine extends AbstractMachine {
         this.controllerBoundingBox = controllerBoundingBox;
     }
 
+    @Nullable
+    public ResourceLocation getControllerGuiBackground() {
+        return controllerGuiBackground;
+    }
+
+    @Nullable
+    public ResourceLocation getFactoryGuiBackground() {
+        return factoryGuiBackground;
+    }
+
     public void mergeFrom(DynamicMachine another) {
         smartInterfaces.clear();
         smartInterfaces.putAll(another.smartInterfaces);
@@ -241,6 +255,9 @@ public class DynamicMachine extends AbstractMachine {
 
         hideComponentsWhenFormed = another.hideComponentsWhenFormed;
         controllerBoundingBox = another.controllerBoundingBox;
+        // 专属控制器持有预加载的机器实例，完整加载和重载都要更新背景。
+        controllerGuiBackground = another.controllerGuiBackground;
+        factoryGuiBackground = another.factoryGuiBackground;
     }
 
     public static class ModifierReplacementMap extends HashMap<BlockPos, List<BlockArray.BlockInformation>> {
@@ -608,6 +625,12 @@ public class DynamicMachine extends AbstractMachine {
             }
         }
 
+        @Nullable
+        private static ResourceLocation getGuiBackground(JsonObject root, String key) {
+            String texture = JsonUtils.getString(root, key, "").trim();
+            return texture.isEmpty() ? null : new ResourceLocation(texture);
+        }
+
         private static void setControllerBoundingBox(final JsonObject jsonPattern, DynamicMachine machine) {
             JsonArray boundingBox = JsonUtils.getJsonArray(jsonPattern, "controller-bounding-box");
             if (boundingBox.size() != 6) {
@@ -681,6 +704,9 @@ public class DynamicMachine extends AbstractMachine {
             if (root.has("controller-bounding-box")) {
                 setControllerBoundingBox(root, machine);
             }
+
+            machine.controllerGuiBackground = getGuiBackground(root, "controller-gui-background");
+            machine.factoryGuiBackground = getGuiBackground(root, "factory-gui-background");
 
             // Parts
             addParts(parts, machine.pattern);

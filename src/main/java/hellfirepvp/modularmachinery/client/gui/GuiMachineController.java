@@ -65,6 +65,9 @@ public class GuiMachineController extends GuiControllerBase<ContainerController>
     @Override
     protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        if (drawCustomBackground(false)) {
+            return;
+        }
         this.mc.getTextureManager().bindTexture(TEXTURES_CONTROLLER);
         int i = (this.width - this.xSize) / 2;
         int j = (this.height - this.ySize) / 2;

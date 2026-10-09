@@ -54,10 +54,12 @@ public class GuiFactoryController extends GuiControllerBase<ContainerFactoryCont
     @Override
     protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
-        this.mc.getTextureManager().bindTexture(TEXTURES_FACTORY);
         final int x = (this.width - this.xSize) / 2;
         final int y = (this.height - this.ySize) / 2;
-        Gui.drawModalRectWithCustomSizedTexture(x, y, 0, 0, this.xSize, this.ySize, this.xSize, this.ySize);
+        if (!drawCustomBackground(true)) {
+            this.mc.getTextureManager().bindTexture(TEXTURES_FACTORY);
+            Gui.drawModalRectWithCustomSizedTexture(x, y, 0, 0, this.xSize, this.ySize, this.xSize, this.ySize);
+        }
 
         updateScrollbar(x, y);
         scrollbar.draw(this, mc);
