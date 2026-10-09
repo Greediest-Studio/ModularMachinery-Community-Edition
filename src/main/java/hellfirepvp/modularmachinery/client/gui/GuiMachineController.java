@@ -33,7 +33,7 @@ import java.util.List;
  * Created by HellFirePvP
  * Date: 12.07.2017 / 23:34
  */
-public class GuiMachineController extends GuiContainerBase<ContainerController> {
+public class GuiMachineController extends GuiControllerBase<ContainerController> {
 
     public static final ResourceLocation TEXTURES_CONTROLLER = new ResourceLocation(ModularMachinery.MODID, "textures/gui/guicontroller_large.png");
 

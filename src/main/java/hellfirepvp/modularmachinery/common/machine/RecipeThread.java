@@ -117,7 +117,17 @@ public abstract class RecipeThread {
             } catch (Exception e) {
                 ModularMachinery.log.warn(ThrowableUtil.stackTraceToString(e));
             }
+            boolean modeMatches = searchTask.hasMatchingControllerMode();
             searchTask = null;
+
+            // 搜索期间切换了模式时，丢弃旧结果，避免启动旧模式配方。
+            if (!modeMatches) {
+                if (context != null) {
+                    RecipeCraftingContextPool.returnCtx(context);
+                }
+                createRecipeSearchTask();
+                return;
+            }
 
             if (context == null) {
                 ctrl.incrementRecipeSearchRetryCount();

@@ -214,6 +214,14 @@ public interface IMachineController {
     @ZenMethod
     SmartInterfaceData getSmartInterfaceData(String type);
 
+    /** 获取已成型机器的模式编号；模式组须通过 MachineModifier.addControllerMode 注册。 */
+    @ZenMethod
+    int getControllerMode(String name);
+
+    /** 在服务端切换模式，允许修改隐藏按钮的模式组；返回是否实际改变了模式。 */
+    @ZenMethod
+    boolean setControllerMode(String name, int value);
+
     /**
      * 获取成型结构中的所有智能数据接口数据。
      *

@@ -15,6 +15,7 @@ public class RecipeSearchTask extends TimeRecordingTask<RecipeCraftingContext> {
     protected final int                             maxParallelism;
     protected final Iterable<MachineRecipe>         recipeList;
     private final   RecipeThread                    thread;
+    private final long controllerModeVersion;
     protected       CraftingStatus                  status = CraftingStatus.IDLE;
 
     public RecipeSearchTask(TileMultiblockMachineController controller, DynamicMachine currentMachine, int maxParallelism, Iterable<MachineRecipe> recipeList, final RecipeThread thread) {
@@ -23,6 +24,7 @@ public class RecipeSearchTask extends TimeRecordingTask<RecipeCraftingContext> {
         this.maxParallelism = maxParallelism;
         this.recipeList = recipeList;
         this.thread = thread;
+        this.controllerModeVersion = controller.getControllerModeVersion();
     }
 
     @Override
@@ -72,6 +74,10 @@ public class RecipeSearchTask extends TimeRecordingTask<RecipeCraftingContext> {
 
     public CraftingStatus getStatus() {
         return status;
+    }
+
+    public boolean hasMatchingControllerMode() {
+        return controllerModeVersion == controller.getControllerModeVersion();
     }
 
     public DynamicMachine getCurrentMachine() {

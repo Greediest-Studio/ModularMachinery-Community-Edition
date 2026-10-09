@@ -37,6 +37,12 @@ gui.controller.status.crafting=Processing...
 gui.controller.status.crafting.progress=Progress: %s
 gui.controller.parallelism=Parallelism：%s
 gui.controller.max_parallelism=Max Parallelism：%s
+gui.controller.mode.switch=Click to change the operating mode
+gui.controller.mode.current=Current mode: %s
+gui.controller.mode.title=Select %s
+gui.controller.mode.unavailable=Unavailable
+gui.controller.mode.unknown=Undefined (%s)
+gui.controller.mode.empty=No modes configured
 
 gui.factory.threads=%s Threads Running / %s Threads Max
 gui.factory.thread=Thread #%s
@@ -160,6 +166,8 @@ craftcheck.failure.gas.output.space=Not enough space for gas output(s)!
 craftcheck.failure.energy.input=Not enough energy!
 craftcheck.failure.energy.output.space=Energy output hatch are full
 craftcheck.failure.interface.number.notequal=Different values for Smart Data Interface inputs!
+craftcheck.failure.controller.mode.mismatch=The current operating mode does not match the recipe requirement!
+craftcheck.failure.controller.mode.undefined=The controller mode required by this recipe is not defined!
 
 component.missing.modularmachinery.energy.output=No Energy Output Hatch found!
 component.missing.modularmachinery.energy.input=No Energy Input Hatch found!

@@ -26,7 +26,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
-public class GuiFactoryController extends GuiContainerBase<ContainerFactoryController> {
+public class GuiFactoryController extends GuiControllerBase<ContainerFactoryController> {
     public static final  double           FONT_SCALE                = 0.72;
     private static final ResourceLocation TEXTURES_FACTORY          = new ResourceLocation(ModularMachinery.MODID, "textures/gui/guifactory.png");
     private static final ResourceLocation TEXTURES_FACTORY_ELEMENTS = new ResourceLocation(ModularMachinery.MODID, "textures/gui/guifactoryelements.png");
@@ -366,6 +366,10 @@ public class GuiFactoryController extends GuiContainerBase<ContainerFactoryContr
     public void handleMouseInput() throws IOException {
         super.handleMouseInput();
 
+        if (modeScrollHandled) {
+            return;
+        }
+
         final int i = Mouse.getEventDWheel();
         if (i != 0) {
             scrollbar.wheel(i);
@@ -382,12 +386,18 @@ public class GuiFactoryController extends GuiContainerBase<ContainerFactoryContr
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
+        if (handleModeMouseClick(mouseX, mouseY, mouseButton)) {
+            return;
+        }
         scrollbar.click(mouseX, mouseY);
         super.mouseClicked(mouseX, mouseY, mouseButton);
     }
 
     @Override
     protected void mouseClickMove(int mouseX, int mouseY, int clickedMouseButton, long timeSinceLastClick) {
+        if (modeClickHandled || modeSelector.isOpen()) {
+            return;
+        }
         scrollbar.click(mouseX, mouseY);
         super.mouseClickMove(mouseX, mouseY, clickedMouseButton, timeSinceLastClick);
     }

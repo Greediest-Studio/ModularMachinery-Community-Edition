@@ -347,6 +347,15 @@ public class TileFactoryController extends TileMultiblockMachineController {
                 ModularMachinery.log.warn(ThrowableUtil.stackTraceToString(e));
             }
 
+            if (!task.hasMatchingControllerMode()) {
+                if (context != null) {
+                    RecipeCraftingContextPool.returnCtx(context);
+                }
+                searchTask = null;
+                createRecipeSearchTask();
+                return;
+            }
+
             boolean shouldContinueSearch = false;
             if (context != null) {
                 if (context.canStartCrafting().isSuccess()) {

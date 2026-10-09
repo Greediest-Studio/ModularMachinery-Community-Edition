@@ -9,6 +9,7 @@ import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.machine.MachineRegistry;
 import hellfirepvp.modularmachinery.common.machine.factory.FactoryRecipeThread;
+import hellfirepvp.modularmachinery.common.util.ControllerMode;
 import hellfirepvp.modularmachinery.common.util.SmartInterfaceType;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.FMLCommonHandler;
@@ -22,6 +23,27 @@ import java.util.List;
 @ZenClass("mods.modularmachinery.MachineModifier")
 public class MachineModifier {
     public static final List<Action> WAIT_FOR_MODIFY = new LinkedList<>();
+
+    @ZenMethod
+    public static void addControllerMode(String machineName, ControllerMode mode) {
+        WAIT_FOR_MODIFY.add(() -> {
+            DynamicMachine machine = MachineRegistry.getRegistry().getMachine(new ResourceLocation(ModularMachinery.MODID, machineName));
+            if (machine == null) {
+                CraftTweakerAPI.logError("Could not find machine `" + machineName + "`!");
+                return;
+            }
+            if (!mode.getModes().containsKey(mode.getDefaultValue())) {
+                CraftTweakerAPI.logError("ControllerMode `" + mode.getName() + "` must include its default value in addMode().");
+                return;
+            }
+            if (machine.getControllerMode(mode.getName()) != null) {
+                CraftTweakerAPI.logWarning("[ModularMachinery] DynamicMachine `" + machine.getRegistryName()
+                    + "` already has ControllerMode `" + mode.getName() + "`!");
+                return;
+            }
+            machine.addControllerMode(mode);
+        });
+    }
 
     @ZenMethod
     public static void addSmartInterfaceType(String machineName, SmartInterfaceType type) {

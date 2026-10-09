@@ -59,6 +59,8 @@ import hellfirepvp.modularmachinery.common.tiles.TileSmartInterface;
 import hellfirepvp.modularmachinery.common.tiles.TileUpgradeBus;
 import hellfirepvp.modularmachinery.common.util.BlockArray;
 import hellfirepvp.modularmachinery.common.util.BlockArrayCache;
+import hellfirepvp.modularmachinery.common.util.ControllerMode;
+import hellfirepvp.modularmachinery.common.util.ControllerModeData;
 import hellfirepvp.modularmachinery.common.util.IOInventory;
 import hellfirepvp.modularmachinery.common.util.MiscUtils;
 import hellfirepvp.modularmachinery.common.util.SmartInterfaceData;
@@ -133,6 +135,8 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
     protected final Map<String, List<RecipeModifier>> foundModifiers  = new ConcurrentHashMap<>();
     protected final Map<String, RecipeModifier>       customModifiers = new ConcurrentHashMap<>();
+
+    private final ControllerModeData controllerModes = new ControllerModeData();
 
     protected final Map<TileSmartInterface.SmartInterfaceProvider, String>  foundSmartInterfaces     = new ConcurrentHashMap<>();
     private final ThreadLocal<Long> smartInterfaceRecipeGroup = new ThreadLocal<>();
@@ -1375,6 +1379,46 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         return result;
     }
 
+    /** 结构未成型时，专用控制器和蓝图仍可提供模式按钮的定义。 */
+    @Nullable
+    public DynamicMachine getControllerModeMachine() {
+        if (foundMachine != null) {
+            return foundMachine;
+        }
+        return parentMachine != null ? parentMachine : getBlueprintMachine();
+    }
+
+    @Override
+    public int getControllerMode(String name) {
+        DynamicMachine machine = foundMachine;
+        ControllerMode mode = machine == null ? null : machine.getControllerMode(name);
+        if (mode == null) {
+            throw new IllegalArgumentException("No controller mode registered for this machine: " + name);
+        }
+        return controllerModes.getValue(machine.getRegistryName(), mode);
+    }
+
+    @Override
+    public boolean setControllerMode(String name, int value) {
+        DynamicMachine machine = foundMachine;
+        if (world == null || world.isRemote || machine == null || !isStructureFormed()) {
+            return false;
+        }
+        ControllerMode mode = machine.getControllerMode(name);
+        if (mode == null || !controllerModes.setValue(machine.getRegistryName(), mode, value)) {
+            return false;
+        }
+        resetRecipeSearchRetryCount();
+        setSearchRecipeImmediately(true);
+        // 复用控制器已有的存档和客户端同步，不修改智能接口或正在运行的配方。
+        markForUpdateSync();
+        return true;
+    }
+
+    public long getControllerModeVersion() {
+        return controllerModes.getVersion();
+    }
+
     public void beginSmartInterfaceRecipeCheck(long groupId) {
         smartInterfaceRecipeGroup.set(groupId);
     }
@@ -1674,6 +1718,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     @Override
     public void readCustomNBT(NBTTagCompound compound) {
         super.readCustomNBT(compound);
+        controllerModes.deserialize(compound.getCompoundTag("controllerModes"));
         this.inventory = IOInventory.deserialize(this, compound.getCompoundTag("items"));
         this.inventory.setStackLimit(1, BLUEPRINT_SLOT);
 
@@ -1723,6 +1768,8 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         super.writeCustomNBT(compound);
 
         compound.setTag("items", this.inventory.writeNBT());
+        // 结构未成型时也保存，避免临时拆除结构后丢失模式。
+        compound.setTag("controllerModes", controllerModes.serialize());
 
         if (this.owner != null) {
             compound.setString("owner", this.owner.toString());

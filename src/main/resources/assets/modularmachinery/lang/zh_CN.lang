@@ -37,6 +37,12 @@ gui.controller.status.crafting=工作中...
 gui.controller.status.crafting.progress=进度：%s
 gui.controller.parallelism=并行数：%s
 gui.controller.max_parallelism=最大并行数：%s
+gui.controller.mode.switch=按下按钮切换运行模式
+gui.controller.mode.current=当前模式：%s
+gui.controller.mode.title=选择%s
+gui.controller.mode.unavailable=不可用
+gui.controller.mode.unknown=未定义（%s）
+gui.controller.mode.empty=未配置可选模式
 
 gui.factory.threads=%s 线程运行中 / %s 最大线程数
 gui.factory.thread=线程 #%s
@@ -160,6 +166,8 @@ craftcheck.failure.gas.output.space=没有足够的库存空间用于气体输�
 craftcheck.failure.energy.input=缺少能量输入！
 craftcheck.failure.energy.output.space=能源输出仓已满
 craftcheck.failure.interface.number.notequal=智能数据接口输入的数值不同！
+craftcheck.failure.controller.mode.mismatch=当前运行模式与配方要求不匹配！
+craftcheck.failure.controller.mode.undefined=配方要求的控制器模式未定义！
 
 component.missing.modularmachinery.energy.output=没有找到能量输出口！
 component.missing.modularmachinery.energy.input=没有找到能量输入口！

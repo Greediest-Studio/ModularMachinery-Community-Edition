@@ -31,6 +31,7 @@ import hellfirepvp.modularmachinery.common.modifier.SingleBlockModifierReplaceme
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import hellfirepvp.modularmachinery.common.util.BlockArray;
 import hellfirepvp.modularmachinery.common.util.IBlockStateDescriptor;
+import hellfirepvp.modularmachinery.common.util.ControllerMode;
 import hellfirepvp.modularmachinery.common.util.SmartInterfaceType;
 import hellfirepvp.modularmachinery.common.util.nbt.NBTJsonDeserializer;
 import net.minecraft.block.Block;
@@ -74,6 +75,9 @@ public class DynamicMachine extends AbstractMachine {
     // TODO: Remove this
     private final Map<String, SmartInterfaceType> smartInterfaces = new HashMap<>();
 
+    // 控制器按钮和弹出列表按脚本注册顺序显示。
+    private final Map<String, ControllerMode> controllerModes = new LinkedHashMap<>();
+
     private final Map<String, FactoryRecipeThread> coreThreadPreset = new LinkedHashMap<>();
 
     private boolean hideComponentsWhenFormed = false;
@@ -102,6 +106,18 @@ public class DynamicMachine extends AbstractMachine {
 
     public Map<String, FactoryRecipeThread> getCoreThreadPreset() {
         return coreThreadPreset;
+    }
+
+    public Map<String, ControllerMode> getControllerModes() {
+        return controllerModes;
+    }
+
+    public ControllerMode getControllerMode(String name) {
+        return controllerModes.get(name);
+    }
+
+    public void addControllerMode(ControllerMode mode) {
+        controllerModes.put(mode.getName(), mode);
     }
 
     public boolean hasSmartInterfaceType(String type) {
