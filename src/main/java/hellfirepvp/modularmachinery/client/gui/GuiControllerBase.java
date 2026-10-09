@@ -1,26 +1,34 @@
 package hellfirepvp.modularmachinery.client.gui;
 
+import github.kasuminova.mmce.common.event.client.ControllerGUIRenderEvent;
 import hellfirepvp.modularmachinery.client.gui.widget.GuiControllerModeSelector;
+import hellfirepvp.modularmachinery.client.gui.widget.GuiScrollableTextPanel;
 import hellfirepvp.modularmachinery.common.container.ContainerBase;
+import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
+import hellfirepvp.modularmachinery.common.util.MiscUtils;
+import net.minecraft.client.resources.I18n;
 import org.lwjgl.input.Mouse;
 
 import java.io.IOException;
 
 public abstract class GuiControllerBase<T extends ContainerBase<? extends TileMultiblockMachineController>> extends GuiContainerBase<T> {
     protected final GuiControllerModeSelector modeSelector;
-    protected boolean modeScrollHandled;
+    protected final GuiScrollableTextPanel statusPanel;
+    protected boolean controllerScrollHandled;
     protected boolean modeClickHandled;
 
-    protected GuiControllerBase(T container) {
+    protected GuiControllerBase(T container, int statusPanelX) {
         super(container);
         modeSelector = new GuiControllerModeSelector(container);
+        statusPanel = new GuiScrollableTextPanel(statusPanelX, 7, 136, 116);
     }
 
     @Override
     public void initGui() {
         super.initGui();
         modeSelector.close();
+        statusPanel.resetScroll();
         modeClickHandled = false;
     }
 
@@ -28,6 +36,61 @@ public abstract class GuiControllerBase<T extends ContainerBase<? extends TileMu
     public void drawScreen(int mouseX, int mouseY, float partialTicks) {
         super.drawScreen(mouseX, mouseY, partialTicks);
         modeSelector.draw(guiLeft, guiTop, xSize, width, height, mouseX, mouseY);
+    }
+
+    @Override
+    protected void drawGuiContainerForegroundLayer(int mouseX, int mouseY) {
+        super.drawGuiContainerForegroundLayer(mouseX, mouseY);
+        statusPanel.begin(fontRenderer);
+        populateStatusPanel();
+        statusPanel.draw(mc, guiLeft, guiTop, mouseX - guiLeft, mouseY - guiTop);
+    }
+
+    private void populateStatusPanel() {
+        TileMultiblockMachineController controller = container.getOwner();
+        if (controller.getWorld().getStrongPower(controller.getPos()) > 0) {
+            statusPanel.addLine(I18n.format("gui.controller.status.redstone_stopped"));
+            return;
+        }
+
+        DynamicMachine blueprint = controller.getBlueprintMachine();
+        if (blueprint != null) {
+            statusPanel.addLine(I18n.format("gui.controller.blueprint", ""));
+            statusPanel.addLine(blueprint.getLocalizedName());
+            statusPanel.addParagraphSpacing();
+        } else if (!controller.isStructureFormed()) {
+            statusPanel.addLine(I18n.format("gui.controller.blueprint", I18n.format("gui.controller.blueprint.none")));
+            statusPanel.addParagraphSpacing();
+        }
+
+        DynamicMachine found = controller.getFoundMachine();
+        if (found != null) {
+            statusPanel.addLine(I18n.format("gui.controller.structure", ""));
+            statusPanel.addLine(found.getLocalizedName());
+
+            ControllerGUIRenderEvent event = new ControllerGUIRenderEvent(controller);
+            event.postEvent();
+            String[] extraInfo = event.getExtraInfo();
+            if (extraInfo.length != 0) {
+                statusPanel.addParagraphSpacing();
+                for (String line : extraInfo) {
+                    statusPanel.addLine(line);
+                }
+            }
+        } else {
+            statusPanel.addLine(I18n.format("gui.controller.structure", I18n.format("gui.controller.structure.none")));
+        }
+        statusPanel.addParagraphSpacing();
+        addControllerStatus();
+    }
+
+    protected abstract void addControllerStatus();
+
+    protected void addPerformanceInfo() {
+        statusPanel.addLine(String.format("Avg: %sμs/t (Search: %sms), WorkMode: %s",
+            TileMultiblockMachineController.usedTimeCache,
+            MiscUtils.formatFloat(TileMultiblockMachineController.searchUsedTimeCache / 1000F, 2),
+            TileMultiblockMachineController.workModeCache.getDisplayName()));
     }
 
     @Override
@@ -39,7 +102,8 @@ public abstract class GuiControllerBase<T extends ContainerBase<? extends TileMu
 
     @Override
     protected void mouseClicked(int mouseX, int mouseY, int mouseButton) throws IOException {
-        if (!handleModeMouseClick(mouseX, mouseY, mouseButton)) {
+        if (!handleModeMouseClick(mouseX, mouseY, mouseButton)
+            && !statusPanel.mouseClicked(mouseX - guiLeft, mouseY - guiTop, mouseButton)) {
             super.mouseClicked(mouseX, mouseY, mouseButton);
         }
     }
@@ -51,6 +115,9 @@ public abstract class GuiControllerBase<T extends ContainerBase<? extends TileMu
 
     @Override
     protected void mouseReleased(int mouseX, int mouseY, int mouseButton) {
+        if (statusPanel.mouseReleased(mouseButton)) {
+            return;
+        }
         // 选择列表可能覆盖物品槽，按下和松开必须一起拦截。
         if (modeClickHandled || modeSelector.isOpen()) {
             modeClickHandled = false;
@@ -61,7 +128,8 @@ public abstract class GuiControllerBase<T extends ContainerBase<? extends TileMu
 
     @Override
     protected void mouseClickMove(int mouseX, int mouseY, int mouseButton, long elapsed) {
-        if (!modeClickHandled && !modeSelector.isOpen()) {
+        if (!modeClickHandled && !modeSelector.isOpen()
+            && !statusPanel.mouseDragged(mouseY - guiTop, mouseButton)) {
             super.mouseClickMove(mouseX, mouseY, mouseButton, elapsed);
         }
     }
@@ -71,7 +139,9 @@ public abstract class GuiControllerBase<T extends ContainerBase<? extends TileMu
         super.handleMouseInput();
         int mouseX = Mouse.getEventX() * width / mc.displayWidth;
         int mouseY = height - Mouse.getEventY() * height / mc.displayHeight - 1;
-        modeScrollHandled = modeSelector.mouseScrolled(mouseX, mouseY, Mouse.getEventDWheel());
+        int wheel = Mouse.getEventDWheel();
+        controllerScrollHandled = modeSelector.mouseScrolled(mouseX, mouseY, wheel)
+            || statusPanel.mouseScrolled(mouseX - guiLeft, mouseY - guiTop, wheel);
     }
 
     @Override
