@@ -27,6 +27,7 @@ import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementEnerg
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementType;
 import hellfirepvp.modularmachinery.common.data.Config;
 import hellfirepvp.modularmachinery.common.integration.crafttweaker.RecipeAdapterBuilder;
+import hellfirepvp.modularmachinery.common.integration.crafttweaker.RecipePrimer;
 import hellfirepvp.modularmachinery.common.lib.RegistriesMM;
 import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
@@ -134,18 +135,29 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
 
     public void mergeAdapter(final RecipeAdapterBuilder adapterBuilder) {
         this.parallelized = adapterBuilder.isParallelized();
-        this.tooltipList.addAll(adapterBuilder.getTooltipList());
         this.loadJEI = adapterBuilder.getLoadJEI();
-        if (!adapterBuilder.getThreadName().isEmpty()) {
-            this.threadName = adapterBuilder.getThreadName();
+        mergePrimer(adapterBuilder);
+    }
+
+    public void mergePrimer(final RecipePrimer primer) {
+        // 条件规则未显式设置的配方属性保持原值，避免覆盖全局设置或前一条规则。
+        if (primer.isParallelizedConfigured()) {
+            this.parallelized = primer.isParallelized();
         }
-        if (adapterBuilder.getMaxThreads() != -1) {
-            this.maxThreads = adapterBuilder.getMaxThreads();
+        if (primer.isLoadJEIConfigured()) {
+            this.loadJEI = primer.getLoadJEI();
         }
-        for (final ComponentRequirement<?, ?> requirement : adapterBuilder.getComponents()) {
-            addRequirement(requirement);
+        this.tooltipList.addAll(primer.getTooltipList());
+        if (!primer.getThreadName().isEmpty()) {
+            this.threadName = primer.getThreadName();
         }
-        adapterBuilder.getRecipeEventHandlers().forEach((clazz, actions) -> actions.forEach(action -> addRecipeEventHandler(clazz, action)));
+        if (primer.getMaxThreads() != -1) {
+            this.maxThreads = primer.getMaxThreads();
+        }
+        for (final ComponentRequirement<?, ?> requirement : primer.getComponents()) {
+            addRequirement(requirement.deepCopy().postDeepCopy(requirement));
+        }
+        primer.getRecipeEventHandlers().forEach((clazz, actions) -> actions.forEach(action -> addRecipeEventHandler(clazz, action)));
     }
 
     public void addTooltip(String tooltip) {
@@ -244,6 +256,8 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
     public MachineRecipe copy(Function<ResourceLocation, ResourceLocation> registryNameChange,
                               ResourceLocation newOwningMachineIdentifier,
                               List<RecipeModifier> modifiers) {
+        Map<Class<?>, List<IEventHandler<RecipeEvent>>> copiedEventHandlers = new HashMap<>();
+        this.recipeEventHandlers.forEach((clazz, handlers) -> copiedEventHandlers.put(clazz, new ArrayList<>(handlers)));
         MachineRecipe copy = new MachineRecipe(this.recipeFilePath,
             registryNameChange.apply(this.registryName),
             newOwningMachineIdentifier,
@@ -251,8 +265,8 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
             this.configuredPriority,
             this.doesCancelRecipeOnPerTickFailure(),
             this.parallelized,
-            this.recipeEventHandlers,
-            this.tooltipList,
+            copiedEventHandlers,
+            new ArrayList<>(this.tooltipList),
             this.threadName,
             this.maxThreads,
             this.loadJEI

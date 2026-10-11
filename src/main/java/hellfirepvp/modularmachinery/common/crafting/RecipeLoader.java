@@ -120,14 +120,12 @@ public class RecipeLoader {
             }
         }
         for (RecipeAdapterBuilder builder : adapterBuilders) {
+            builder.loadNeedAfterInitActions();
             RecipeAdapterAccessor accessor = new RecipeAdapterAccessor(builder);
             Collection<MachineRecipe> recipes = accessor.loadRecipesForAdapter();
             if (recipes.isEmpty()) {
                 ModularMachinery.log.warn("Adapter with name " + accessor.getAdapterKey().toString() + " didn't provide have any recipes!");
             } else {
-                for (final MachineRecipe recipe : recipes) {
-                    recipe.mergeAdapter(builder);
-                }
                 loadedRecipes.addAll(recipes);
             }
             RECIPE_ADAPTER_ACCESSORS.add(accessor);

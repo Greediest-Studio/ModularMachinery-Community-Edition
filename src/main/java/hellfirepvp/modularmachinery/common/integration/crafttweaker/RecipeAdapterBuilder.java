@@ -2,13 +2,16 @@ package hellfirepvp.modularmachinery.common.integration.crafttweaker;
 
 import crafttweaker.CraftTweakerAPI;
 import crafttweaker.annotations.ZenRegister;
+import crafttweaker.api.item.IIngredient;
 import hellfirepvp.modularmachinery.ModularMachinery;
+import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.RecipeRegistry;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import net.minecraft.util.ResourceLocation;
 import stanhebben.zenscript.annotations.ZenClass;
 import stanhebben.zenscript.annotations.ZenMethod;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -17,6 +20,8 @@ import java.util.List;
 public class RecipeAdapterBuilder extends RecipePrimer {
     protected final List<RecipeModifier> modifiers = new LinkedList<>();
     protected final ResourceLocation     parentMachineName;
+
+    private final List<RecipeAdapterRule> recipeRules = new ArrayList<>();
 
     private RecipeAdapterBuilder(ResourceLocation machineName, ResourceLocation parentMachineName) {
         super(null, machineName, 0, 0, false);
@@ -50,6 +55,42 @@ public class RecipeAdapterBuilder extends RecipePrimer {
         return this;
     }
 
+    /**
+     * 选择原有输入包含全部指定材料的配方，支持物品、矿辞和流体，忽略数量。
+     * 返回的规则需要调用 build() 保存，最后再调用适配器的 build() 注册。
+     */
+    @ZenMethod
+    public RecipeAdapterRule forInput(IIngredient... inputs) {
+        return new RecipeAdapterRule(this).forInput(inputs);
+    }
+
+    /**
+     * 选择原有输出包含全部指定材料的配方，支持物品、矿辞和流体，忽略数量。
+     */
+    @ZenMethod
+    public RecipeAdapterRule forOutput(IIngredient... outputs) {
+        return new RecipeAdapterRule(this).forOutput(outputs);
+    }
+
+    void addRecipeRule(RecipeAdapterRule rule) {
+        recipeRules.add(rule);
+    }
+
+    public void applyTo(MachineRecipe recipe) {
+        List<RecipeAdapterRule> matchingRules = new ArrayList<>();
+        for (RecipeAdapterRule rule : recipeRules) {
+            if (rule.matches(recipe)) {
+                matchingRules.add(rule);
+            }
+        }
+
+        // 所有规则先按原有材料匹配，避免全局追加或前一条规则改变后续筛选结果。
+        recipe.mergeAdapter(this);
+        for (RecipeAdapterRule rule : matchingRules) {
+            recipe.mergePrimer(rule);
+        }
+    }
+
     public List<RecipeModifier> getModifiers() {
         return modifiers;
     }
@@ -59,6 +100,15 @@ public class RecipeAdapterBuilder extends RecipePrimer {
     }
 
     @Override
+    public void loadNeedAfterInitActions() {
+        super.loadNeedAfterInitActions();
+        for (RecipeAdapterRule rule : recipeRules) {
+            rule.loadNeedAfterInitActions();
+        }
+    }
+
+    @Override
+    @ZenMethod
     public void build() {
         RecipeRegistry.getRegistry().registerRecipeAdapterEarly(this);
     }

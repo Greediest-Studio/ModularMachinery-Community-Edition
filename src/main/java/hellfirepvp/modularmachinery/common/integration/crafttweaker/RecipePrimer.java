@@ -103,6 +103,9 @@ public class RecipePrimer implements PreparedRecipe {
     private String                     threadName    = "";
     private ComponentRequirement<?, ?> lastComponent = null;
 
+    private boolean parallelizedConfigured = false;
+    private boolean loadJEIConfigured = false;
+
     public RecipePrimer(ResourceLocation registryName, ResourceLocation owningMachine, int tickTime, int configuredPriority, boolean doesVoidPerTick) {
         this.name = registryName;
         this.machineName = owningMachine;
@@ -1059,7 +1062,12 @@ public class RecipePrimer implements PreparedRecipe {
     @ZenMethod
     public RecipePrimer setParallelized(boolean isParallelized) {
         this.parallelized = isParallelized;
+        this.parallelizedConfigured = true;
         return this;
+    }
+
+    public boolean isParallelizedConfigured() {
+        return parallelizedConfigured;
     }
 
     @Override
@@ -1111,6 +1119,11 @@ public class RecipePrimer implements PreparedRecipe {
     @ZenMethod
     public RecipePrimer setLoadJEI(boolean load) {
         this.loadJEI = load;
+        this.loadJEIConfigured = true;
         return this;
+    }
+
+    public boolean isLoadJEIConfigured() {
+        return loadJEIConfigured;
     }
 }

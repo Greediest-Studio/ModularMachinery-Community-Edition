@@ -27,6 +27,7 @@ import net.minecraft.util.ResourceLocation;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -46,6 +47,7 @@ public class RecipeAdapterAccessor {
     private final List<ComponentRequirement<?, ?>>                additionalRecipeRequirements;
     private final Map<Class<?>, List<IEventHandler<RecipeEvent>>> recipeEventHandlers;
     private final List<String>                                    tooltipList;
+    private final RecipeAdapterBuilder                            adapterBuilder;
 
     private final List<MachineRecipe> cacheLoaded = new LinkedList<>();
 
@@ -56,6 +58,7 @@ public class RecipeAdapterAccessor {
         this.additionalRecipeRequirements = new ArrayList<>();
         this.recipeEventHandlers = new HashMap<>();
         this.tooltipList = new ArrayList<>();
+        this.adapterBuilder = null;
     }
 
     public RecipeAdapterAccessor(RecipeAdapterBuilder builder) {
@@ -65,6 +68,7 @@ public class RecipeAdapterAccessor {
         this.additionalRecipeRequirements = builder.getComponents();
         this.tooltipList = builder.getTooltipList();
         this.recipeEventHandlers = builder.getRecipeEventHandlers();
+        this.adapterBuilder = builder;
     }
 
     public ResourceLocation getOwningMachine() {
@@ -99,11 +103,17 @@ public class RecipeAdapterAccessor {
             owningMachine,
             adapterKey,
             modifiers,
-            additionalRecipeRequirements,
-            recipeEventHandlers,
-            tooltipList);
+            adapterBuilder == null ? additionalRecipeRequirements : Collections.emptyList(),
+            adapterBuilder == null ? recipeEventHandlers : Collections.emptyMap(),
+            adapterBuilder == null ? tooltipList : Collections.emptyList());
 
         if (recipes != null) {
+            if (adapterBuilder != null) {
+                // 首次加载和重载共用此入口；追加内容只在原配方匹配完成后合并一次。
+                for (MachineRecipe recipe : recipes) {
+                    adapterBuilder.applyTo(recipe);
+                }
+            }
             cacheLoaded.addAll(recipes);
         }
         return cacheLoaded;
