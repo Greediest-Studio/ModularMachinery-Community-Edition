@@ -27,9 +27,12 @@ import mezz.jei.api.recipe.IRecipeCategory;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.FontRenderer;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.item.ItemStack;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.awt.*;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
@@ -37,6 +40,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 /**
  * This class is part of the Modular Machinery Mod
@@ -50,34 +54,73 @@ public class CategoryDynamicRecipe implements IRecipeCategory<DynamicRecipeWrapp
     final         LinkedList<RecipeLayoutPart<?>> inputComponents  = Lists.newLinkedList();
     final         LinkedList<RecipeLayoutPart<?>> outputComponents = Lists.newLinkedList();
     private final DynamicMachine                  machine;
+    private final String                          categoryKey;
     private final String                          category;
     private final String                          title;
+    private final ItemStack                       iconStack;
+    private       IDrawable                       iconDrawable;
+    private final Supplier<Iterable<MachineRecipe>> recipeSupplier;
     int       realHeight;
     Rectangle rectangleProcessArrow;
     private IDrawable sizeEmptyDrawable;
     private Point     offsetProcessArrow;
 
     public CategoryDynamicRecipe(DynamicMachine machine) {
+        this(machine, null, ModIntegrationJEI.getCategoryStringFor(machine), machine.getLocalizedName(), ItemStack.EMPTY,
+            () -> {
+                List<MachineRecipe> list = new ArrayList<>();
+                for (MachineRecipe r : RecipeRegistry.getRecipesFor(machine)) {
+                    if (r.getLoadJEI() && (r.getJEICategoryKey() == null || r.getJEICategoryKey().isEmpty())) {
+                        list.add(r);
+                    }
+                }
+                return list;
+            });
+    }
+
+    public CategoryDynamicRecipe(DynamicMachine machine,
+                                 @Nullable String categoryKey,
+                                 String categoryUid,
+                                 String title,
+                                 ItemStack iconStack,
+                                 Supplier<Iterable<MachineRecipe>> recipeSupplier) {
         this.machine = machine;
-        this.category = ModIntegrationJEI.getCategoryStringFor(machine);
-        this.title = machine.getLocalizedName();
+        this.categoryKey = categoryKey;
+        this.category = categoryUid;
+        this.title = title;
+        this.iconStack = iconStack != null ? iconStack : ItemStack.EMPTY;
+        this.recipeSupplier = recipeSupplier;
+
+        updateIconDrawable();
 
         Point maxPoint = buildRecipeComponents();
-        this.realHeight = maxPoint.y;
-        this.sizeEmptyDrawable = ModIntegrationJEI.jeiHelpers.getGuiHelper().createBlankDrawable(maxPoint.x, this.realHeight);
+        this.realHeight = Math.max(maxPoint.y, 30);
+        int width = Math.max(maxPoint.x, 100);
+        this.sizeEmptyDrawable = ModIntegrationJEI.jeiHelpers.getGuiHelper().createBlankDrawable(width, this.realHeight);
+    }
+
+    private void updateIconDrawable() {
+        if (!this.iconStack.isEmpty() && ModIntegrationJEI.jeiHelpers != null) {
+            this.iconDrawable = ModIntegrationJEI.jeiHelpers.getGuiHelper().createDrawableIngredient(this.iconStack);
+        } else {
+            this.iconDrawable = null;
+        }
     }
 
     public void reloadCategory() {
         inputComponents.clear();
         outputComponents.clear();
 
+        updateIconDrawable();
+
         Point maxPoint = buildRecipeComponents();
-        this.realHeight = maxPoint.y;
-        this.sizeEmptyDrawable = ModIntegrationJEI.jeiHelpers.getGuiHelper().createBlankDrawable(maxPoint.x, this.realHeight);
+        this.realHeight = Math.max(maxPoint.y, 30);
+        int width = Math.max(maxPoint.x, 100);
+        this.sizeEmptyDrawable = ModIntegrationJEI.jeiHelpers.getGuiHelper().createBlankDrawable(width, this.realHeight);
     }
 
     private Point buildRecipeComponents() {
-        Iterable<MachineRecipe> recipes = RecipeRegistry.getRecipesFor(this.machine);
+        Iterable<MachineRecipe> recipes = this.recipeSupplier != null ? this.recipeSupplier.get() : RecipeRegistry.getRecipesFor(this.machine);
         Map<IOType, Map<Class<?>, Integer>> componentCounts = new EnumMap<>(IOType.class);
         Map<Class<?>, ComponentRequirement.JEIComponent<?>> componentsFound = new HashMap<>();
         FontRenderer fr = Minecraft.getMinecraft().fontRenderer;
@@ -261,6 +304,29 @@ public class CategoryDynamicRecipe implements IRecipeCategory<DynamicRecipeWrapp
     @Override
     public IDrawable getBackground() {
         return this.sizeEmptyDrawable;
+    }
+
+    @Nullable
+    @Override
+    public IDrawable getIcon() {
+        return this.iconDrawable;
+    }
+
+    public ItemStack getIconStack() {
+        return this.iconStack;
+    }
+
+    @Nullable
+    public String getCategoryKey() {
+        return categoryKey;
+    }
+
+    public DynamicMachine getMachine() {
+        return machine;
+    }
+
+    public Iterable<MachineRecipe> getCategoryRecipes() {
+        return this.recipeSupplier != null ? this.recipeSupplier.get() : RecipeRegistry.getRecipesFor(this.machine);
     }
 
     @Override

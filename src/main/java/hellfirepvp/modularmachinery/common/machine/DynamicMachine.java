@@ -48,6 +48,7 @@ import javax.annotation.Nullable;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -79,6 +80,8 @@ public class DynamicMachine extends AbstractMachine {
     // 控制器按钮和弹出列表按脚本注册顺序显示。
     private final Map<String, ControllerMode> controllerModes = new LinkedHashMap<>();
 
+    private final Map<String, MachineJEICategory> jeiCategories = new LinkedHashMap<>();
+
     private final Map<String, FactoryRecipeThread> coreThreadPreset = new LinkedHashMap<>();
 
     private boolean hideComponentsWhenFormed = false;
@@ -90,6 +93,25 @@ public class DynamicMachine extends AbstractMachine {
 
     public DynamicMachine(String registryName) {
         super(registryName);
+    }
+
+    public void addJEICategory(MachineJEICategory category) {
+        if (category != null && category.getKey() != null && !category.getKey().isEmpty()) {
+            this.jeiCategories.put(category.getKey(), category);
+        }
+    }
+
+    @Nullable
+    public MachineJEICategory getJEICategory(String key) {
+        return this.jeiCategories.get(key);
+    }
+
+    public Map<String, MachineJEICategory> getJEICategories() {
+        return Collections.unmodifiableMap(this.jeiCategories);
+    }
+
+    public void clearJEICategories() {
+        this.jeiCategories.clear();
     }
 
     public Map<String, DynamicPattern> getDynamicPatterns() {

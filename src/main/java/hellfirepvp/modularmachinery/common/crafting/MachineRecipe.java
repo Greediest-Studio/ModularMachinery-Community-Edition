@@ -35,6 +35,7 @@ import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.machine.MachineRegistry;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import net.minecraft.client.resources.I18n;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
@@ -76,7 +77,10 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
     protected boolean parallelized;
     protected String  threadName;
     protected int     maxThreads;
-    protected boolean loadJEI;
+    protected boolean   loadJEI;
+    protected String    jeiCategoryKey  = null;
+    protected String    jeiCategoryName = null;
+    protected ItemStack jeiCategoryIcon = ItemStack.EMPTY;
 
     public MachineRecipe(String path, ResourceLocation registryName, ResourceLocation owningMachine,
                          int tickTime, int configuredPriority, boolean voidPerTickFailure, boolean parallelized) {
@@ -131,11 +135,19 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
         this.threadName = preparedRecipe.getThreadName();
         this.maxThreads = preparedRecipe.getMaxThreads();
         this.loadJEI = preparedRecipe.getLoadJEI();
+        this.jeiCategoryKey = preparedRecipe.getJEICategoryKey();
+        this.jeiCategoryName = preparedRecipe.getJEICategoryName();
+        this.jeiCategoryIcon = preparedRecipe.getJEICategoryIcon();
     }
 
     public void mergeAdapter(final RecipeAdapterBuilder adapterBuilder) {
         this.parallelized = adapterBuilder.isParallelized();
         this.loadJEI = adapterBuilder.getLoadJEI();
+        if (adapterBuilder.isJEICategoryConfigured()) {
+            this.jeiCategoryKey = adapterBuilder.getJEICategoryKey();
+            this.jeiCategoryName = adapterBuilder.getJEICategoryName();
+            this.jeiCategoryIcon = adapterBuilder.getJEICategoryIcon();
+        }
         mergePrimer(adapterBuilder);
     }
 
@@ -146,6 +158,11 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
         }
         if (primer.isLoadJEIConfigured()) {
             this.loadJEI = primer.getLoadJEI();
+        }
+        if (primer.isJEICategoryConfigured()) {
+            this.jeiCategoryKey = primer.getJEICategoryKey();
+            this.jeiCategoryName = primer.getJEICategoryName();
+            this.jeiCategoryIcon = primer.getJEICategoryIcon();
         }
         this.tooltipList.addAll(primer.getTooltipList());
         if (!primer.getThreadName().isEmpty()) {
@@ -158,6 +175,30 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
             addRequirement(requirement.deepCopy().postDeepCopy(requirement));
         }
         primer.getRecipeEventHandlers().forEach((clazz, actions) -> actions.forEach(action -> addRecipeEventHandler(clazz, action)));
+    }
+
+    public String getJEICategoryKey() {
+        return jeiCategoryKey;
+    }
+
+    public void setJEICategoryKey(String jeiCategoryKey) {
+        this.jeiCategoryKey = jeiCategoryKey;
+    }
+
+    public String getJEICategoryName() {
+        return jeiCategoryName;
+    }
+
+    public void setJEICategoryName(String jeiCategoryName) {
+        this.jeiCategoryName = jeiCategoryName;
+    }
+
+    public ItemStack getJEICategoryIcon() {
+        return jeiCategoryIcon;
+    }
+
+    public void setJEICategoryIcon(ItemStack jeiCategoryIcon) {
+        this.jeiCategoryIcon = jeiCategoryIcon != null ? jeiCategoryIcon : ItemStack.EMPTY;
     }
 
     public void addTooltip(String tooltip) {
@@ -415,6 +456,13 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
 
             MachineRecipeContainer outContainer = new MachineRecipeContainer(recipe);
             outContainer.recipeOwnerList.addAll(qualifiedMachineNames);
+
+            if (root.has("jeiCategory") || root.has("category")) {
+                JsonElement catElem = root.has("jeiCategory") ? root.get("jeiCategory") : root.get("category");
+                if (catElem.isJsonPrimitive() && catElem.getAsJsonPrimitive().isString()) {
+                    recipe.setJEICategoryKey(catElem.getAsString());
+                }
+            }
 
             if (!root.has("requirements")) {
                 throw new JsonParseException("No 'requirements'-entry specified!");

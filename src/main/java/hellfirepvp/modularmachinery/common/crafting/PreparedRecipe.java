@@ -56,4 +56,16 @@ public interface PreparedRecipe {
     void loadNeedAfterInitActions();
 
     boolean getLoadJEI();
+
+    default String getJEICategoryKey() {
+        return null;
+    }
+
+    default String getJEICategoryName() {
+        return null;
+    }
+
+    default net.minecraft.item.ItemStack getJEICategoryIcon() {
+        return net.minecraft.item.ItemStack.EMPTY;
+    }
 }

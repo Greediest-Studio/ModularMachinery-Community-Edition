@@ -105,6 +105,10 @@ public class RecipePrimer implements PreparedRecipe {
 
     private boolean parallelizedConfigured = false;
     private boolean loadJEIConfigured = false;
+    private boolean jeiCategoryConfigured = false;
+    private String jeiCategoryKey = null;
+    private String jeiCategoryName = null;
+    private ItemStack jeiCategoryIcon = ItemStack.EMPTY;
 
     public RecipePrimer(ResourceLocation registryName, ResourceLocation owningMachine, int tickTime, int configuredPriority, boolean doesVoidPerTick) {
         this.name = registryName;
@@ -1125,5 +1129,56 @@ public class RecipePrimer implements PreparedRecipe {
 
     public boolean isLoadJEIConfigured() {
         return loadJEIConfigured;
+    }
+
+    @Override
+    public String getJEICategoryKey() {
+        return jeiCategoryKey;
+    }
+
+    @Override
+    public String getJEICategoryName() {
+        return jeiCategoryName;
+    }
+
+    @Override
+    public ItemStack getJEICategoryIcon() {
+        return jeiCategoryIcon;
+    }
+
+    public boolean isJEICategoryConfigured() {
+        return jeiCategoryConfigured;
+    }
+
+    @ZenMethod
+    public RecipePrimer setJEICategory(String key) {
+        this.jeiCategoryKey = key;
+        this.jeiCategoryConfigured = true;
+        return this;
+    }
+
+    @ZenMethod
+    public RecipePrimer setJEICategory(String key, String displayName) {
+        this.jeiCategoryKey = key;
+        this.jeiCategoryName = displayName;
+        this.jeiCategoryConfigured = true;
+        return this;
+    }
+
+    @ZenMethod
+    public RecipePrimer setJEICategory(String key, IItemStack icon) {
+        this.jeiCategoryKey = key;
+        this.jeiCategoryIcon = icon != null ? CraftTweakerMC.getItemStack(icon) : ItemStack.EMPTY;
+        this.jeiCategoryConfigured = true;
+        return this;
+    }
+
+    @ZenMethod
+    public RecipePrimer setJEICategory(String key, String displayName, IItemStack icon) {
+        this.jeiCategoryKey = key;
+        this.jeiCategoryName = displayName;
+        this.jeiCategoryIcon = icon != null ? CraftTweakerMC.getItemStack(icon) : ItemStack.EMPTY;
+        this.jeiCategoryConfigured = true;
+        return this;
     }
 }

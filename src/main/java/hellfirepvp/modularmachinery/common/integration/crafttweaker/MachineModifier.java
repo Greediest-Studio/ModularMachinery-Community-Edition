@@ -2,15 +2,19 @@ package hellfirepvp.modularmachinery.common.integration.crafttweaker;
 
 import crafttweaker.CraftTweakerAPI;
 import crafttweaker.annotations.ZenRegister;
+import crafttweaker.api.item.IItemStack;
+import crafttweaker.api.minecraft.CraftTweakerMC;
 import github.kasuminova.mmce.client.model.DynamicMachineModelRegistry;
 import github.kasuminova.mmce.client.model.MachineControllerModel;
 import github.kasuminova.mmce.common.util.concurrent.Action;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
+import hellfirepvp.modularmachinery.common.machine.MachineJEICategory;
 import hellfirepvp.modularmachinery.common.machine.MachineRegistry;
 import hellfirepvp.modularmachinery.common.machine.factory.FactoryRecipeThread;
 import hellfirepvp.modularmachinery.common.util.ControllerMode;
 import hellfirepvp.modularmachinery.common.util.SmartInterfaceType;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import stanhebben.zenscript.annotations.ZenClass;
@@ -23,6 +27,59 @@ import java.util.List;
 @ZenClass("mods.modularmachinery.MachineModifier")
 public class MachineModifier {
     public static final List<Action> WAIT_FOR_MODIFY = new LinkedList<>();
+
+    @ZenMethod
+    public static void addJEICategory(String machineName, String key) {
+        addJEICategory(machineName, key, null, null, 0);
+    }
+
+    @ZenMethod
+    public static void addJEICategory(String machineName, String key, String displayName) {
+        addJEICategory(machineName, key, displayName, null, 0);
+    }
+
+    @ZenMethod
+    public static void addJEICategory(String machineName, String key, IItemStack icon) {
+        addJEICategory(machineName, key, null, icon, 0);
+    }
+
+    @ZenMethod
+    public static void addJEICategory(String machineName, String key, String displayName, IItemStack icon) {
+        addJEICategory(machineName, key, displayName, icon, 0);
+    }
+
+    @ZenMethod
+    public static void addJEICategory(String machineName, String key, String displayName, IItemStack icon, int priority) {
+        WAIT_FOR_MODIFY.add(() -> {
+            ResourceLocation machineLoc = new ResourceLocation(machineName);
+            if (machineLoc.getNamespace().equals("minecraft")) {
+                machineLoc = new ResourceLocation(ModularMachinery.MODID, machineLoc.getPath());
+            }
+            DynamicMachine machine = MachineRegistry.getRegistry().getMachine(machineLoc);
+            if (machine == null) {
+                CraftTweakerAPI.logError("Could not find machine `" + machineName + "`!");
+                return;
+            }
+            ItemStack iconStack = icon != null ? CraftTweakerMC.getItemStack(icon) : ItemStack.EMPTY;
+            machine.addJEICategory(new MachineJEICategory(key, displayName, iconStack, priority));
+        });
+    }
+
+    @ZenMethod
+    public static void addJEICategory(String machineName, MachineJEICategory category) {
+        WAIT_FOR_MODIFY.add(() -> {
+            ResourceLocation machineLoc = new ResourceLocation(machineName);
+            if (machineLoc.getNamespace().equals("minecraft")) {
+                machineLoc = new ResourceLocation(ModularMachinery.MODID, machineLoc.getPath());
+            }
+            DynamicMachine machine = MachineRegistry.getRegistry().getMachine(machineLoc);
+            if (machine == null) {
+                CraftTweakerAPI.logError("Could not find machine `" + machineName + "`!");
+                return;
+            }
+            machine.addJEICategory(category);
+        });
+    }
 
     @ZenMethod
     public static void addControllerMode(String machineName, ControllerMode mode) {

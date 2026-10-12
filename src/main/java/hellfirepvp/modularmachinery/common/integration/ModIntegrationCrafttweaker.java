@@ -85,6 +85,7 @@ public class ModIntegrationCrafttweaker {
             loadedMachine.getCoreThreadPreset().clear();
             loadedMachine.getModifiers().clear();
             loadedMachine.getMultiBlockModifiers().clear();
+            loadedMachine.clearJEICategories();
         }
         // Clear Pool
         IBlockStateDescriptor.clearPool();

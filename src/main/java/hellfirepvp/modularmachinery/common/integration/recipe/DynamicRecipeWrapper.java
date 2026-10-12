@@ -28,6 +28,7 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraftforge.client.model.animation.Animation;
 
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumMap;
@@ -47,10 +48,27 @@ import java.util.stream.Collectors;
 public class DynamicRecipeWrapper implements IRecipeWrapper {
 
     public  Map<IOType, Map<Class<?>, List<ComponentRequirement<?, ?>>>> finalOrderedComponents = new EnumMap<>(IOType.class);
+    private CategoryDynamicRecipe                                        recipeCategory;
     private MachineRecipe                                                recipe;
 
     public DynamicRecipeWrapper(MachineRecipe recipe) {
+        this(null, recipe);
+    }
+
+    public DynamicRecipeWrapper(@Nullable CategoryDynamicRecipe recipeCategory, MachineRecipe recipe) {
+        this.recipeCategory = recipeCategory;
         reloadWrapper(recipe);
+    }
+
+    private CategoryDynamicRecipe resolveCategory() {
+        if (this.recipeCategory != null) {
+            return this.recipeCategory;
+        }
+        CategoryDynamicRecipe cat = ModIntegrationJEI.getCategory(recipe.getOwningMachine(), recipe.getJEICategoryKey());
+        if (cat == null) {
+            cat = ModIntegrationJEI.getCategory(recipe.getOwningMachine());
+        }
+        return cat;
     }
 
     public void reloadWrapper(MachineRecipe recipe) {
@@ -73,8 +91,8 @@ public class DynamicRecipeWrapper implements IRecipeWrapper {
     @Nonnull
     public List<String> getTooltipStrings(int mouseX, int mouseY) {
         List<String> tooltips = Lists.newArrayList();
-        CategoryDynamicRecipe recipeCategory = ModIntegrationJEI.getCategory(recipe.getOwningMachine());
-        if (recipeCategory != null) {
+        CategoryDynamicRecipe recipeCategory = resolveCategory();
+        if (recipeCategory != null && recipeCategory.rectangleProcessArrow != null) {
             if (recipeCategory.rectangleProcessArrow.contains(mouseX, mouseY)) {
                 tooltips.add(
                     I18n.format("tooltip.machinery.duration.seconds", (float) recipe.getRecipeTotalTickTime() / 20) +
@@ -87,8 +105,8 @@ public class DynamicRecipeWrapper implements IRecipeWrapper {
 
     @Override
     public void drawInfo(Minecraft minecraft, int recipeWidth, int recipeHeight, int mouseX, int mouseY) {
-        CategoryDynamicRecipe recipeCategory = ModIntegrationJEI.getCategory(recipe.getOwningMachine());
-        if (recipeCategory == null) {
+        CategoryDynamicRecipe recipeCategory = resolveCategory();
+        if (recipeCategory == null || recipeCategory.rectangleProcessArrow == null) {
             return;
         }
 
