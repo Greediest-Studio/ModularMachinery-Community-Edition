@@ -75,6 +75,9 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
     protected final List<String>                                    tooltipList;
 
     protected boolean parallelized;
+    protected int     multipleParallelism    = 1;
+    protected int     maxParallelismModifier = 0;
+    protected int     recipeMaxParallelism   = -1;
     protected String  threadName;
     protected int     maxThreads;
     protected boolean   loadJEI;
@@ -130,6 +133,9 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
         this.configuredPriority = preparedRecipe.getPriority();
         this.voidPerTickFailure = preparedRecipe.voidPerTickFailure();
         this.parallelized = preparedRecipe.isParallelized();
+        this.multipleParallelism = preparedRecipe.getMultipleParallelism();
+        this.maxParallelismModifier = preparedRecipe.getMaxParallelismModifier();
+        this.recipeMaxParallelism = preparedRecipe.getRecipeMaxParallelism();
         this.recipeEventHandlers = preparedRecipe.getRecipeEventHandlers();
         this.tooltipList = preparedRecipe.getTooltipList();
         this.threadName = preparedRecipe.getThreadName();
@@ -141,8 +147,12 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
     }
 
     public void mergeAdapter(final RecipeAdapterBuilder adapterBuilder) {
-        this.parallelized = adapterBuilder.isParallelized();
-        this.loadJEI = adapterBuilder.getLoadJEI();
+        if (adapterBuilder.isParallelizedConfigured()) {
+            this.parallelized = adapterBuilder.isParallelized();
+        }
+        if (adapterBuilder.isLoadJEIConfigured()) {
+            this.loadJEI = adapterBuilder.getLoadJEI();
+        }
         if (adapterBuilder.isJEICategoryConfigured()) {
             this.jeiCategoryKey = adapterBuilder.getJEICategoryKey();
             this.jeiCategoryName = adapterBuilder.getJEICategoryName();
@@ -155,6 +165,15 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
         // 条件规则未显式设置的配方属性保持原值，避免覆盖全局设置或前一条规则。
         if (primer.isParallelizedConfigured()) {
             this.parallelized = primer.isParallelized();
+        }
+        if (primer.isMultipleParallelismConfigured()) {
+            this.multipleParallelism = primer.getMultipleParallelism();
+        }
+        if (primer.isMaxParallelismModifierConfigured()) {
+            this.maxParallelismModifier = primer.getMaxParallelismModifier();
+        }
+        if (primer.isRecipeMaxParallelismConfigured()) {
+            this.recipeMaxParallelism = primer.getRecipeMaxParallelism();
         }
         if (primer.isLoadJEIConfigured()) {
             this.loadJEI = primer.getLoadJEI();
@@ -223,6 +242,30 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
 
     public boolean isParallelized() {
         return parallelized;
+    }
+
+    public int getMultipleParallelism() {
+        return multipleParallelism;
+    }
+
+    public void setMultipleParallelism(int multipleParallelism) {
+        this.multipleParallelism = multipleParallelism;
+    }
+
+    public int getMaxParallelismModifier() {
+        return maxParallelismModifier;
+    }
+
+    public void setMaxParallelismModifier(int maxParallelismModifier) {
+        this.maxParallelismModifier = maxParallelismModifier;
+    }
+
+    public int getRecipeMaxParallelism() {
+        return recipeMaxParallelism;
+    }
+
+    public void setRecipeMaxParallelism(int recipeMaxParallelism) {
+        this.recipeMaxParallelism = recipeMaxParallelism;
     }
 
     @Nullable
@@ -316,6 +359,9 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
         for (ComponentRequirement<?, ?> requirement : this.getCraftingRequirements()) {
             copy.addRequirement(requirement.deepCopyModified(modifiers).postDeepCopy(requirement));
         }
+        copy.multipleParallelism = this.multipleParallelism;
+        copy.maxParallelismModifier = this.maxParallelismModifier;
+        copy.recipeMaxParallelism = this.recipeMaxParallelism;
         return copy;
     }
 

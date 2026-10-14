@@ -68,4 +68,16 @@ public interface PreparedRecipe {
     default net.minecraft.item.ItemStack getJEICategoryIcon() {
         return net.minecraft.item.ItemStack.EMPTY;
     }
+
+    default int getMultipleParallelism() {
+        return 1;
+    }
+
+    default int getMaxParallelismModifier() {
+        return 0;
+    }
+
+    default int getRecipeMaxParallelism() {
+        return -1;
+    }
 }

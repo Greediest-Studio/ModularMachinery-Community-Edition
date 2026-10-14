@@ -110,6 +110,13 @@ public class RecipePrimer implements PreparedRecipe {
     private String jeiCategoryName = null;
     private ItemStack jeiCategoryIcon = ItemStack.EMPTY;
 
+    private int multipleParallelism = 1;
+    private boolean multipleParallelismConfigured = false;
+    private int maxParallelismModifier = 0;
+    private boolean maxParallelismModifierConfigured = false;
+    private int recipeMaxParallelism = -1;
+    private boolean recipeMaxParallelismConfigured = false;
+
     public RecipePrimer(ResourceLocation registryName, ResourceLocation owningMachine, int tickTime, int configuredPriority, boolean doesVoidPerTick) {
         this.name = registryName;
         this.machineName = owningMachine;
@@ -1072,6 +1079,73 @@ public class RecipePrimer implements PreparedRecipe {
 
     public boolean isParallelizedConfigured() {
         return parallelizedConfigured;
+    }
+
+    @Override
+    public int getMultipleParallelism() {
+        return multipleParallelism;
+    }
+
+    public boolean isMultipleParallelismConfigured() {
+        return multipleParallelismConfigured;
+    }
+
+    /**
+     * 设置此配方的并行倍率（倍乘原并行数）。
+     *
+     * @param multiplier 并行倍率（必须 >= 1）
+     */
+    @ZenMethod
+    public RecipePrimer setMultipleParallelism(int multiplier) {
+        if (multiplier <= 0) {
+            CraftTweakerAPI.logWarning("[ModularMachinery] Recipe multiple parallelism must be at least 1, received: " + multiplier);
+            multiplier = 1;
+        }
+        this.multipleParallelism = multiplier;
+        this.multipleParallelismConfigured = true;
+        return this;
+    }
+
+    @Override
+    public int getMaxParallelismModifier() {
+        return maxParallelismModifier;
+    }
+
+    public boolean isMaxParallelismModifierConfigured() {
+        return maxParallelismModifierConfigured;
+    }
+
+    /**
+     * 对此配方的最大并行数进行加减调整（正数增加，负数减少）。
+     *
+     * @param amount 最大并行调整量
+     */
+    @ZenMethod
+    public RecipePrimer addMaxParallelism(int amount) {
+        this.maxParallelismModifier += amount;
+        this.maxParallelismModifierConfigured = true;
+        return this;
+    }
+
+    @Override
+    public int getRecipeMaxParallelism() {
+        return recipeMaxParallelism;
+    }
+
+    public boolean isRecipeMaxParallelismConfigured() {
+        return recipeMaxParallelismConfigured;
+    }
+
+    /**
+     * 设置此配方允许的最大并行绝对上限。
+     *
+     * @param maxParallelism 最大并行上限（若 <= 0 则视为无限制）
+     */
+    @ZenMethod
+    public RecipePrimer setMaxParallelism(int maxParallelism) {
+        this.recipeMaxParallelism = maxParallelism;
+        this.recipeMaxParallelismConfigured = true;
+        return this;
     }
 
     @Override

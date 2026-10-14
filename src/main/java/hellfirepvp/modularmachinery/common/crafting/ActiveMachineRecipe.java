@@ -45,8 +45,28 @@ public class ActiveMachineRecipe {
     public ActiveMachineRecipe(MachineRecipe recipe, int maxParallelism) {
         this.recipe = recipe;
         this.totalTick = recipe.getRecipeTotalTickTime();
-        this.baseMaxParallelism = maxParallelism;
-        this.maxParallelism = maxParallelism;
+        setMachineMaxParallelism(maxParallelism);
+    }
+
+    public void setMachineMaxParallelism(int machineParallelism) {
+        int effective = calculateEffectiveMaxParallelism(machineParallelism);
+        this.baseMaxParallelism = effective;
+        this.maxParallelism = effective;
+    }
+
+    public int calculateEffectiveMaxParallelism(int machineParallelism) {
+        if (!recipe.isParallelized()) {
+            return 1;
+        }
+        long effective = (long) machineParallelism * Math.max(1, recipe.getMultipleParallelism());
+        effective += recipe.getMaxParallelismModifier();
+        if (effective < 1) {
+            effective = 1;
+        }
+        if (recipe.getRecipeMaxParallelism() > 0 && effective > recipe.getRecipeMaxParallelism()) {
+            effective = recipe.getRecipeMaxParallelism();
+        }
+        return (int) Math.min(Integer.MAX_VALUE, effective);
     }
 
     public ActiveMachineRecipe(NBTTagCompound serialized) {
@@ -153,7 +173,11 @@ public class ActiveMachineRecipe {
             this.maxParallelism = this.baseMaxParallelism;
         } else if (totalTick < 1) {
             int extraParallelism = (int) (1F / totalTick);
-            this.maxParallelism = this.baseMaxParallelism * extraParallelism;
+            long extra = (long) this.baseMaxParallelism * extraParallelism;
+            if (this.recipe.getRecipeMaxParallelism() > 0 && extra > this.recipe.getRecipeMaxParallelism()) {
+                extra = this.recipe.getRecipeMaxParallelism();
+            }
+            this.maxParallelism = (int) Math.min(Integer.MAX_VALUE, extra);
             this.totalTick = 1;
         } else {
             this.totalTick = Math.round(totalTick);
@@ -190,6 +214,10 @@ public class ActiveMachineRecipe {
 
     @ZenSetter("maxParallelism")
     public void setMaxParallelism(int maxParallelism) {
+        setMachineMaxParallelism(maxParallelism);
+    }
+
+    public void setRawMaxParallelism(int maxParallelism) {
         this.baseMaxParallelism = maxParallelism;
         this.maxParallelism = maxParallelism;
     }
