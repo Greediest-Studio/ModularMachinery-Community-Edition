@@ -3,6 +3,7 @@ package hellfirepvp.modularmachinery.common.integration.crafttweaker;
 import crafttweaker.CraftTweakerAPI;
 import crafttweaker.annotations.ZenRegister;
 import crafttweaker.api.item.IIngredient;
+import crafttweaker.api.item.IItemStack;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.RecipeRegistry;
@@ -111,6 +112,41 @@ public class RecipeAdapterBuilder extends RecipePrimer {
     @ZenMethod
     public void build() {
         RecipeRegistry.getRegistry().registerRecipeAdapterEarly(this);
+    }
+
+    @Override
+    @ZenMethod
+    public RecipeAdapterBuilder setLoadJEI(boolean load) {
+        super.setLoadJEI(load);
+        return this;
+    }
+
+    @Override
+    @ZenMethod
+    public RecipeAdapterBuilder setJEICategory(String key) {
+        super.setJEICategory(key);
+        return this;
+    }
+
+    @Override
+    @ZenMethod
+    public RecipeAdapterBuilder setJEICategory(String key, String displayName) {
+        super.setJEICategory(key, displayName);
+        return this;
+    }
+
+    @Override
+    @ZenMethod
+    public RecipeAdapterBuilder setJEICategory(String key, IItemStack icon) {
+        super.setJEICategory(key, icon);
+        return this;
+    }
+
+    @Override
+    @ZenMethod
+    public RecipeAdapterBuilder setJEICategory(String key, String displayName, IItemStack icon) {
+        super.setJEICategory(key, displayName, icon);
+        return this;
     }
 
     //----------------------------------------------------------------------------------------------

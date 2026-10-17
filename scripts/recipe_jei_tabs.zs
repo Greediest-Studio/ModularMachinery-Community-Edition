@@ -81,3 +81,29 @@ RecipeBuilder.newBuilder("circuit_basic", "elysia_forger", 200)
     .addItemOutput(<minecraft:repeater>)
     .build();
 
+// -----------------------------------------------------------------------
+// 6. 为特定配方取消 JEI 显示（setLoadJEI）
+// -----------------------------------------------------------------------
+// 当某些配方为隐藏配方、特殊工艺或不希望在 JEI 中查看到时，可通过 .setLoadJEI(false) 取消显示：
+
+// (1) RecipeBuilder 新建配方时取消 JEI 显示：
+RecipeBuilder.newBuilder("secret_forging", "elysia_forger", 100)
+    .setLoadJEI(false)
+    .addItemInput(<minecraft:dirt>)
+    .addItemOutput(<minecraft:diamond>)
+    .build();
+
+// (2) 配方适配器（RecipeAdapterBuilder）批量取消引入配方的 JEI 显示：
+RecipeAdapterBuilder.create("elysia_forger", "minecraft:furnace")
+    .setLoadJEI(false)
+    .build();
+
+// (3) 配方适配器规则（RecipeAdapterRule）单独取消符合条件的配方的 JEI 显示：
+val customAdapter = RecipeAdapterBuilder.create("elysia_forger", "thermalexpansion:pulverizer");
+customAdapter.forOutput(<minecraft:sand>)
+    .setLoadJEI(false) // 仅将产出为沙子的磨粉配方在 JEI 中取消显示，其余配方正常显示
+    .build();
+customAdapter.build();
+
+
+

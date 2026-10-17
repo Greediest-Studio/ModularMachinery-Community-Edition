@@ -285,6 +285,10 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
         return loadJEI;
     }
 
+    public void setLoadJEI(boolean loadJEI) {
+        this.loadJEI = loadJEI;
+    }
+
     public ResourceLocation getRegistryName() {
         return registryName;
     }
@@ -362,6 +366,9 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
         copy.multipleParallelism = this.multipleParallelism;
         copy.maxParallelismModifier = this.maxParallelismModifier;
         copy.recipeMaxParallelism = this.recipeMaxParallelism;
+        copy.jeiCategoryKey = this.jeiCategoryKey;
+        copy.jeiCategoryName = this.jeiCategoryName;
+        copy.jeiCategoryIcon = this.jeiCategoryIcon;
         return copy;
     }
 
@@ -401,6 +408,17 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
                 for (ComponentRequirement<?, ?> req : parent.recipeRequirements) {
                     rec.recipeRequirements.add(req.deepCopy().postDeepCopy(req));
                 }
+                rec.loadJEI = parent.loadJEI;
+                rec.jeiCategoryKey = parent.jeiCategoryKey;
+                rec.jeiCategoryName = parent.jeiCategoryName;
+                rec.jeiCategoryIcon = parent.jeiCategoryIcon;
+                rec.multipleParallelism = parent.multipleParallelism;
+                rec.maxParallelismModifier = parent.maxParallelismModifier;
+                rec.recipeMaxParallelism = parent.recipeMaxParallelism;
+                rec.threadName = parent.threadName;
+                rec.maxThreads = parent.maxThreads;
+                rec.tooltipList.addAll(parent.tooltipList);
+                parent.recipeEventHandlers.forEach((clazz, handlers) -> rec.recipeEventHandlers.put(clazz, new ArrayList<>(handlers)));
                 out.add(rec);
             }
             return out;
@@ -507,6 +525,13 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
                 JsonElement catElem = root.has("jeiCategory") ? root.get("jeiCategory") : root.get("category");
                 if (catElem.isJsonPrimitive() && catElem.getAsJsonPrimitive().isString()) {
                     recipe.setJEICategoryKey(catElem.getAsString());
+                }
+            }
+
+            if (root.has("loadJEI") || root.has("load-jei")) {
+                JsonElement elem = root.has("loadJEI") ? root.get("loadJEI") : root.get("load-jei");
+                if (elem.isJsonPrimitive() && elem.getAsJsonPrimitive().isBoolean()) {
+                    recipe.setLoadJEI(elem.getAsBoolean());
                 }
             }
 

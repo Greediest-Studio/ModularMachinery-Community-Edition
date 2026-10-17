@@ -3,6 +3,7 @@ package hellfirepvp.modularmachinery.common.integration.crafttweaker;
 import crafttweaker.CraftTweakerAPI;
 import crafttweaker.annotations.ZenRegister;
 import crafttweaker.api.item.IIngredient;
+import crafttweaker.api.item.IItemStack;
 import crafttweaker.api.liquid.ILiquidStack;
 import crafttweaker.api.minecraft.CraftTweakerMC;
 import github.kasuminova.mmce.common.itemtype.ChancedIngredientStack;
@@ -59,6 +60,41 @@ public class RecipeAdapterRule extends RecipePrimer {
         for (IIngredient output : outputs) {
             this.outputs.add(output.amount(1));
         }
+        return this;
+    }
+
+    @Override
+    @ZenMethod
+    public RecipeAdapterRule setLoadJEI(boolean load) {
+        super.setLoadJEI(load);
+        return this;
+    }
+
+    @Override
+    @ZenMethod
+    public RecipeAdapterRule setJEICategory(String key) {
+        super.setJEICategory(key);
+        return this;
+    }
+
+    @Override
+    @ZenMethod
+    public RecipeAdapterRule setJEICategory(String key, String displayName) {
+        super.setJEICategory(key, displayName);
+        return this;
+    }
+
+    @Override
+    @ZenMethod
+    public RecipeAdapterRule setJEICategory(String key, IItemStack icon) {
+        super.setJEICategory(key, icon);
+        return this;
+    }
+
+    @Override
+    @ZenMethod
+    public RecipeAdapterRule setJEICategory(String key, String displayName, IItemStack icon) {
+        super.setJEICategory(key, displayName, icon);
         return this;
     }
 
