@@ -9,6 +9,7 @@ import crafttweaker.api.minecraft.CraftTweakerMC;
 import github.kasuminova.mmce.common.itemtype.ChancedIngredientStack;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementCatalyst;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementFluid;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementFluidPerTick;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementIngredientArray;
@@ -27,6 +28,7 @@ import java.util.List;
 
 /**
  * 配方适配器的条件追加规则。多个输入、输出条件之间均为 AND，追加内容复用 RecipePrimer。
+ * 物品种类数量条件同样与其他条件为 AND 关系。
  */
 @ZenRegister
 @ZenClass("mods.modularmachinery.RecipeAdapterRule")
@@ -35,6 +37,15 @@ public class RecipeAdapterRule extends RecipePrimer {
     private final RecipeAdapterBuilder adapter;
     private final List<IIngredient> inputs = new ArrayList<>();
     private final List<IIngredient> outputs = new ArrayList<>();
+
+    // 物品种数条件，-1 表示未设置；多次设置时取交集。
+    private int minInputItemTypes  = -1;
+    private int maxInputItemTypes  = -1;
+    private int minOutputItemTypes = -1;
+    private int maxOutputItemTypes = -1;
+
+    // 移除规则：命中后该配方不会进入适配器的产出。
+    private boolean removal = false;
 
     RecipeAdapterRule(RecipeAdapterBuilder adapter) {
         super(null, adapter.getAssociatedMachineName(), 0, 0, false);
@@ -61,6 +72,79 @@ public class RecipeAdapterRule extends RecipePrimer {
             this.outputs.add(output.amount(1));
         }
         return this;
+    }
+
+    /**
+     * 选择原有输入中物品需求种类数恰好为 count 的配方。
+     * 每种物品需求（物品、矿辞、物品组）各计为一种；流体、气体和可选催化剂不计入。
+     * 多次调用时条件取交集，可与 forInput/forOutput 链式组合。
+     */
+    @ZenMethod
+    public RecipeAdapterRule forInputItemTypes(int count) {
+        return forInputItemTypes(count, count);
+    }
+
+    /**
+     * 选择原有输入中物品需求种类数在 [min, max] 区间内（含边界）的配方。
+     */
+    @ZenMethod
+    public RecipeAdapterRule forInputItemTypes(int min, int max) {
+        if (!checkItemTypeRange(min, max, "forInputItemTypes")) {
+            return this;
+        }
+        this.minInputItemTypes = Math.max(this.minInputItemTypes, min);
+        this.maxInputItemTypes = this.maxInputItemTypes < 0 ? max : Math.min(this.maxInputItemTypes, max);
+        return this;
+    }
+
+    /**
+     * 选择原有输出中物品需求种类数恰好为 count 的配方。
+     * 每种物品需求（物品、矿辞、物品组）各计为一种；流体、气体和可选催化剂不计入。
+     * 多次调用时条件取交集，可与 forInput/forOutput 链式组合。
+     */
+    @ZenMethod
+    public RecipeAdapterRule forOutputItemTypes(int count) {
+        return forOutputItemTypes(count, count);
+    }
+
+    /**
+     * 选择原有输出中物品需求种类数在 [min, max] 区间内（含边界）的配方。
+     */
+    @ZenMethod
+    public RecipeAdapterRule forOutputItemTypes(int min, int max) {
+        if (!checkItemTypeRange(min, max, "forOutputItemTypes")) {
+            return this;
+        }
+        this.minOutputItemTypes = Math.max(this.minOutputItemTypes, min);
+        this.maxOutputItemTypes = this.maxOutputItemTypes < 0 ? max : Math.min(this.maxOutputItemTypes, max);
+        return this;
+    }
+
+    private static boolean checkItemTypeRange(int min, int max, String methodName) {
+        if (min < 0 || max < 0) {
+            CraftTweakerAPI.logError("[ModularMachinery] " + methodName + " requires non-negative item type counts.");
+            return false;
+        }
+        if (min > max) {
+            CraftTweakerAPI.logError("[ModularMachinery] " + methodName + " requires min <= max.");
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 将当前规则改为移除规则：命中的配方不会注册，也不会出现在 JEI 中。
+     * 必须与筛选条件组合使用，例如 forInputItemTypes(1).remove()；
+     * 移除优先于追加，命中后不会应用全局追加或其他规则。
+     */
+    @ZenMethod
+    public RecipeAdapterRule remove() {
+        this.removal = true;
+        return this;
+    }
+
+    boolean isRemoval() {
+        return removal;
     }
 
     @Override
@@ -101,17 +185,65 @@ public class RecipeAdapterRule extends RecipePrimer {
     @Override
     @ZenMethod
     public void build() {
-        if (inputs.isEmpty() && outputs.isEmpty()) {
-            CraftTweakerAPI.logError("[ModularMachinery] RecipeAdapterRule requires at least one input or output condition.");
+        if (!hasConditions()) {
+            CraftTweakerAPI.logError("[ModularMachinery] RecipeAdapterRule requires at least one input, output or item type count condition"
+                + (removal ? "; remove() must be combined with a filter condition." : "."));
             return;
         }
         adapter.addRecipeRule(this);
     }
 
+    private boolean hasConditions() {
+        // remove() 单独使用会移除适配器的全部配方，因此必须搭配至少一个筛选条件。
+        return !inputs.isEmpty() || !outputs.isEmpty()
+            || minInputItemTypes >= 0 || maxInputItemTypes >= 0
+            || minOutputItemTypes >= 0 || maxOutputItemTypes >= 0;
+    }
+
     boolean matches(MachineRecipe recipe) {
         List<ComponentRequirement<?, ?>> requirements = recipe.getCraftingRequirements();
         return matchesAll(inputs, requirements, IOType.INPUT)
-            && matchesAll(outputs, requirements, IOType.OUTPUT);
+            && matchesAll(outputs, requirements, IOType.OUTPUT)
+            && matchesItemTypeRange(countItemTypes(requirements, IOType.INPUT), minInputItemTypes, maxInputItemTypes)
+            && matchesItemTypeRange(countItemTypes(requirements, IOType.OUTPUT), minOutputItemTypes, maxOutputItemTypes);
+    }
+
+    private static boolean matchesItemTypeRange(int count, int min, int max) {
+        if (min < 0 && max < 0) {
+            return true;
+        }
+        if (min >= 0 && count < min) {
+            return false;
+        }
+        return max < 0 || count <= max;
+    }
+
+    /**
+     * 统计某一方向上物品需求的种类数。
+     * 每个物品、矿辞或物品组需求各计一种，物品组内部的可选材料不重复计数；
+     * 燃料、流体、气体、能量不计入；可选催化剂作为辅助输入不计入。
+     */
+    private static int countItemTypes(List<ComponentRequirement<?, ?>> requirements, IOType ioType) {
+        int count = 0;
+        for (ComponentRequirement<?, ?> requirement : requirements) {
+            if (requirement.getActionType() != ioType) {
+                continue;
+            }
+            // 催化剂是可选辅助输入，不属于配方的常规物品输入。
+            if (requirement instanceof RequirementCatalyst) {
+                continue;
+            }
+            if (requirement instanceof RequirementItem item) {
+                // 燃料需求不指定具体物品，不算作一种物品。
+                if (item.requirementType == RequirementItem.ItemRequirementType.ITEMSTACKS
+                    || item.requirementType == RequirementItem.ItemRequirementType.OREDICT) {
+                    count++;
+                }
+            } else if (requirement instanceof RequirementIngredientArray) {
+                count++;
+            }
+        }
+        return count;
     }
 
     private static boolean matchesAll(List<IIngredient> ingredients,

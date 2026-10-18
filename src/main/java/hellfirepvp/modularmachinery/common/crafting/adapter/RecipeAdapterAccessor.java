@@ -110,11 +110,18 @@ public class RecipeAdapterAccessor {
         if (recipes != null) {
             if (adapterBuilder != null) {
                 // 首次加载和重载共用此入口；追加内容只在原配方匹配完成后合并一次。
+                // 命中 remove() 规则的配方会被直接丢弃，不进入缓存和注册表。
+                // 适配器可能返回不可变集合，因此这里重建列表而不是原地删除。
+                List<MachineRecipe> kept = new ArrayList<>(recipes.size());
                 for (MachineRecipe recipe : recipes) {
-                    adapterBuilder.applyTo(recipe);
+                    if (adapterBuilder.applyTo(recipe)) {
+                        kept.add(recipe);
+                    }
                 }
+                cacheLoaded.addAll(kept);
+            } else {
+                cacheLoaded.addAll(recipes);
             }
-            cacheLoaded.addAll(recipes);
         }
         return cacheLoaded;
     }

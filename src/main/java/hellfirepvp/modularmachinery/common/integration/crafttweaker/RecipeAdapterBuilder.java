@@ -73,14 +73,58 @@ public class RecipeAdapterBuilder extends RecipePrimer {
         return new RecipeAdapterRule(this).forOutput(outputs);
     }
 
+    /**
+     * 选择原有输入中物品需求种类数恰好为 count 的配方，例如只挑出仅有一种物品输入的配方。
+     * 每种物品需求（物品、矿辞、物品组）各计为一种；流体、气体和可选催化剂不计入。
+     * 返回的规则需要调用 build() 保存，最后再调用适配器的 build() 注册。
+     */
+    @ZenMethod
+    public RecipeAdapterRule forInputItemTypes(int count) {
+        return new RecipeAdapterRule(this).forInputItemTypes(count);
+    }
+
+    /**
+     * 选择原有输入中物品需求种类数在 [min, max] 区间内（含边界）的配方。
+     */
+    @ZenMethod
+    public RecipeAdapterRule forInputItemTypes(int min, int max) {
+        return new RecipeAdapterRule(this).forInputItemTypes(min, max);
+    }
+
+    /**
+     * 选择原有输出中物品需求种类数恰好为 count 的配方。
+     * 每种物品需求（物品、矿辞、物品组）各计为一种；流体、气体和可选催化剂不计入。
+     */
+    @ZenMethod
+    public RecipeAdapterRule forOutputItemTypes(int count) {
+        return new RecipeAdapterRule(this).forOutputItemTypes(count);
+    }
+
+    /**
+     * 选择原有输出中物品需求种类数在 [min, max] 区间内（含边界）的配方。
+     */
+    @ZenMethod
+    public RecipeAdapterRule forOutputItemTypes(int min, int max) {
+        return new RecipeAdapterRule(this).forOutputItemTypes(min, max);
+    }
+
     void addRecipeRule(RecipeAdapterRule rule) {
         recipeRules.add(rule);
     }
 
-    public void applyTo(MachineRecipe recipe) {
+    /**
+     * 将适配器及命中的规则应用到配方上。
+     *
+     * @return true 表示保留该配方；false 表示配方命中了 remove() 规则，不应注册。
+     */
+    public boolean applyTo(MachineRecipe recipe) {
         List<RecipeAdapterRule> matchingRules = new ArrayList<>();
         for (RecipeAdapterRule rule : recipeRules) {
             if (rule.matches(recipe)) {
+                if (rule.isRemoval()) {
+                    // 移除优先：命中的配方不再应用全局追加和其他规则。
+                    return false;
+                }
                 matchingRules.add(rule);
             }
         }
@@ -90,6 +134,7 @@ public class RecipeAdapterBuilder extends RecipePrimer {
         for (RecipeAdapterRule rule : matchingRules) {
             recipe.mergePrimer(rule);
         }
+        return true;
     }
 
     public List<RecipeModifier> getModifiers() {
