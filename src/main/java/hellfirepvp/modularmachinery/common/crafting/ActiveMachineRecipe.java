@@ -13,6 +13,7 @@ import crafttweaker.api.data.IData;
 import crafttweaker.api.minecraft.CraftTweakerMC;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftingStatus;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
+import hellfirepvp.modularmachinery.common.data.Config;
 import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.machine.RecipeFailureActions;
@@ -174,15 +175,27 @@ public class ActiveMachineRecipe {
         } else if (totalTick < 1) {
             int extraParallelism = (int) (1F / totalTick);
             long extra = (long) this.baseMaxParallelism * extraParallelism;
-            if (this.recipe.getRecipeMaxParallelism() > 0 && extra > this.recipe.getRecipeMaxParallelism()) {
-                extra = this.recipe.getRecipeMaxParallelism();
-            }
+            extra = Math.min(extra, getExtraParallelismCap());
             this.maxParallelism = (int) Math.min(Integer.MAX_VALUE, extra);
             this.totalTick = 1;
         } else {
             this.totalTick = Math.round(totalTick);
             this.maxParallelism = this.baseMaxParallelism;
         }
+    }
+
+    private long getExtraParallelismCap() {
+        long cap = this.recipe.getRecipeMaxParallelism() > 0
+            ? this.recipe.getRecipeMaxParallelism()
+            : Integer.MAX_VALUE;
+
+        DynamicMachine machine = this.recipe.getOwningMachine();
+        int machineMax = machine != null && machine.getMaxParallelism() > 0
+            ? machine.getMaxParallelism()
+            : Config.maxMachineParallelism;
+        cap = Math.min(cap, machineMax);
+
+        return Math.max(cap, this.baseMaxParallelism);
     }
 
     public void start(RecipeCraftingContext context) {
