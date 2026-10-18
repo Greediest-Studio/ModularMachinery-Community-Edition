@@ -13,6 +13,7 @@ import hellfirepvp.modularmachinery.common.base.Mods;
 import hellfirepvp.modularmachinery.common.crafting.adapter.AdapterMinecraftFurnace;
 import hellfirepvp.modularmachinery.common.crafting.adapter.RecipeAdapter;
 import hellfirepvp.modularmachinery.common.crafting.adapter.dragonresearch.AdapterDragonResearchFusionCrafting;
+import hellfirepvp.modularmachinery.common.crafting.adapter.enderio.AdapterEnderIOAlloySmelter;
 import hellfirepvp.modularmachinery.common.crafting.adapter.ic2.AdapterIC2Compressor;
 import hellfirepvp.modularmachinery.common.crafting.adapter.ic2.AdapterIC2Macerator;
 import hellfirepvp.modularmachinery.common.crafting.adapter.nco.*;
@@ -69,6 +70,9 @@ public class RegistryRecipeAdapters {
         }
         if (Mods.DRAGON_RESEARCH.isPresent()) {
             registerAdapter(new AdapterDragonResearchFusionCrafting());
+        }
+        if (Mods.ENDERIO.isPresent()) {
+            registerAdapter(new AdapterEnderIOAlloySmelter());
         }
     }
 

@@ -205,6 +205,8 @@ dependencies {
     compileOnly(rfg.deobf("curse.maven:flux-networks-248020:3178199"))
     compileOnly(rfg.deobf("curse.maven:tinkers-construct-74072:2902483"))
     compileOnly(rfg.deobf("curse.maven:mantle-74924:2713386"))
+    compileOnly(rfg.deobf("curse.maven:endercore-231868:4671384"))
+    compileOnly(rfg.deobf("curse.maven:ender-io-64578:4674244"))
     implementation(rfg.deobf("curse.maven:tx-loader-706505:4515357"))
     implementation(rfg.deobf("curse.maven:cofh-core-69162:2920433"))
     implementation(rfg.deobf("curse.maven:cofh-world-271384:2920434"))
