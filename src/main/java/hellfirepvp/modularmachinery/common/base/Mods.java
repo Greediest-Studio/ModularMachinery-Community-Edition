@@ -111,6 +111,7 @@ public enum Mods {
     THERMAL_EXPANSION("thermalexpansion"),
     DRAGON_RESEARCH("dragonresearch"),
     ENDERIO("enderio"),
+    ENDERTWEAKER("endertweaker"),
     ;
 
     public final  String  modid;

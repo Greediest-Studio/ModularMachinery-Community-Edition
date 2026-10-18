@@ -7,6 +7,8 @@ import crazypants.enderio.base.recipe.RecipeOutput;
 import crazypants.enderio.base.recipe.alloysmelter.AlloyRecipeManager;
 import github.kasuminova.mmce.common.event.recipe.RecipeEvent;
 import github.kasuminova.mmce.common.itemtype.ChancedIngredientStack;
+import hellfirepvp.modularmachinery.ModularMachinery;
+import hellfirepvp.modularmachinery.common.base.Mods;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.adapter.RecipeAdapter;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
@@ -21,6 +23,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
 
 import javax.annotation.Nonnull;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -29,6 +32,9 @@ import java.util.Map;
 public class AdapterEnderIOAlloySmelter extends RecipeAdapter {
 
     public static final int BASE_ENERGY_PER_TICK = 60;
+
+    // EnderTweaker 挂起的操作只会执行一次，脚本重载时不再重复执行，避免配方重复添加。
+    private static boolean enderTweakerActionsApplied = false;
 
     public AdapterEnderIOAlloySmelter() {
         super(new ResourceLocation("enderio", "alloy_smelter"));
@@ -41,6 +47,8 @@ public class AdapterEnderIOAlloySmelter extends RecipeAdapter {
                                                       List<ComponentRequirement<?, ?>> additionalRequirements,
                                                       Map<Class<?>, List<IEventHandler<RecipeEvent>>> eventHandlers,
                                                       List<String> recipeTooltips) {
+        applyPendingEnderTweakerActions();
+
         List<IManyToOneRecipe> alloyRecipes = AlloyRecipeManager.getInstance().getRecipes();
         List<MachineRecipe> machineRecipes = new ArrayList<>(alloyRecipes.size());
 
@@ -61,6 +69,39 @@ public class AdapterEnderIOAlloySmelter extends RecipeAdapter {
         }
 
         return machineRecipes;
+    }
+
+    /**
+     * EnderTweaker 把 AlloySmelter.addRecipe/removeRecipe 挂起到 FMLLoadCompleteEvent 才执行，
+     * 而适配器在 postInit 就要读取配方，此时这些操作还没生效。
+     * 这里按 EnderTweaker 自身的顺序（先移除、后添加）主动执行一次，否则 EndTweaker 的配方会全部缺失。
+     */
+    private static void applyPendingEnderTweakerActions() {
+        if (enderTweakerActionsApplied || !Mods.ENDERTWEAKER.isPresent()) {
+            return;
+        }
+        enderTweakerActionsApplied = true;
+
+        try {
+            Class<?> tweakerClass = Class.forName("shadows.endertweaker.EnderTweaker");
+            runAndClear(tweakerClass, "REMOVALS");
+            runAndClear(tweakerClass, "ADDITIONS");
+        } catch (Throwable e) {
+            ModularMachinery.log.warn("[ModularMachinery] Failed to apply pending EnderTweaker alloy smelter actions!", e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static void runAndClear(Class<?> tweakerClass, String fieldName) throws ReflectiveOperationException {
+        Field field = tweakerClass.getField(fieldName);
+        List<Runnable> actions = (List<Runnable>) field.get(null);
+        if (actions == null) {
+            return;
+        }
+        for (Runnable action : new ArrayList<>(actions)) {
+            action.run();
+        }
+        actions.clear();
     }
 
     private MachineRecipe convertRecipe(IManyToOneRecipe alloyRecipe,
