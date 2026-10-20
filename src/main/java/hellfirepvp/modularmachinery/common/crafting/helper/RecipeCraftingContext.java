@@ -224,7 +224,7 @@ public class RecipeCraftingContext {
             for (Map.Entry<Long, Collection<ProcessingComponent<?>>> set : this.typeComponents.entrySet()) {
                 final Long groupId = set.getKey();
                 this.groupId = groupId;
-                if (requirement.isRequiredForAllGroups()) {
+                if (requirement.isRequiredForAllGroups() || !requirement.isOptional()) {
                     validComponents.computeIfAbsent(groupId, i -> new ObjectArrayList<>());
                 }
                 for (var typeComponent : set.getValue()) {
@@ -249,7 +249,11 @@ public class RecipeCraftingContext {
             this.groupId = previousGroupId;
         }
 
-        return validComponents.isEmpty() ? emptyComponents : validComponents;
+        if (validComponents.isEmpty()) {
+            return requirement.isOptional() ? Collections.emptyMap() : emptyComponents;
+        }
+
+        return validComponents;
     }
 
     public CraftingCheckResult ioTick(int currentTick) {

@@ -162,7 +162,7 @@ public abstract class ComponentRequirement<T, V extends RequirementType<T, ? ext
      * when that group has no matching component.
      */
     public boolean isRequiredForAllGroups() {
-        return false;
+        return !isOptional();
     }
 
     /**
