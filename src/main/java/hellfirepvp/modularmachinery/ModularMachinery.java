@@ -66,6 +66,8 @@ import org.apache.logging.log4j.Logger;
                 "after:appliedenergistics2@[rv6-stable-7,);" +
                 "after:fluxnetworks@[4.1.0,);" +
                 "after:tconstruct@[1.12.2-2.12.0.157,);" +
+                "after:enderio;" +
+                "after:endertweaker;" +
                 "after:thermalexpansion@[5.5.0,);",
         acceptedMinecraftVersions = "[1.12, 1.13)",
         acceptableRemoteVersions = "[2.1.0, 2.4.0)"

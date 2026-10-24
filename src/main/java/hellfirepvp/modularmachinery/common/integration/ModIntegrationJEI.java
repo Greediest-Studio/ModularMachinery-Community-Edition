@@ -214,6 +214,8 @@ public class ModIntegrationJEI implements IModPlugin {
         jeiHelpers = registry.getJeiHelpers();
         RecipeLayoutHelper.init();
 
+        RecipeRegistry.reloadAdapters();
+
         registry.addRecipeCategories(new CategoryStructurePreview());
 
         RECIPE_CATEGORIES_BY_UID.clear();
