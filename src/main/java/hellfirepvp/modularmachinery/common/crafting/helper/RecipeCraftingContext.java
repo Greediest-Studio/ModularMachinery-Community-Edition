@@ -483,12 +483,19 @@ public class RecipeCraftingContext {
     }
 
     public void setParallelism(int parallelism) {
+        for (ComponentRequirement<?, ?> req : this.requirements) {
+            if (req instanceof ComponentRequirement.Parallelizable p) {
+                p.setParallelism(parallelism);
+            }
+        }
         for (RequirementComponents obj : getCurrentComponents()) {
             if (obj.requirement() instanceof ComponentRequirement.Parallelizable p) {
                 p.setParallelism(parallelism);
             }
         }
-        activeRecipe.setParallelism(parallelism);
+        if (this.activeRecipe != null) {
+            this.activeRecipe.setParallelism(parallelism);
+        }
     }
 
     public CraftingCheckResult canStartCrafting() {
@@ -560,18 +567,29 @@ public class RecipeCraftingContext {
                         ++successfulRequirements;
                     }
                 }
-                final float validity = successfulRequirements / requirements.size();
+                final float validity = requirements.isEmpty() ? 1F : (successfulRequirements / requirements.size());
                 result.setValidity(validity);
 
                 if (!input) {
+                    if (result.isSuccess()) {
+                        success = true;
+                        setGroupIdInternal(key);
+                        if (this.activeRecipe != null) {
+                            this.activeRecipe.setGroupId(key);
+                        }
+                        break;
+                    } else {
+                        fkey = key;
+                        successfulRequirements = 0;
+                    }
+                } else if (result.isSuccess()) {
                     success = true;
-                    break;
-                }
-
-                if (result.isSuccess()) {
-                    success = true;
-                    setGroupId(key);
+                    setGroupIdInternal(key);
                     this.isCrafting = true;
+                    if (this.activeRecipe != null) {
+                        this.activeRecipe.setGroupId(key);
+                        this.activeRecipe.setCrafting(true);
+                    }
                     break;
                 } else {
                     fkey = key;
@@ -587,7 +605,7 @@ public class RecipeCraftingContext {
         }
 
         if (!success) {
-            setGroupId(fkey);
+            setGroupIdInternal(fkey);
             if (input) {
                 clearPermanentModifiers();
                 this.requirements.forEach(ComponentRequirement::reset);
@@ -600,11 +618,16 @@ public class RecipeCraftingContext {
 
     public final RecipeCraftingContext setGroupId(long i) {
         if (!isCrafting) {
-            groupId = i;
-            if (groupKeys[1] == null)
-                groupKeys[1] = new long[]{groupId};
-            else if (groupKeys[1][0] != groupId) groupKeys[1][0] = groupId;
+            setGroupIdInternal(i);
         }
+        return this;
+    }
+
+    public final RecipeCraftingContext setGroupIdInternal(long i) {
+        groupId = i;
+        if (groupKeys[1] == null)
+            groupKeys[1] = new long[]{groupId};
+        else if (groupKeys[1][0] != groupId) groupKeys[1][0] = groupId;
         return this;
     }
 

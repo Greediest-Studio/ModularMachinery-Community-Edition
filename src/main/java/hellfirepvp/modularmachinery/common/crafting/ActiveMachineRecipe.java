@@ -42,6 +42,8 @@ public class ActiveMachineRecipe {
     private       NBTTagCompound data = new NBTTagCompound();
     private       int            tick = 0, totalTick;
     private int baseMaxParallelism, maxParallelism, parallelism = 1;
+    private long groupId = 0L;
+    private boolean crafting = false;
 
     public ActiveMachineRecipe(MachineRecipe recipe, int maxParallelism) {
         this.recipe = recipe;
@@ -89,6 +91,14 @@ public class ActiveMachineRecipe {
         if (serialized.hasKey("parallelism")) {
             parallelism = serialized.getInteger("parallelism");
         }
+        if (serialized.hasKey("groupId")) {
+            groupId = serialized.getLong("groupId");
+        }
+        if (serialized.hasKey("crafting")) {
+            crafting = serialized.getBoolean("crafting");
+        } else {
+            crafting = true;
+        }
     }
 
     public void reset() {
@@ -96,6 +106,8 @@ public class ActiveMachineRecipe {
         this.parallelism = 1;
         this.baseMaxParallelism = 1;
         this.maxParallelism = 1;
+        this.groupId = 0L;
+        this.crafting = false;
         this.data = new NBTTagCompound();
     }
 
@@ -199,6 +211,8 @@ public class ActiveMachineRecipe {
     }
 
     public void start(RecipeCraftingContext context) {
+        this.crafting = true;
+        this.groupId = context.getGroupId();
         context.startCrafting();
         float rawTotalTick = RecipeModifier.applyModifiers(
             context, RequirementTypesMM.REQUIREMENT_DURATION, null, this.recipe.getRecipeTotalTickTime(), false);
@@ -213,6 +227,8 @@ public class ActiveMachineRecipe {
         tag.setInteger("baseMaxParallelism", this.baseMaxParallelism);
         tag.setInteger("maxParallelism", this.maxParallelism);
         tag.setInteger("parallelism", this.parallelism);
+        tag.setLong("groupId", this.groupId);
+        tag.setBoolean("crafting", this.crafting);
 
         if (!data.isEmpty()) {
             tag.setTag("data", data);
@@ -284,5 +300,25 @@ public class ActiveMachineRecipe {
 
     public NBTTagCompound getDataCompound() {
         return data;
+    }
+
+    @ZenGetter("groupId")
+    public long getGroupId() {
+        return groupId;
+    }
+
+    @ZenSetter("groupId")
+    public void setGroupId(long groupId) {
+        this.groupId = groupId;
+    }
+
+    @ZenGetter("isCrafting")
+    public boolean isCrafting() {
+        return crafting;
+    }
+
+    @ZenSetter("isCrafting")
+    public void setCrafting(boolean crafting) {
+        this.crafting = crafting;
     }
 }
