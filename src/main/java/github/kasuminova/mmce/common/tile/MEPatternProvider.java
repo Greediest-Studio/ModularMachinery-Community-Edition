@@ -126,6 +126,7 @@ public class MEPatternProvider extends MEMachineComponent implements ICraftingPr
         }
 
         for (int i = 0; i < PATTERNS; i++) {
+            final int patternSlot = i;
             combinationComponents.add(new MachineComponent<>(IOType.INPUT) {
                 private final InfItemFluidHandler handler = new InfItemFluidHandler(subItemHandler, subFluidHandler);
                 private final long groupId = getUniqueGroupID();
@@ -160,6 +161,12 @@ public class MEPatternProvider extends MEMachineComponent implements ICraftingPr
                 @Override
                 public long getGroupID() {
                     return groupId;
+                }
+
+                @Override
+                public String getPersistentGroupKey() {
+                    // 镜像转发此组件时仍使用实际供应器的位置。
+                    return "me_pattern:" + MEPatternProvider.this.getPos().toLong() + ":" + patternSlot;
                 }
             });
         }

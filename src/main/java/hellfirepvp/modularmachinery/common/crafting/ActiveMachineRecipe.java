@@ -43,6 +43,7 @@ public class ActiveMachineRecipe {
     private       int            tick = 0, totalTick;
     private int baseMaxParallelism, maxParallelism, parallelism = 1;
     private long groupId = 0L;
+    private String persistentGroupKey = "";
     private boolean crafting = false;
 
     public ActiveMachineRecipe(MachineRecipe recipe, int maxParallelism) {
@@ -94,6 +95,7 @@ public class ActiveMachineRecipe {
         if (serialized.hasKey("groupId")) {
             groupId = serialized.getLong("groupId");
         }
+        persistentGroupKey = serialized.getString("persistentGroupKey");
         if (serialized.hasKey("crafting")) {
             crafting = serialized.getBoolean("crafting");
         } else {
@@ -107,6 +109,7 @@ public class ActiveMachineRecipe {
         this.baseMaxParallelism = 1;
         this.maxParallelism = 1;
         this.groupId = 0L;
+        this.persistentGroupKey = "";
         this.crafting = false;
         this.data = new NBTTagCompound();
     }
@@ -213,6 +216,7 @@ public class ActiveMachineRecipe {
     public void start(RecipeCraftingContext context) {
         this.crafting = true;
         this.groupId = context.getGroupId();
+        this.persistentGroupKey = context.getPersistentGroupKey();
         context.startCrafting();
         float rawTotalTick = RecipeModifier.applyModifiers(
             context, RequirementTypesMM.REQUIREMENT_DURATION, null, this.recipe.getRecipeTotalTickTime(), false);
@@ -228,6 +232,9 @@ public class ActiveMachineRecipe {
         tag.setInteger("maxParallelism", this.maxParallelism);
         tag.setInteger("parallelism", this.parallelism);
         tag.setLong("groupId", this.groupId);
+        if (!this.persistentGroupKey.isEmpty()) {
+            tag.setString("persistentGroupKey", this.persistentGroupKey);
+        }
         tag.setBoolean("crafting", this.crafting);
 
         if (!data.isEmpty()) {
@@ -310,6 +317,10 @@ public class ActiveMachineRecipe {
     @ZenSetter("groupId")
     public void setGroupId(long groupId) {
         this.groupId = groupId;
+    }
+
+    public String getPersistentGroupKey() {
+        return persistentGroupKey;
     }
 
     @ZenGetter("isCrafting")

@@ -74,6 +74,7 @@ public class RecipeCraftingContext {
     private final Map<Long, List<RequirementComponents>> requirementComponents = new ConcurrentHashMap<>();
     private MachineRecipe requirementsRecipe;
     private boolean isCrafting = false;
+    private boolean craftingGroupAvailable = true;
     private long groupId = 0;
     private final long[][] groupKeys = new long[2][];
 
@@ -131,6 +132,7 @@ public class RecipeCraftingContext {
             requirement.reset();
         });
         this.isCrafting = false;
+        this.craftingGroupAvailable = true;
 
         this.currentIOTickIndex = 0;
         return this;
@@ -257,6 +259,9 @@ public class RecipeCraftingContext {
     }
 
     public CraftingCheckResult ioTick(int currentTick) {
+        if (!craftingGroupAvailable) {
+            return missingCraftingGroup();
+        }
         ResultChance chance = new ResultChance(RAND.nextLong());
         CraftingCheckResult checkResult = new CraftingCheckResult();
         float durMultiplier = this.getDurationMultiplier();
@@ -483,13 +488,9 @@ public class RecipeCraftingContext {
     }
 
     public void setParallelism(int parallelism) {
+        // 各分组的 RequirementComponents 引用的都是此列表中的需求对象。
         for (ComponentRequirement<?, ?> req : this.requirements) {
             if (req instanceof ComponentRequirement.Parallelizable p) {
-                p.setParallelism(parallelism);
-            }
-        }
-        for (RequirementComponents obj : getCurrentComponents()) {
-            if (obj.requirement() instanceof ComponentRequirement.Parallelizable p) {
                 p.setParallelism(parallelism);
             }
         }
@@ -533,7 +534,16 @@ public class RecipeCraftingContext {
     }
 
     public CraftingCheckResult canFinishCrafting() {
+        if (!craftingGroupAvailable) {
+            return missingCraftingGroup();
+        }
         return this.canStartCrafting(false);
+    }
+
+    private CraftingCheckResult missingCraftingGroup() {
+        CraftingCheckResult result = new CraftingCheckResult();
+        result.addError("error.modularmachinery.component.invalid");
+        return result;
     }
 
     private CraftingCheckResult canStartCrafting(boolean input) {
@@ -633,6 +643,48 @@ public class RecipeCraftingContext {
 
     public long getGroupId() {
         return groupId;
+    }
+
+    public String getPersistentGroupKey() {
+        for (ProcessingComponent<?> component : typeComponents.getOrDefault(groupId, Collections.emptyList())) {
+            String key = component.component().getPersistentGroupKey();
+            if (!key.isEmpty()) {
+                return key;
+            }
+        }
+        return "";
+    }
+
+    public void restoreCraftingState() {
+        long restoredGroupId = activeRecipe.getGroupId();
+        String key = activeRecipe.getPersistentGroupKey();
+        if (!key.isEmpty()) {
+            restoredGroupId = findPersistentGroup(key);
+            craftingGroupAvailable = restoredGroupId >= 0;
+            if (!craftingGroupAvailable) {
+                // 原供应器暂不可用时等待组件刷新，不能借用其他分组继续加工。
+                this.isCrafting = true;
+                return;
+            }
+            activeRecipe.setGroupId(restoredGroupId);
+        }
+        setGroupIdInternal(restoredGroupId);
+        this.isCrafting = true;
+        setParallelism(activeRecipe.getParallelism());
+    }
+
+    private long findPersistentGroup(String key) {
+        for (Map.Entry<Long, Collection<ProcessingComponent<?>>> entry : typeComponents.entrySet()) {
+            if (!requirementComponents.containsKey(entry.getKey())) {
+                continue;
+            }
+            for (ProcessingComponent<?> component : entry.getValue()) {
+                if (key.equals(component.component().getPersistentGroupKey())) {
+                    return entry.getKey();
+                }
+            }
+        }
+        return -1;
     }
 
     private boolean canStartCrafting(final CraftingCheckResult result,
@@ -739,6 +791,10 @@ public class RecipeCraftingContext {
         Arrays.sort(groupKeys[0]);
         if (groupKeys[1] == null) groupKeys[1] = new long[]{groupId};
         else if (groupKeys[1][0] != groupId) groupKeys[1][0] = groupId;
+
+        if (activeRecipe.isCrafting() && !activeRecipe.getPersistentGroupKey().isEmpty()) {
+            restoreCraftingState();
+        }
     }
 
     private static final class ComponentMatchCacheKey {

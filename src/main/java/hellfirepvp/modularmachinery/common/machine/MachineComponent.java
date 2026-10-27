@@ -45,6 +45,13 @@ public abstract class MachineComponent<T> {
         return -1;
     }
 
+    /**
+     * 同一世界内可跨读档定位的分组标识；固定编号的分组无需提供。
+     */
+    public String getPersistentGroupKey() {
+        return "";
+    }
+
     public abstract static class ItemBus extends MachineComponent<IItemHandlerModifiable> {
 
         public ItemBus(IOType ioType) {

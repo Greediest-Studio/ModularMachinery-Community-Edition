@@ -69,9 +69,7 @@ public abstract class RecipeThread {
         if (context == null) {
             setContext(createContext(activeRecipe));
         } else if (activeRecipe.isCrafting()) {
-            context.setGroupIdInternal(activeRecipe.getGroupId());
-            context.setCrafting(true);
-            context.setParallelism(activeRecipe.getParallelism());
+            context.restoreCraftingState();
         }
 
         RecipeCraftingContext.CraftingCheckResult checkResult = context.canFinishCrafting();
@@ -104,9 +102,7 @@ public abstract class RecipeThread {
         context.addModifier(semiPermanentModifiers.values());
         context.addModifier(permanentModifiers.values());
         if (activeRecipe != null && activeRecipe.isCrafting()) {
-            context.setGroupIdInternal(activeRecipe.getGroupId());
-            context.setCrafting(true);
-            context.setParallelism(activeRecipe.getParallelism());
+            context.restoreCraftingState();
         }
         return context;
     }
