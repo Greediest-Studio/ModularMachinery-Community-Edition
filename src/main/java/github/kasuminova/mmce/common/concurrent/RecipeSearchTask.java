@@ -3,6 +3,7 @@ package github.kasuminova.mmce.common.concurrent;
 import github.kasuminova.mmce.common.util.concurrent.TimeRecordingTask;
 import hellfirepvp.modularmachinery.common.crafting.ActiveMachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
+import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftingStatus;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
@@ -16,6 +17,7 @@ public class RecipeSearchTask extends TimeRecordingTask<RecipeCraftingContext> {
     protected final Iterable<MachineRecipe>         recipeList;
     private final   RecipeThread                    thread;
     private final long controllerModeVersion;
+    private String controllerModeFailure;
     protected       CraftingStatus                  status = CraftingStatus.IDLE;
 
     public RecipeSearchTask(TileMultiblockMachineController controller, DynamicMachine currentMachine, int maxParallelism, Iterable<MachineRecipe> recipeList, final RecipeThread thread) {
@@ -39,6 +41,10 @@ public class RecipeSearchTask extends TimeRecordingTask<RecipeCraftingContext> {
         float validity = 0F;
 
         for (MachineRecipe recipe : recipeList) {
+            if (!canCheck(recipe)) {
+                continue;
+            }
+
             ActiveMachineRecipe activeRecipe = new ActiveMachineRecipe(recipe, maxParallelism);
             RecipeCraftingContext context = thread != null ? thread.createContext(activeRecipe) : controller.createContext(activeRecipe);
             RecipeCraftingContext.CraftingCheckResult result = controller.onCheck(context);
@@ -64,12 +70,26 @@ public class RecipeSearchTask extends TimeRecordingTask<RecipeCraftingContext> {
         if (highestValidity != null) {
             status = CraftingStatus.failure(
                 highestValidityResult.getFirstErrorMessage(""));
+        } else if (controllerModeFailure != null) {
+            status = CraftingStatus.failure(controllerModeFailure);
         } else {
             status = CraftingStatus.failure(
                 TileMultiblockMachineController.Type.NO_RECIPE.getUnlocalizedDescription());
         }
 
         return null;
+    }
+
+    protected boolean canCheck(MachineRecipe recipe) {
+        CraftCheck result = recipe.checkControllerModes(controller);
+        if (result.isSuccess()) {
+            return true;
+        }
+        // 仅在没有当前模式的候选配方时，才用模式错误作为最终提示。
+        if (controllerModeFailure == null) {
+            controllerModeFailure = result.getUnlocalizedMessage();
+        }
+        return false;
     }
 
     public CraftingStatus getStatus() {

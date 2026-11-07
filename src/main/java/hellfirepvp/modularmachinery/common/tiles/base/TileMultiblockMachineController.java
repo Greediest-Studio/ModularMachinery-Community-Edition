@@ -42,6 +42,7 @@ import hellfirepvp.modularmachinery.common.block.BlockStatedMachineComponent;
 import hellfirepvp.modularmachinery.common.block.prop.WorkingState;
 import hellfirepvp.modularmachinery.common.crafting.ActiveMachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentSelectorTag;
+import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftingStatus;
 import hellfirepvp.modularmachinery.common.crafting.helper.ProcessingComponent;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
@@ -1253,6 +1254,14 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
     @Nullable
     public RecipeCraftingContext.CraftingCheckResult checkPreStartResult(final RecipeCraftingContext context) {
+        // 重启缓存配方时同样先检查模式，不能绕过搜索阶段的筛选。
+        CraftCheck modeCheck = context.getParentRecipe().checkControllerModes(this);
+        if (!modeCheck.isSuccess()) {
+            RecipeCraftingContext.CraftingCheckResult failure = new RecipeCraftingContext.CraftingCheckResult();
+            failure.addError(modeCheck.getUnlocalizedMessage());
+            return failure;
+        }
+
         RecipeCheckEvent event = new RecipeCheckEvent(this, context, Phase.START);
         event.postEvent();
 

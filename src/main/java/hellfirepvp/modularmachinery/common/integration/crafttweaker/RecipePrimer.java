@@ -36,6 +36,7 @@ import hellfirepvp.modularmachinery.common.crafting.RecipeRegistry;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentSelectorTag;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
+import hellfirepvp.modularmachinery.common.crafting.helper.RecipeModeRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.RequirementComponents;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementCatalyst;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementEnergy;
@@ -55,7 +56,6 @@ import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.machine.MachineRegistry;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
-import hellfirepvp.modularmachinery.common.util.ControllerMode;
 import hellfirepvp.modularmachinery.common.util.ResultChance;
 import hellfirepvp.modularmachinery.common.util.SmartInterfaceType;
 import mekanism.api.gas.Gas;
@@ -96,6 +96,7 @@ public class RecipePrimer implements PreparedRecipe {
     private final List<String>                                    toolTipList          = new ArrayList<>();
     private final Map<Class<?>, List<IEventHandler<RecipeEvent>>> recipeEventHandlers  = new HashMap<>();
     private final List<DynamicOutputAdder>                        dynamicOutputAdders  = new ArrayList<>();
+    private final List<RecipeModeRequirement>                     modeRequirements     = new ArrayList<>();
 
     private boolean                    parallelized  = Config.recipeParallelizeEnabledByDefault;
     private boolean                    loadJEI       = true;
@@ -339,22 +340,8 @@ public class RecipePrimer implements PreparedRecipe {
     /** 声明配方所需的控制器模式；多次调用时全部满足才可开工，不改变控制器的选择。 */
     @ZenMethod
     public RecipePrimer addModeSelect(String name, int value) {
-        return addPreCheckHandler(event -> {
-            TileMultiblockMachineController controller = event.getController();
-            DynamicMachine machine = controller.getFoundMachine();
-            if (machine == null || !controller.isStructureFormed()) {
-                event.setFailed("gui.controller.status.missing_structure");
-                return;
-            }
-            ControllerMode mode = machine.getControllerMode(name);
-            if (mode == null || !mode.getModes().containsKey(value)) {
-                event.setFailed("craftcheck.failure.controller.mode.undefined");
-                return;
-            }
-            if (controller.getControllerMode(name) != value) {
-                event.setFailed("craftcheck.failure.controller.mode.mismatch");
-            }
-        });
+        modeRequirements.add(new RecipeModeRequirement(name, value));
+        return this;
     }
 
     @ZenMethod
@@ -1053,6 +1040,11 @@ public class RecipePrimer implements PreparedRecipe {
     @Override
     public List<ComponentRequirement<?, ?>> getComponents() {
         return components;
+    }
+
+    @Override
+    public List<RecipeModeRequirement> getModeRequirements() {
+        return modeRequirements;
     }
 
     @Override

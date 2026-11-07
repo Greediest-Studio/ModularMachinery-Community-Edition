@@ -23,6 +23,8 @@ import hellfirepvp.modularmachinery.common.crafting.command.RecipeCommandContain
 import hellfirepvp.modularmachinery.common.crafting.command.RecipeRunnableCommand;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentSelectorTag;
+import hellfirepvp.modularmachinery.common.crafting.helper.CraftCheck;
+import hellfirepvp.modularmachinery.common.crafting.helper.RecipeModeRequirement;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementEnergy;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementType;
 import hellfirepvp.modularmachinery.common.data.Config;
@@ -34,6 +36,7 @@ import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.machine.IOType;
 import hellfirepvp.modularmachinery.common.machine.MachineRegistry;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
+import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.ResourceLocation;
@@ -73,6 +76,7 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
     protected final boolean                                         voidPerTickFailure;
     protected final Map<Class<?>, List<IEventHandler<RecipeEvent>>> recipeEventHandlers;
     protected final List<String>                                    tooltipList;
+    protected final List<RecipeModeRequirement>                     modeRequirements = new ArrayList<>();
 
     protected boolean parallelized;
     protected int     multipleParallelism    = 1;
@@ -137,6 +141,7 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
         this.maxParallelismModifier = preparedRecipe.getMaxParallelismModifier();
         this.recipeMaxParallelism = preparedRecipe.getRecipeMaxParallelism();
         this.recipeEventHandlers = preparedRecipe.getRecipeEventHandlers();
+        this.modeRequirements.addAll(preparedRecipe.getModeRequirements());
         this.tooltipList = preparedRecipe.getTooltipList();
         this.threadName = preparedRecipe.getThreadName();
         this.maxThreads = preparedRecipe.getMaxThreads();
@@ -194,6 +199,17 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
             addRequirement(requirement.deepCopy().postDeepCopy(requirement));
         }
         primer.getRecipeEventHandlers().forEach((clazz, actions) -> actions.forEach(action -> addRecipeEventHandler(clazz, action)));
+        this.modeRequirements.addAll(primer.getModeRequirements());
+    }
+
+    public CraftCheck checkControllerModes(TileMultiblockMachineController controller) {
+        for (RecipeModeRequirement requirement : modeRequirements) {
+            CraftCheck result = requirement.check(controller);
+            if (!result.isSuccess()) {
+                return result;
+            }
+        }
+        return CraftCheck.success();
     }
 
     public String getJEICategoryKey() {
@@ -369,6 +385,7 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
         copy.jeiCategoryKey = this.jeiCategoryKey;
         copy.jeiCategoryName = this.jeiCategoryName;
         copy.jeiCategoryIcon = this.jeiCategoryIcon;
+        copy.modeRequirements.addAll(this.modeRequirements);
         return copy;
     }
 
@@ -418,6 +435,7 @@ public class MachineRecipe implements Comparable<MachineRecipe> {
                 rec.threadName = parent.threadName;
                 rec.maxThreads = parent.maxThreads;
                 rec.tooltipList.addAll(parent.tooltipList);
+                rec.modeRequirements.addAll(parent.modeRequirements);
                 parent.recipeEventHandlers.forEach((clazz, handlers) -> rec.recipeEventHandlers.put(clazz, new ArrayList<>(handlers)));
                 out.add(rec);
             }

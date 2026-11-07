@@ -11,8 +11,10 @@ package hellfirepvp.modularmachinery.common.crafting;
 import crafttweaker.util.IEventHandler;
 import github.kasuminova.mmce.common.event.recipe.RecipeEvent;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
+import hellfirepvp.modularmachinery.common.crafting.helper.RecipeModeRequirement;
 import net.minecraft.util.ResourceLocation;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -42,6 +44,10 @@ public interface PreparedRecipe {
     }
 
     List<ComponentRequirement<?, ?>> getComponents();
+
+    default List<RecipeModeRequirement> getModeRequirements() {
+        return Collections.emptyList();
+    }
 
     Map<Class<?>, List<IEventHandler<RecipeEvent>>> getRecipeEventHandlers();
 
