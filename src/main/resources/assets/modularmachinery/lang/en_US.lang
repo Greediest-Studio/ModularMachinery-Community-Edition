@@ -142,6 +142,7 @@ gui.preview.vbo_unsupported_warn=§4VBO is not supported on GPU! Performance wil
 gui.preview.vbo_disabled_warn=§4VBO is not enabled！Performance will drop dramatically.
 
 top.recipe.progress=Progress
+top.recipe.outputs=Producing:
 top.machine.owner=Owner:
 top.machine.owner.self=You
 top.machine.owner.unknown=Unknown

@@ -142,6 +142,7 @@ gui.preview.vbo_unsupported_warn=§4显卡不兼容顶点缓冲器！预览性�
 gui.preview.vbo_disabled_warn=§4顶点缓冲器未启用！预览性能将大幅下降。
 
 top.recipe.progress=进度
+top.recipe.outputs=正在产出：
 top.machine.owner=所有者：
 top.machine.owner.self=你
 top.machine.owner.unknown=未知

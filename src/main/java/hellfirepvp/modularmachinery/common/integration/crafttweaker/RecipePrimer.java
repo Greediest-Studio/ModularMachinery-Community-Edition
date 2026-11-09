@@ -200,25 +200,50 @@ public class RecipePrimer implements PreparedRecipe {
 
     @ZenMethod
     public RecipePrimer addDynamicOutput(DynamicOutputAdder outputAdder) {
+        int index = this.dynamicOutputAdders.size();
         this.dynamicOutputAdders.add(outputAdder);
 
+        addStartHandler(event -> prepareDynamicOutput(event.getController(), event.getContext(), outputAdder, index));
+        addFactoryStartHandler(event -> prepareDynamicOutput(event.getController(), event.getContext(), outputAdder, index));
+
         addFinishHandler(event -> {
-            handleDynamicOutput(event.getController(), event.getContext(), outputAdder);
+            handleDynamicOutput(event.getController(), event.getContext(), outputAdder, index);
         });
 
         addFactoryFinishHandler(event -> {
-            handleDynamicOutput(event.getController(), event.getContext(), outputAdder);
+            handleDynamicOutput(event.getController(), event.getContext(), outputAdder, index);
         });
 
         return this;
     }
 
+    private List<ItemStack> prepareDynamicOutput(TileMultiblockMachineController controller,
+                                                RecipeCraftingContext context,
+                                                DynamicOutputAdder outputAdder, int index) {
+        return context.getActiveRecipe().getOrCreateDynamicOutputs(index, () -> {
+            List<ItemStack> outputs = new ArrayList<>();
+            IItemStack[] additionalOutputs = outputAdder.getAdditionalOutputs(controller);
+            if (additionalOutputs != null) {
+                for (IItemStack output : additionalOutputs) {
+                    if (output == null) {
+                        continue;
+                    }
+                    ItemStack stack = CraftTweakerMC.getItemStack(output);
+                    if (!stack.isEmpty()) {
+                        outputs.add(stack.copy());
+                    }
+                }
+            }
+            return outputs;
+        });
+    }
+
     private void handleDynamicOutput(TileMultiblockMachineController controller,
                                      RecipeCraftingContext context,
-                                     DynamicOutputAdder outputAdder) {
-        IItemStack[] additionalOutputs = outputAdder.getAdditionalOutputs(controller);
+                                     DynamicOutputAdder outputAdder, int index) {
+        List<ItemStack> additionalOutputs = prepareDynamicOutput(controller, context, outputAdder, index);
 
-        if (additionalOutputs == null || additionalOutputs.length == 0) {
+        if (additionalOutputs.isEmpty()) {
             return;
         }
 
@@ -235,15 +260,10 @@ public class RecipePrimer implements PreparedRecipe {
             return;
         }
 
-        for (IItemStack output : additionalOutputs) {
-            if (output != null) {
-                ItemStack itemStack = CraftTweakerMC.getItemStack(output);
-                if (!itemStack.isEmpty()) {
-                    RequirementItem tempReq = new RequirementItem(IOType.OUTPUT, itemStack);
-                    tempReq.setIgnoreOutputCheck(true);
-                    tempReq.finishCrafting(itemOutputComp.components(), context, ResultChance.GUARANTEED);
-                }
-            }
+        for (ItemStack output : additionalOutputs) {
+            RequirementItem tempReq = new RequirementItem(IOType.OUTPUT, output);
+            tempReq.setIgnoreOutputCheck(true);
+            tempReq.finishCrafting(itemOutputComp.components(), context, ResultChance.GUARANTEED);
         }
     }
 

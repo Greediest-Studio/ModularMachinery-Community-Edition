@@ -14,6 +14,7 @@ import github.kasuminova.mmce.common.event.recipe.ResultChanceCreateEvent;
 import hellfirepvp.modularmachinery.common.crafting.ActiveMachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.MachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.command.ControllerCommandSender;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementItem;
 import hellfirepvp.modularmachinery.common.crafting.requirement.type.RequirementType;
 import hellfirepvp.modularmachinery.common.data.Config;
 import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
@@ -373,6 +374,10 @@ public class RecipeCraftingContext {
         startCrafting(RAND.nextLong());
     }
 
+    public int getRequirementIndex(final ComponentRequirement<?, ?> requirement) {
+        return requirements.indexOf(requirement);
+    }
+
     public void startCrafting(long seed) {
         ResultChance chance = new ResultChance(seed);
 
@@ -383,6 +388,12 @@ public class RecipeCraftingContext {
         }
 
         this.getParentRecipe().getCommandContainer().runStartCommands(getCommandSender());
+        for (RequirementComponents reqComponents : getCurrentComponents()) {
+            if (reqComponents.requirement() instanceof RequirementItem item && item.getActionType() == IOType.OUTPUT
+                && !item.itemModifierList.isEmpty()) {
+                item.getOutputStack(this);
+            }
+        }
     }
 
     private void startCrafting(final ResultChance chance, final RequirementComponents reqComponents) {

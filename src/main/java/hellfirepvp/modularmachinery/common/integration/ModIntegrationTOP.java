@@ -1,6 +1,7 @@
 package hellfirepvp.modularmachinery.common.integration;
 
 import github.kasuminova.mmce.common.integration.theoneprobe.MachineryHatchInfoProvider;
+import hellfirepvp.modularmachinery.common.integration.theoneprobe.ElementOutputIcon;
 import hellfirepvp.modularmachinery.common.integration.theoneprobe.MMInfoProvider;
 import mcjty.theoneprobe.TheOneProbe;
 import mcjty.theoneprobe.apiimpl.TheOneProbeImp;
@@ -20,6 +21,7 @@ public class ModIntegrationTOP {
     public static void registerProviders() {
         TheOneProbeImp top = TheOneProbe.theOneProbeImp;
 
+        ElementOutputIcon.ID = top.registerElementFactory(ElementOutputIcon::new);
         top.registerProvider(new MMInfoProvider());
         top.registerProvider(new MachineryHatchInfoProvider());
     }

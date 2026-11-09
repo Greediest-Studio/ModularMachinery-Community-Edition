@@ -1,5 +1,6 @@
 package hellfirepvp.modularmachinery.common.integration.theoneprobe;
 
+import com.github.bsideup.jabel.Desugar;
 import com.mojang.authlib.GameProfile;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.client.util.EnergyDisplayUtil;
@@ -7,7 +8,13 @@ import hellfirepvp.modularmachinery.common.crafting.ActiveMachineRecipe;
 import hellfirepvp.modularmachinery.common.crafting.helper.ComponentRequirement;
 import hellfirepvp.modularmachinery.common.crafting.helper.CraftingStatus;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
+import hellfirepvp.modularmachinery.common.crafting.helper.RequirementComponents;
 import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementEnergy;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementFluid;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementFluidPerTick;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementGas;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementGasPerTick;
+import hellfirepvp.modularmachinery.common.crafting.requirement.RequirementItem;
 import hellfirepvp.modularmachinery.common.integration.ModIntegrationTOP;
 import hellfirepvp.modularmachinery.common.lib.RequirementTypesMM;
 import hellfirepvp.modularmachinery.common.machine.IOType;
@@ -20,6 +27,7 @@ import hellfirepvp.modularmachinery.common.tiles.TileParallelController;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import hellfirepvp.modularmachinery.common.util.MiscUtils;
 import io.netty.util.internal.ThrowableUtil;
+import mekanism.api.gas.GasStack;
 import mcjty.theoneprobe.api.ElementAlignment;
 import mcjty.theoneprobe.api.IProbeHitData;
 import mcjty.theoneprobe.api.IProbeInfo;
@@ -28,17 +36,23 @@ import mcjty.theoneprobe.api.NumberFormat;
 import mcjty.theoneprobe.api.ProbeMode;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
+import net.minecraftforge.fluids.FluidStack;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Consumer;
 
 public class MMInfoProvider implements IProbeInfoProvider {
     private static void processParallelControllerTOP(TileParallelController parallelController, IProbeInfo probeInfo) {
@@ -85,9 +99,8 @@ public class MMInfoProvider implements IProbeInfoProvider {
         if (machine instanceof TileFactoryController) {
             processFactoryControllerTOP((TileFactoryController) machine, probeInfo, player);
         }
-
         IProbeInfo perfBox = newVertical(probeInfo);
-        perfBox.text(String.format("%sCPU Avg Usage: %sμs%s, Recipe Search: %sms",
+        perfBox.text(String.format("%sCPU Usage: %sμs%s, Recipe Search: %sms",
             TextFormatting.AQUA, formatCPUUsage(machine.getTimeRecorder().usedTimeAvg()),
             TextFormatting.AQUA, formatRecipeSearchUsage(machine.getTimeRecorder().recipeSearchUsedTimeAvg())));
         TileMultiblockMachineController.WorkMode workMode = machine.getWorkMode();
@@ -97,6 +110,7 @@ public class MMInfoProvider implements IProbeInfoProvider {
         } else {
             perfBox.text(String.format("%sWorkMode: %s", TextFormatting.AQUA, workMode.getDisplayName()));
         }
+        addRecipeOutputs(machine, probeInfo);
     }
 
     // TODO: Really long...
@@ -304,6 +318,142 @@ public class MMInfoProvider implements IProbeInfoProvider {
                                                             .backgroundColor(ModIntegrationTOP.recipeProgressBarBackgroundColor)
                                                             .numberFormat(NumberFormat.NONE)
         );
+    }
+
+    private static void addRecipeOutputs(final TileMultiblockMachineController machine, final IProbeInfo probeInfo) {
+        if (!machine.isWorking()) {
+            return;
+        }
+        Map<OutputKey, RecipeOutput> outputs = new LinkedHashMap<>();
+        for (RecipeThread thread : machine.getRecipeThreadList()) {
+            collectRecipeOutputs(thread, outputs);
+        }
+        if (outputs.isEmpty()) {
+            return;
+        }
+
+        // 产出行保持独立，让 TOP 按屏幕高度自动分列。
+        probeInfo.text(TextFormatting.AQUA + "{*top.recipe.outputs*}");
+        for (RecipeOutput output : outputs.values()) {
+            IProbeInfo line = probeInfo.horizontal(probeInfo.defaultLayoutStyle()
+                                                          .alignment(ElementAlignment.ALIGN_CENTER)
+                                                          .borderColor(null));
+            output.label.accept(line);
+            String amount = output.minAmount == output.maxAmount ? MiscUtils.formatNumber(output.maxAmount)
+                : MiscUtils.formatNumber(output.minAmount) + "–" + MiscUtils.formatNumber(output.maxAmount);
+            line.text(" ×" + amount + output.unit);
+        }
+    }
+
+    private static void collectRecipeOutputs(final RecipeThread thread, final Map<OutputKey, RecipeOutput> outputs) {
+        RecipeCraftingContext context = thread.getContext();
+        if (context == null || thread.getActiveRecipe() == null || !thread.getStatus().isCrafting()) {
+            return;
+        }
+
+        List<RequirementComponents> components = context.getCurrentComponents();
+        if (components == null) {
+            return;
+        }
+
+        for (RequirementComponents component : components) {
+            ComponentRequirement<?, ?> requirement = component.requirement();
+            if (requirement.getActionType() != IOType.OUTPUT) {
+                continue;
+            }
+            if (requirement instanceof RequirementItem item) {
+                collectItemOutput(outputs, context, item);
+            } else if (requirement instanceof RequirementFluid fluid) {
+                collectFluidOutput(outputs, fluid.required, getOutputAmount(context, fluid, fluid.required.amount), false);
+            } else if (requirement instanceof RequirementFluidPerTick fluid) {
+                collectFluidOutput(outputs, fluid.required, getOutputAmount(context, fluid, fluid.required.amount), true);
+            } else if (requirement instanceof RequirementGas gas) {
+                collectGasOutput(outputs, gas.required, getOutputAmount(context, gas, gas.required.amount), false);
+            } else if (requirement instanceof RequirementGasPerTick gas) {
+                collectGasOutput(outputs, gas.required, getOutputAmount(context, gas, gas.required.amount), true);
+            }
+        }
+        for (ItemStack stack : context.getActiveRecipe().getDynamicOutputs()) {
+            long amount = Math.round(RecipeModifier.applyModifiers(context, RequirementTypesMM.REQUIREMENT_ITEM,
+                IOType.OUTPUT, (float) stack.getCount(), false));
+            collectItemStackOutput(outputs, stack, amount, amount);
+        }
+    }
+
+    private static void collectItemOutput(final Map<OutputKey, RecipeOutput> outputs, final RecipeCraftingContext context, final RequirementItem item) {
+        long minAmount = (long) Math.round(RecipeModifier.applyModifiers(context, item, (float) item.minAmount, false)) * item.getParallelism();
+        long maxAmount = (long) Math.round(RecipeModifier.applyModifiers(context, item, (float) item.maxAmount, false)) * item.getParallelism();
+        if (maxAmount <= 0) {
+            return;
+        }
+
+        ItemStack stack = item.getOutputStack(context);
+        if (stack.isEmpty()) {
+            return;
+        }
+        minAmount *= stack.getCount();
+        maxAmount *= stack.getCount();
+        collectItemStackOutput(outputs, stack, minAmount, maxAmount);
+    }
+
+    private static void collectItemStackOutput(final Map<OutputKey, RecipeOutput> outputs, final ItemStack output,
+                                               final long minAmount, final long maxAmount) {
+        ItemStack stack = output.copy();
+        stack.setCount(1);
+        mergeOutput(outputs, new OutputKey(stack.getItem(), stack.getMetadata(), stack.getTagCompound(), false),
+            minAmount, maxAmount, "", line -> line.item(stack).itemLabel(stack));
+    }
+
+    private static long getOutputAmount(final RecipeCraftingContext context, final ComponentRequirement<?, ?> requirement, final int amount) {
+        double modified = RecipeModifier.applyModifiers(context,
+            requirement instanceof RequirementFluidPerTick ? RequirementTypesMM.REQUIREMENT_FLUID : requirement.getRequirementType(),
+            IOType.OUTPUT, (double) amount, false);
+        return Math.round(modified) * ((ComponentRequirement.Parallelizable) requirement).getParallelism();
+    }
+
+    private static void collectFluidOutput(final Map<OutputKey, RecipeOutput> outputs, final FluidStack fluid, final long amount, final boolean perTick) {
+        FluidStack stack = fluid.copy();
+        mergeOutput(outputs, new OutputKey(stack.getFluid(), 0, stack.tag, perTick), amount, amount, perTick ? " mB/t" : " mB",
+            line -> line.element(new ElementOutputIcon(stack.getFluid().getStill(stack), stack.getFluid().getColor(stack)))
+                        .text("{*" + stack.getUnlocalizedName() + "*}"));
+    }
+
+    private static void collectGasOutput(final Map<OutputKey, RecipeOutput> outputs, final GasStack gas, final long amount, final boolean perTick) {
+        mergeOutput(outputs, new OutputKey(gas.getGas(), 0, null, perTick), amount, amount, perTick ? " mB/t" : " mB",
+            line -> line.element(new ElementOutputIcon(gas.getGas().getIcon(), gas.getGas().getTint()))
+                        .text("{*" + gas.getGas().getTranslationKey() + "*}"));
+    }
+
+    private static void mergeOutput(final Map<OutputKey, RecipeOutput> outputs, final OutputKey key,
+                                    final long minAmount, final long maxAmount, final String unit, final Consumer<IProbeInfo> label) {
+        if (maxAmount <= 0) {
+            return;
+        }
+        RecipeOutput output = outputs.get(key);
+        if (output == null) {
+            outputs.put(key, new RecipeOutput(Math.max(0, minAmount), maxAmount, unit, label));
+        } else {
+            output.minAmount += Math.max(0, minAmount);
+            output.maxAmount += maxAmount;
+        }
+    }
+
+    @Desugar
+    private record OutputKey(Object material, int metadata, NBTTagCompound tag, boolean perTick) {
+    }
+
+    private static class RecipeOutput {
+        private long minAmount;
+        private long maxAmount;
+        private final String unit;
+        private final Consumer<IProbeInfo> label;
+
+        private RecipeOutput(final long minAmount, final long maxAmount, final String unit, final Consumer<IProbeInfo> label) {
+            this.minAmount = minAmount;
+            this.maxAmount = maxAmount;
+            this.unit = unit;
+            this.label = label;
+        }
     }
 
     private static long getEnergyRequired(RecipeThread thread, RequirementEnergy energy) {

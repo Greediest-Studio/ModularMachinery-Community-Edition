@@ -19,7 +19,9 @@ import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.machine.RecipeFailureActions;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.util.Constants;
 import stanhebben.zenscript.annotations.ZenClass;
@@ -27,6 +29,9 @@ import stanhebben.zenscript.annotations.ZenGetter;
 import stanhebben.zenscript.annotations.ZenSetter;
 
 import javax.annotation.Nonnull;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * This class is part of the Modular Machinery Mod
@@ -40,6 +45,8 @@ import javax.annotation.Nonnull;
 public class ActiveMachineRecipe {
     private final MachineRecipe  recipe;
     private       NBTTagCompound data = new NBTTagCompound();
+    private NBTTagCompound itemOutputCache = new NBTTagCompound();
+    private NBTTagCompound dynamicOutputCache = new NBTTagCompound();
     private       int            tick = 0, totalTick;
     private int baseMaxParallelism, maxParallelism, parallelism = 1;
     private long groupId = 0L;
@@ -80,6 +87,8 @@ public class ActiveMachineRecipe {
         if (serialized.hasKey("data", Constants.NBT.TAG_COMPOUND)) {
             data = serialized.getCompoundTag("data");
         }
+        itemOutputCache = serialized.getCompoundTag("itemOutputCache");
+        dynamicOutputCache = serialized.getCompoundTag("dynamicOutputCache");
         if (serialized.hasKey("baseMaxParallelism")) {
             baseMaxParallelism = serialized.getInteger("baseMaxParallelism");
         }
@@ -112,6 +121,8 @@ public class ActiveMachineRecipe {
         this.persistentGroupKey = "";
         this.crafting = false;
         this.data = new NBTTagCompound();
+        this.itemOutputCache = new NBTTagCompound();
+        this.dynamicOutputCache = new NBTTagCompound();
     }
 
     public MachineRecipe getRecipe() {
@@ -240,7 +251,63 @@ public class ActiveMachineRecipe {
         if (!data.isEmpty()) {
             tag.setTag("data", data);
         }
+        if (!itemOutputCache.isEmpty()) {
+            tag.setTag("itemOutputCache", itemOutputCache);
+        }
+        if (!dynamicOutputCache.isEmpty()) {
+            tag.setTag("dynamicOutputCache", dynamicOutputCache);
+        }
         return tag;
+    }
+
+    public ItemStack getOrCreateItemOutput(final int requirementIndex, final Supplier<ItemStack> output) {
+        String key = String.valueOf(requirementIndex);
+        if (!itemOutputCache.hasKey(key)) {
+            itemOutputCache.setTag(key, writeOutputStack(output.get()));
+        }
+        return readOutputStack(itemOutputCache.getCompoundTag(key));
+    }
+
+    public List<ItemStack> getOrCreateDynamicOutputs(final int index, final Supplier<List<ItemStack>> output) {
+        String key = String.valueOf(index);
+        if (!dynamicOutputCache.hasKey(key)) {
+            NBTTagList list = new NBTTagList();
+            for (ItemStack stack : output.get()) {
+                list.appendTag(writeOutputStack(stack));
+            }
+            dynamicOutputCache.setTag(key, list);
+        }
+        return readOutputList(dynamicOutputCache.getTagList(key, Constants.NBT.TAG_COMPOUND));
+    }
+
+    public List<ItemStack> getDynamicOutputs() {
+        List<ItemStack> outputs = new ArrayList<>();
+        for (String key : dynamicOutputCache.getKeySet()) {
+            outputs.addAll(readOutputList(dynamicOutputCache.getTagList(key, Constants.NBT.TAG_COMPOUND)));
+        }
+        return outputs;
+    }
+
+    private static List<ItemStack> readOutputList(final NBTTagList list) {
+        List<ItemStack> outputs = new ArrayList<>();
+        for (int i = 0; i < list.tagCount(); i++) {
+            outputs.add(readOutputStack(list.getCompoundTagAt(i)));
+        }
+        return outputs;
+    }
+
+    private static NBTTagCompound writeOutputStack(final ItemStack stack) {
+        NBTTagCompound tag = stack.writeToNBT(new NBTTagCompound());
+        tag.setInteger("outputCount", stack.getCount());
+        return tag;
+    }
+
+    private static ItemStack readOutputStack(final NBTTagCompound tag) {
+        NBTTagCompound copy = tag.copy();
+        copy.setByte("Count", (byte) 1);
+        ItemStack stack = new ItemStack(copy);
+        stack.setCount(tag.getInteger("outputCount"));
+        return stack;
     }
 
     @ZenGetter("maxParallelism")

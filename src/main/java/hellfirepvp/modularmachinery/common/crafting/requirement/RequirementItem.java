@@ -493,22 +493,12 @@ public class RequirementItem extends ComponentRequirement.MultiCompParallelizabl
             return maxMultiplier;
         }
 
-        ItemStack stack;
-        switch (this.requirementType) {
-            case ITEMSTACKS -> stack = ItemUtils.copyStackWithSize(required, 1);
-            case OREDICT -> stack = ItemUtils.getOredictItem(context, oreDictName, tag);
-            default -> {
-                return 0;
-            }
-        }
-        if (tag != null) {
-            stack.setTagCompound(tag);
+        ItemStack stack = getOutputStack(context, itemModifiers);
+        if (stack.isEmpty()) {
+            return maxMultiplier;
         }
 
         if (!itemModifiers.isEmpty()) {
-            for (final AdvancedItemModifier modifier : itemModifiers) {
-                stack = modifier.apply(context.getMachineController(), stack);
-            }
             toInsert *= stack.getCount();
             if (toInsert <= 0) {
                 return maxMultiplier;
@@ -526,6 +516,39 @@ public class RequirementItem extends ComponentRequirement.MultiCompParallelizabl
         }
 
         return inserted.get() / toInsert;
+    }
+
+    public ItemStack getOutputStack(final RecipeCraftingContext context) {
+        return getOutputStack(context, itemModifierList);
+    }
+
+    private ItemStack getOutputStack(final RecipeCraftingContext context, final List<AdvancedItemModifier> itemModifiers) {
+        if (itemModifiers.isEmpty()) {
+            return createOutputStack(context, itemModifiers);
+        }
+        return context.getActiveRecipe().getOrCreateItemOutput(context.getRequirementIndex(this),
+            () -> createOutputStack(context, itemModifiers));
+    }
+
+    private ItemStack createOutputStack(final RecipeCraftingContext context, final List<AdvancedItemModifier> itemModifiers) {
+        ItemStack stack = switch (requirementType) {
+            case ITEMSTACKS -> ItemUtils.copyStackWithSize(required, 1);
+            case OREDICT -> ItemUtils.getOredictItem(context, oreDictName, tag);
+            default -> ItemStack.EMPTY;
+        };
+        if (stack.isEmpty()) {
+            return ItemStack.EMPTY;
+        }
+        if (tag != null) {
+            stack.setTagCompound(tag.copy());
+        }
+        for (AdvancedItemModifier modifier : itemModifiers) {
+            stack = modifier.apply(context.getMachineController(), stack);
+            if (stack == null || stack.isEmpty()) {
+                return ItemStack.EMPTY;
+            }
+        }
+        return stack;
     }
 
     public IngredientItemStack asIngredientItemStack(ItemStack stack) {
