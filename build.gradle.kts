@@ -85,6 +85,10 @@ tasks.compileJava.configure {
     }
 }
 
+tasks.compileTestJava.configure {
+    options.encoding = "UTF-8"
+}
+
 tasks.jar.configure {
     manifest {
         val attributes = manifest.attributes
@@ -171,6 +175,7 @@ dependencies {
         isTransitive = false // We only care about the 1 annotation class
     }
     testCompileOnly("me.eigenraven.java8unsupported:java-8-unsupported-shim:1.0.0")
+    testImplementation("junit:junit:4.13.2")
 
     // Mixins
     val mixin : String = modUtils.enableMixins("zone.rong:mixinbooter:8.9", "mixins.mmce.refmap.json").toString()

@@ -19,7 +19,7 @@ import javax.annotation.Nullable;
 import java.util.List;
 
 /**
- * 仅检查必要条件：正消耗的输入完全为空时，无需复制库存或检查输出。
+ * 仅检查必要条件：物品输入为空或所需流体不足时，无需复制库存或检查输出。
  * 不模拟消耗，不缓存库存；通过此检查的分组仍须执行原有精确校验。
  */
 final class RecipeInputCheck {
@@ -80,8 +80,8 @@ final class RecipeInputCheck {
                     return missingInput(requirement, entry.components(), "craftcheck.failure.item.input");
                 }
             } else if (requirement instanceof RequirementFluid fluid) {
-                if (Math.round(RecipeModifier.applyModifiers(context, fluid, (double) fluid.required.amount, false)) > 0
-                    && !hasFluids(entry.components())) {
+                long amount = Math.round(RecipeModifier.applyModifiers(context, fluid, (double) fluid.required.amount, false));
+                if (amount > 0 && !hasFluids(entry.components(), fluid.required, amount)) {
                     return missingInput(requirement, entry.components(), "craftcheck.failure.fluid.input");
                 }
             }
@@ -115,39 +115,41 @@ final class RecipeInputCheck {
         return false;
     }
 
-    private static boolean hasFluids(List<ProcessingComponent<?>> components) {
+    private static boolean hasFluids(List<ProcessingComponent<?>> components, FluidStack required, long amount) {
+        long available = 0;
         for (ProcessingComponent<?> component : components) {
-            if (hasFluids((IFluidHandler) component.getProvidedComponent())) {
+            available += getFluidAmount((IFluidHandler) component.getProvidedComponent(), required, amount - available);
+            if (available >= amount) {
                 return true;
             }
         }
         return false;
     }
 
-    private static boolean hasFluids(IFluidHandler handler) {
-        boolean[] found = {false};
+    private static long getFluidAmount(IFluidHandler handler, FluidStack required, long minimum) {
+        long[] amount = {0};
         Sync.executeSyncIfPresent(handler, () -> {
             if (handler.getClass() == InfItemFluidHandler.class) {
                 InfItemFluidHandler input = (InfItemFluidHandler) handler;
                 // 空隔离分组无需分配属性数组；子处理器仍参与判断。
                 for (FluidStack fluid : input.getFluidStackList()) {
-                    if (fluid != null && fluid.amount > 0) {
-                        found[0] = true;
-                        return;
+                    if (fluid != null && fluid.amount > 0 && fluid.isFluidEqual(required)) {
+                        amount[0] += fluid.amount;
+                        if (amount[0] >= minimum) return;
                     }
                 }
                 IFluidHandler shared = input.getSubFluidHandler();
-                found[0] = shared != null && hasFluids(shared);
+                if (shared != null) amount[0] += getFluidAmount(shared, required, minimum - amount[0]);
             } else {
                 for (IFluidTankProperties tank : handler.getTankProperties()) {
                     FluidStack fluid = tank.getContents();
-                    if (fluid != null && fluid.amount > 0) {
-                        found[0] = true;
-                        break;
+                    if (fluid != null && fluid.amount > 0 && fluid.isFluidEqual(required)) {
+                        amount[0] += fluid.amount;
+                        if (amount[0] >= minimum) return;
                     }
                 }
             }
         });
-        return found[0];
+        return amount[0];
     }
 }
