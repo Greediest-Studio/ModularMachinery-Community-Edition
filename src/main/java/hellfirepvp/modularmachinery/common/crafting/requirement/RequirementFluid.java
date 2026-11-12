@@ -191,6 +191,10 @@ public class RequirementFluid extends ComponentRequirement.MultiCompParallelizab
         List<IFluidHandler> fluidHandlers = HybridFluidUtils.castFluidHandlerComponents(components);
 
         long required = Math.round(RecipeModifier.applyModifiers(context, this, (double) this.required.amount, false));
+        // 修改器允许零消耗，不应继续模拟 IO 或执行除法。
+        if (required <= 0) {
+            return maxMultiplier;
+        }
         long maxRequired = required * maxMultiplier;
 
         FluidStack stack = this.required.copy();

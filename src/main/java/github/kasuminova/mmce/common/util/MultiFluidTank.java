@@ -30,6 +30,7 @@ public class MultiFluidTank implements IFluidHandler, IOneToOneFluidHandler {
 
     public MultiFluidTank(MultiFluidTank from) {
         this(from.capacity, from.contents.length);
+        this.oneToOne = from.oneToOne;
 
         for (int i = 0; i < contents.length; i++) {
             FluidStack stack = from.contents[i];
@@ -40,9 +41,11 @@ public class MultiFluidTank implements IFluidHandler, IOneToOneFluidHandler {
     }
 
     public MultiFluidTank(IFluidHandler from) {
-        this(0, from.getTankProperties().length);
+        this(from, from.getTankProperties());
+    }
 
-        IFluidTankProperties[] properties = from.getTankProperties();
+    private MultiFluidTank(IFluidHandler from, IFluidTankProperties[] properties) {
+        this(0, properties.length);
         for (int i = 0; i < contents.length; i++) {
             IFluidTankProperties prop = properties[i];
             this.capacity = Math.max(capacity, prop.getCapacity());

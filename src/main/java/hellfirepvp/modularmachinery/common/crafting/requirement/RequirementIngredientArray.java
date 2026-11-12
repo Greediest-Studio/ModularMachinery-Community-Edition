@@ -250,6 +250,10 @@ public class RequirementIngredientArray extends ComponentRequirement.MultiCompPa
 
         for (final ChancedIngredientStack ingredient : ingredients) {
             int toConsume = applyModifierAmount(context, ingredient.count, ingredient.minCount, ingredient.maxCount, chance != ResultChance.GUARANTEED);
+            // 任一候选无需消耗时，物品组需求即可满足，避免除以零。
+            if (toConsume <= 0) {
+                return maxMultiplier;
+            }
             int maxConsume = toConsume * (maxMultiplier - ingredientConsumed);
             final AtomicInteger consumed = new AtomicInteger();
 

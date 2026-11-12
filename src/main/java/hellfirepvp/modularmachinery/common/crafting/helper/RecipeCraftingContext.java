@@ -513,6 +513,12 @@ public class RecipeCraftingContext {
     public CraftingCheckResult canStartCrafting() {
         clearPermanentModifiers();
         this.requirements.forEach(ComponentRequirement::reset);
+        // 调用方已经执行 START 事件，此处使用事件修改后的需求、组件和修改器。
+        CraftingCheckResult missingInput = checkMissingInputs();
+        if (missingInput != null) {
+            currentRestrictions.clear();
+            return missingInput;
+        }
         if (getParentRecipe().isParallelized() && activeRecipe.getMaxParallelism() > 1) {
             Collection<RequirementComponents> parallelizable = getAllParallelizableComponents();
             int maxParallelism = getMaxParallelism(parallelizable);
@@ -523,6 +529,38 @@ public class RecipeCraftingContext {
             }
         }
         return canStartCrafting(true);
+    }
+
+    @Nullable
+    private CraftingCheckResult checkMissingInputs() {
+        RecipeInputCheck inputCheck = RecipeInputCheck.create(requirements, this);
+        if (inputCheck == null) {
+            return null;
+        }
+        long previousGroup = groupId;
+        CraftingCheckResult result = null;
+        try {
+            for (long key : groupKeys[isCrafting ? 1 : 0]) {
+                if (key < 0) continue;
+                setGroupId(key);
+                controller.beginSmartInterfaceRecipeCheck(key);
+                try {
+                    String missing = inputCheck.getMissingInput(requirementComponents.get(key));
+                    if (missing == null) {
+                        return null;
+                    }
+                    if (result == null) {
+                        result = new CraftingCheckResult();
+                        result.addError(missing);
+                    }
+                } finally {
+                    controller.endSmartInterfaceRecipeCheck();
+                }
+            }
+            return result;
+        } finally {
+            setGroupIdInternal(previousGroup);
+        }
     }
 
     public CraftingCheckResult canRestartCrafting() {
@@ -560,6 +598,8 @@ public class RecipeCraftingContext {
     private CraftingCheckResult canStartCrafting(boolean input) {
         currentRestrictions.clear();
 
+        RecipeInputCheck inputCheck = input ? RecipeInputCheck.create(this.requirements, this) : null;
+
         CraftingCheckResult result = CraftingCheckResult.FAILURE;
         float successfulRequirements = 0;
         boolean success = false;
@@ -575,6 +615,16 @@ public class RecipeCraftingContext {
             }
             try {
                 List<RequirementComponents> components = this.requirementComponents.get(key);
+                if (inputCheck != null) {
+                    String missing = inputCheck.getMissingInput(components);
+                    if (missing != null) {
+                        // 只记录真实缺料原因，跳过此组的模拟消耗和输出检查。
+                        result = new CraftingCheckResult();
+                        result.addError(missing);
+                        fkey = key;
+                        continue;
+                    }
+                }
                 List<RequirementComponents> requirements = input ? components
                     : components.stream()
                               .filter(r -> r.requirement().actionType == IOType.OUTPUT)

@@ -22,12 +22,10 @@ import net.minecraftforge.items.IItemHandlerModifiable;
 
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.IntConsumer;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 @Optional.Interface(iface = "github.kasuminova.mmce.common.util.IExtendedGasHandler", modid = "mekanism")
 public class InfItemFluidHandler implements IItemHandlerModifiable, IFluidHandler, IExtendedGasHandler {
@@ -63,15 +61,16 @@ public class InfItemFluidHandler implements IItemHandlerModifiable, IFluidHandle
 
     @Override
     public synchronized IFluidTankProperties[] getTankProperties() {
-        if (subFluidHandler != null) {
-            return Stream.concat(
-                fluidStackList.stream().map(fluidStack -> new FluidTankProperties(fluidStack, Integer.MAX_VALUE)),
-                Arrays.stream(subFluidHandler.getTankProperties())
-            ).toArray(IFluidTankProperties[]::new);
+        IFluidTankProperties[] shared = subFluidHandler == null ? null : subFluidHandler.getTankProperties();
+        int ownTanks = fluidStackList.size();
+        IFluidTankProperties[] properties = new IFluidTankProperties[ownTanks + (shared == null ? 0 : shared.length)];
+        for (int i = 0; i < ownTanks; i++) {
+            properties[i] = new FluidTankProperties(fluidStackList.get(i), Integer.MAX_VALUE);
         }
-        return fluidStackList.stream()
-                             .map(fluidStack -> new FluidTankProperties(fluidStack, Integer.MAX_VALUE))
-                             .toArray(IFluidTankProperties[]::new);
+        if (shared != null) {
+            System.arraycopy(shared, 0, properties, ownTanks, shared.length);
+        }
+        return properties;
     }
 
     @Override
