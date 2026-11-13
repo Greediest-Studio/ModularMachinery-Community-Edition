@@ -2,6 +2,7 @@ package github.kasuminova.mmce.common.util;
 
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.relauncher.FMLLaunchHandler;
+import net.minecraftforge.fml.relauncher.Side;
 
 import java.util.function.BooleanSupplier;
 
@@ -37,11 +38,11 @@ public enum Sides {
     }
 
     public static boolean isServer() {
-        return FMLLaunchHandler.side().isServer();
+        return FMLLaunchHandler.side() == Side.SERVER;
     }
 
     public static boolean isClient() {
-        return FMLLaunchHandler.side().isClient();
+        return FMLLaunchHandler.side() == Side.CLIENT;
     }
 
     public void runIfPresent(final Runnable runnable) {

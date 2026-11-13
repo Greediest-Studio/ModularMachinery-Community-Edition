@@ -1,13 +1,13 @@
 package github.kasuminova.mmce.client.model;
 
-import github.kasuminova.mmce.client.renderer.MachineControllerRenderer;
+import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import software.bernie.geckolib3.geo.render.built.GeoBone;
 import software.bernie.geckolib3.geo.render.built.GeoModel;
 
 public class ModelBufferSize {
 
     // 6 Faces, 4 Vertexes
-    private static final int              BYTES_PER_CUBE                   = MachineControllerRenderer.VERTEX_FORMAT.getSize() * (6 * 4);
+    private static final int              BYTES_PER_CUBE                   = DefaultVertexFormats.POSITION_TEX_COLOR_NORMAL.getSize() * (6 * 4);
     private final        GeoModel         model;
     private final        StaticModelBones staticModelBones;
     private              int              bufferSize                       = BYTES_PER_CUBE; // preventing last grow
@@ -18,6 +18,10 @@ public class ModelBufferSize {
     private              int              staticBloomBufferSize            = BYTES_PER_CUBE; // preventing last grow
     private              int              staticTransparentBufferSize      = BYTES_PER_CUBE; // preventing last grow
     private              int              staticBloomTransparentBufferSize = BYTES_PER_CUBE; // preventing last grow
+    private              boolean          hasDynamicCubes                  = false;
+    private              boolean          hasStaticCubes                   = false;
+    private              boolean          hasBloomCubes                    = false;
+    private              boolean          hasDynamicBloomCubes             = false;
 
     private ModelBufferSize(final GeoModel model, final StaticModelBones staticModelBones) {
         this.model = model;
@@ -76,6 +80,20 @@ public class ModelBufferSize {
             }
         }
 
+        if (!bone.childCubes.isEmpty()) {
+            if (isStatic) {
+                hasStaticCubes = true;
+            } else {
+                hasDynamicCubes = true;
+                if (bloom) {
+                    hasDynamicBloomCubes = true;
+                }
+            }
+            if (bloom) {
+                hasBloomCubes = true;
+            }
+        }
+
         if (!bone.childBones.isEmpty()) {
             for (final GeoBone child : bone.childBones) {
                 calculateRecursive(child, bloom, transparent);
@@ -113,5 +131,21 @@ public class ModelBufferSize {
 
     public int getStaticBloomTransparentBufferSize() {
         return staticBloomTransparentBufferSize;
+    }
+
+    public boolean hasDynamicCubes() {
+        return hasDynamicCubes;
+    }
+
+    public boolean hasStaticCubes() {
+        return hasStaticCubes;
+    }
+
+    public boolean hasBloomCubes() {
+        return hasBloomCubes;
+    }
+
+    public boolean hasDynamicBloomCubes() {
+        return hasDynamicBloomCubes;
     }
 }

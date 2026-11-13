@@ -13,9 +13,6 @@ import io.netty.util.internal.ThrowableUtil;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.longs.LongArrayList;
-import it.unimi.dsi.fastutil.longs.LongList;
-import it.unimi.dsi.fastutil.longs.LongListIterator;
 import net.minecraftforge.fml.common.eventhandler.EventPriority;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
 import net.minecraftforge.fml.common.gameevent.TickEvent;
@@ -54,9 +51,9 @@ public class TaskExecutor {
 
     private final Queue<ActionExecutor> submitted = Queues.createConcurrentQueue();
 
-    private final Queue<ActionExecutor>        executors     = Queues.createConcurrentQueue();
-    // TODO: may cause performance issues.
-    private final Long2ObjectMap<ExecuteGroup> executeGroups = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
+    private final Queue<ActionExecutor>        executors            = Queues.createConcurrentQueue();
+    private final Long2ObjectMap<ExecuteGroup> executeGroups        = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
+    private final Queue<ExecuteGroup>          pendingExecuteGroups = Queues.createConcurrentQueue();
 
     private final Queue<ForkJoinTask<?>> forkJoinTasks = Queues.createConcurrentQueue();
 
@@ -109,6 +106,7 @@ public class TaskExecutor {
         }
 
         executeGroups.clear();
+        pendingExecuteGroups.clear();
         checkShouldUseForkJoinPool();
     }
 
@@ -157,7 +155,7 @@ public class TaskExecutor {
         updateTileEntity();
 
         // Empty Check
-        if (!submitted.isEmpty()) {
+        if (!submitted.isEmpty() || hasPendingAsyncTasks()) {
             executed += executeActions();
         }
 
@@ -237,6 +235,9 @@ public class TaskExecutor {
     public ActionExecutor addTask(final Action action, final int priority) {
         ActionExecutor actionExecutor = new ActionExecutor(action, priority);
         executors.offer(actionExecutor);
+        if (inTick) {
+            submitter.unparkIfParked();
+        }
 
         return actionExecutor;
     }
@@ -253,11 +254,21 @@ public class TaskExecutor {
             }
         }
 
-        return group.offer(new ActionExecutor(action));
+        ActionExecutor executor = group.offer(new ActionExecutor(action));
+        if (!group.isSubmitted() && group.markPending()) {
+            pendingExecuteGroups.offer(group);
+            if (inTick) {
+                submitter.unparkIfParked();
+            }
+        }
+        return executor;
     }
 
     public <T> ForkJoinTask<T> submitForkJoinTask(final ForkJoinTask<T> task) {
         forkJoinTasks.offer(task);
+        if (inTick) {
+            submitter.unparkIfParked();
+        }
         return task;
     }
 
@@ -286,6 +297,10 @@ public class TaskExecutor {
         }
     }
 
+    private boolean hasPendingAsyncTasks() {
+        return !executors.isEmpty() || !pendingExecuteGroups.isEmpty() || !forkJoinTasks.isEmpty();
+    }
+
     private synchronized void submitTask() {
         ActionExecutor executor;
         while ((executor = executors.poll()) != null) {
@@ -298,36 +313,37 @@ public class TaskExecutor {
             FORK_JOIN_POOL.submit(forkJoinTask);
         }
 
-        synchronized (executeGroups) {
-            LongList toRemove = new LongArrayList();
-            for (final ExecuteGroup group : executeGroups.values()) {
-                if (group.isSubmitted()) {
-                    continue;
-                }
-                if (group.isEmpty()) {
-                    toRemove.add(group.getGroupId());
-                    continue;
-                }
-                ActionExecutor groupExecutor = new ActionExecutor(() -> {
+        ExecuteGroup group;
+        while ((group = pendingExecuteGroups.poll()) != null) {
+            group.clearPending();
+            if (group.isEmpty() || !group.tryClaimSubmit()) {
+                continue;
+            }
+            final ExecuteGroup targetGroup = group;
+            ActionExecutor groupExecutor = new ActionExecutor(() -> {
+                try {
                     ActionExecutor actionExecutor;
-                    while ((actionExecutor = group.poll()) != null) {
+                    while ((actionExecutor = targetGroup.poll()) != null) {
                         actionExecutor.run();
                     }
-                    group.setSubmitted(false);
-                });
-                group.setSubmitted(true);
-                execute(groupExecutor);
-                submitted.offer(groupExecutor);
-            }
-            LongListIterator it = toRemove.iterator();
-            while (it.hasNext()) {
-                executeGroups.remove(it.nextLong());
-            }
+                } finally {
+                    targetGroup.setSubmitted(false);
+                    if (!targetGroup.isEmpty() && targetGroup.markPending()) {
+                        pendingExecuteGroups.offer(targetGroup);
+                        if (inTick) {
+                            submitter.unparkIfParked();
+                        }
+                    }
+                }
+            });
+            execute(groupExecutor);
+            submitted.offer(groupExecutor);
         }
     }
 
     public class TaskSubmitter implements Runnable {
         public Thread thread = null;
+        private volatile boolean parked = false;
 
         public void start() {
             if (thread != null && thread.isAlive()) {
@@ -344,17 +360,31 @@ public class TaskExecutor {
             }
         }
 
+        public void unparkIfParked() {
+            if (parked && thread != null) {
+                LockSupport.unpark(thread);
+            }
+        }
+
         @Override
         public void run() {
             while (!Thread.currentThread().isInterrupted()) {
                 if (inTick) {
-                    if (!executors.isEmpty() || !executeGroups.isEmpty() || !forkJoinTasks.isEmpty()) {
+                    if (hasPendingAsyncTasks()) {
                         submitTask();
                     } else {
-                        LockSupport.parkNanos(10_000L);
+                        parked = true;
+                        if (!hasPendingAsyncTasks() && inTick) {
+                            LockSupport.parkNanos(50_000L);
+                        }
+                        parked = false;
                     }
                 } else {
-                    LockSupport.park();
+                    parked = true;
+                    if (!inTick) {
+                        LockSupport.park();
+                    }
+                    parked = false;
                 }
             }
         }

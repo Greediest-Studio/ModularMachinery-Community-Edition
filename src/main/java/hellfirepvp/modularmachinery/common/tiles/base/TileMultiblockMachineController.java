@@ -134,8 +134,9 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     public static int      searchUsedTimeCache = 0;
     public static WorkMode workModeCache       = WorkMode.ASYNC;
 
-    protected final Map<String, List<RecipeModifier>> foundModifiers  = new ConcurrentHashMap<>();
-    protected final Map<String, RecipeModifier>       customModifiers = new ConcurrentHashMap<>();
+    protected final Map<String, List<RecipeModifier>> foundModifiers   = new ConcurrentHashMap<>();
+    protected final Map<String, RecipeModifier>       upgradeModifiers = new ConcurrentHashMap<>();
+    protected final Map<String, RecipeModifier>       customModifiers  = new ConcurrentHashMap<>();
 
     private final ControllerModeData controllerModes = new ControllerModeData();
 
@@ -581,6 +582,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         foundPattern = null;
         foundReplacements = null;
         parallelEqualizerHatchFound = false;
+        upgradeModifiers.clear();
         foundDynamicPatterns.clear();
     }
 
@@ -806,9 +808,20 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     }
 
     public RecipeCraftingContext createContext(ActiveMachineRecipe activeRecipe) {
+        return createContext(activeRecipe, java.util.Collections.emptyList(), java.util.Collections.emptyList());
+    }
+
+    public RecipeCraftingContext createContext(ActiveMachineRecipe activeRecipe,
+                                               java.util.Collection<RecipeModifier> semiPermanentModifiers,
+                                               java.util.Collection<RecipeModifier> permanentModifiers) {
         RecipeCraftingContext context = foundMachine.createContext(activeRecipe, this);
-        context.addModifier(MiscUtils.flatten(this.foundModifiers.values()));
-        context.addModifier(customModifiers.values());
+        context.addModifiers(
+            this.foundModifiers.values(),
+            upgradeModifiers.values(),
+            customModifiers.values(),
+            semiPermanentModifiers,
+            permanentModifiers
+        );
         return context;
     }
 
@@ -949,6 +962,8 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
             this.foundEventListeners = java.util.Collections.emptyList();
             this.generalComponents.clear();
             this.foundModifiers.clear();
+            this.foundUpgrades.clear();
+            this.upgradeModifiers.clear();
             this.foundSmartInterfaces.clear();
             this.parallelEqualizerHatchFound = false;
 
@@ -959,7 +974,9 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
             return;
         }
 
+        boolean hadUpgradeModifiers = !this.upgradeModifiers.isEmpty();
         this.foundUpgrades.clear();
+        this.upgradeModifiers.clear();
         this.foundUpgradeBuses.clear();
         this.foundComponents.forEach((i, map) -> map.forEach((te, c) -> MachineComponentManager.INSTANCE.removeOwner(te, this)));
         this.foundComponents.clear();
@@ -981,6 +998,10 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         this.foundModifiers.clear();
         updateModifiers();
         updateMultiBlockModifiers();
+        refreshUpgradeModifiers();
+        if (hadUpgradeModifiers || !this.upgradeModifiers.isEmpty()) {
+            flushContextModifier();
+        }
         if (workMode == WorkMode.SYNC) {
             distributeCasingColor();
         } else {
@@ -1066,11 +1087,32 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     }
 
     public void refreshMachineUpgrades() {
+        boolean hadUpgradeModifiers = !upgradeModifiers.isEmpty();
         foundUpgrades.clear();
         for (final TileUpgradeBus.UpgradeBusProvider upgradeBus : foundUpgradeBuses) {
             addMachineUpgrades(upgradeBus.getUpgrades(this));
         }
         syncMachineUpgradeNames();
+        refreshUpgradeModifiers();
+        if (hadUpgradeModifiers || !upgradeModifiers.isEmpty()) {
+            flushContextModifier();
+        }
+    }
+
+    protected void refreshUpgradeModifiers() {
+        upgradeModifiers.clear();
+        if (foundUpgrades.isEmpty()) {
+            return;
+        }
+        for (final List<MachineUpgrade> upgrades : foundUpgrades.values()) {
+            for (final MachineUpgrade upgrade : upgrades) {
+                upgrade.collectStaticModifiers(upgradeModifiers);
+            }
+        }
+    }
+
+    public Map<String, RecipeModifier> getUpgradeModifiers() {
+        return upgradeModifiers;
     }
 
     protected void addMachineUpgrades(final Map<UpgradeType, List<MachineUpgrade>> found) {
@@ -1217,7 +1259,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     }
 
     public boolean hasModifier(String key) {
-        return customModifiers.containsKey(key);
+        return customModifiers.containsKey(key) || upgradeModifiers.containsKey(key);
     }
 
     /**

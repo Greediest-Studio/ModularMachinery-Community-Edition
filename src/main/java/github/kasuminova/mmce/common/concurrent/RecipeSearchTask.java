@@ -40,31 +40,36 @@ public class RecipeSearchTask extends TimeRecordingTask<RecipeCraftingContext> {
         RecipeCraftingContext.CraftingCheckResult highestValidityResult = null;
         float validity = 0F;
 
-        for (MachineRecipe recipe : recipeList) {
-            if (!canCheck(recipe)) {
-                continue;
-            }
-
-            ActiveMachineRecipe activeRecipe = new ActiveMachineRecipe(recipe, maxParallelism);
-            RecipeCraftingContext context = thread != null ? thread.createContext(activeRecipe) : controller.createContext(activeRecipe);
-            RecipeCraftingContext.CraftingCheckResult result = controller.onCheck(context);
-            if (result.isSuccess()) {
-                //并发检查
-                foundMachine = controller.getFoundMachine();
-                if (foundMachine == null || !foundMachine.equals(currentMachine)) {
-                    RecipeCraftingContextPool.returnCtx(context);
-                    return null;
+        RecipeCraftingContext.beginSearchComponentMatchCache(controller);
+        try {
+            for (MachineRecipe recipe : recipeList) {
+                if (!canCheck(recipe)) {
+                    continue;
                 }
-                return context;
-            }
 
-            if (highestValidity == null || result.getValidity() > validity) {
-                highestValidity = recipe;
-                highestValidityResult = result;
-                validity = result.getValidity();
-            }
+                ActiveMachineRecipe activeRecipe = new ActiveMachineRecipe(recipe, maxParallelism);
+                RecipeCraftingContext context = thread != null ? thread.createContext(activeRecipe) : controller.createContext(activeRecipe);
+                RecipeCraftingContext.CraftingCheckResult result = controller.onCheck(context);
+                if (result.isSuccess()) {
+                    //并发检查
+                    foundMachine = controller.getFoundMachine();
+                    if (foundMachine == null || !foundMachine.equals(currentMachine)) {
+                        RecipeCraftingContextPool.returnCtx(context);
+                        return null;
+                    }
+                    return context;
+                }
 
-            RecipeCraftingContextPool.returnCtx(context);
+                if (highestValidity == null || result.getValidity() > validity) {
+                    highestValidity = recipe;
+                    highestValidityResult = result;
+                    validity = result.getValidity();
+                }
+
+                RecipeCraftingContextPool.returnCtx(context);
+            }
+        } finally {
+            RecipeCraftingContext.endSearchComponentMatchCache();
         }
 
         if (highestValidity != null) {

@@ -62,7 +62,7 @@ public class SimpleDynamicMachineUpgrade extends DynamicMachineUpgrade {
      */
     @ZenGetter("customData")
     public IData getCustomData() {
-        return CraftTweakerMC.getIDataModifyable(customData);
+        return CraftTweakerMC.getIDataModifyable(captureCustomDataBeforeAccess(customData));
     }
 
     /**
@@ -74,7 +74,13 @@ public class SimpleDynamicMachineUpgrade extends DynamicMachineUpgrade {
      */
     @ZenSetter("customData")
     public void setCustomData(final IData customData) {
+        markCustomDataReplaced(this.customData);
         this.customData = CraftTweakerMC.getNBTCompound(customData);
+    }
+
+    @Override
+    public boolean hasCustomDataModified() {
+        return isCustomDataDirty(customData);
     }
 
     @ZenGetter("parentStack")
@@ -143,6 +149,7 @@ public class SimpleDynamicMachineUpgrade extends DynamicMachineUpgrade {
         upgrade.descriptionHandler = descriptionHandler;
         upgrade.busGuiDescriptionHandler = busGuiDescriptionHandler;
         upgrade.eventProcessor.putAll(eventProcessor);
+        upgrade.copyStaticModifiers(this);
         upgrade.parentStack = owner;
         return upgrade;
     }

@@ -32,6 +32,7 @@ public class SimpleMachineUpgrade extends MachineUpgrade {
         upgrade.descriptions.addAll(descriptions);
         upgrade.busGuiDescriptionHandler = busGuiDescriptionHandler;
         upgrade.eventProcessor.putAll(eventProcessor);
+        upgrade.copyStaticModifiers(this);
         return upgrade;
     }
 
@@ -52,7 +53,7 @@ public class SimpleMachineUpgrade extends MachineUpgrade {
      */
     @ZenGetter("customData")
     public IData getCustomData() {
-        return CraftTweakerMC.getIDataModifyable(customData);
+        return CraftTweakerMC.getIDataModifyable(captureCustomDataBeforeAccess(customData));
     }
 
     /**
@@ -64,7 +65,13 @@ public class SimpleMachineUpgrade extends MachineUpgrade {
      */
     @ZenSetter("customData")
     public void setCustomData(final IData customData) {
+        markCustomDataReplaced(this.customData);
         this.customData = CraftTweakerMC.getNBTCompound(customData);
+    }
+
+    @Override
+    public boolean hasCustomDataModified() {
+        return isCustomDataDirty(customData);
     }
 
     @Override

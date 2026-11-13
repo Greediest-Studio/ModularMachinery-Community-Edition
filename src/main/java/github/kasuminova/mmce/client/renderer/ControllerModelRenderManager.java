@@ -20,6 +20,7 @@ import net.minecraft.util.ResourceLocation;
 import org.lwjgl.opengl.GL11;
 
 import java.util.EnumMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,20 +64,20 @@ public class ControllerModelRenderManager {
     }
 
     public void checkControllerState() {
-        Set<TileMultiblockMachineController> toRemove = new ReferenceOpenHashSet<>(toRender);
-        toRemove.removeAll(alive);
-        for (final TileMultiblockMachineController ctrl : toRemove) {
-            GeoModelRenderTask removed = MachineControllerRenderer.INSTANCE.tasks.remove(ctrl);
-            if (removed != null) {
-                try {
-                    //noinspection FinalizeCalledExplicitly
-                    removed.finalize();
-                } catch (Throwable ignored) {
+        if (toRender.size() != alive.size()) {
+            Iterator<TileMultiblockMachineController> iterator = toRender.iterator();
+            while (iterator.hasNext()) {
+                TileMultiblockMachineController ctrl = iterator.next();
+                if (!alive.contains(ctrl)) {
+                    iterator.remove();
+                    GeoModelRenderTask removed = MachineControllerRenderer.INSTANCE.tasks.remove(ctrl);
+                    if (removed != null) {
+                        removed.cleanup();
+                    }
+                    if (MachineControllerRenderer.shouldUseBloom()) {
+                        BloomGeoModelRenderer.INSTANCE.unregisterGlobal(ctrl);
+                    }
                 }
-            }
-            toRender.remove(ctrl);
-            if (MachineControllerRenderer.shouldUseBloom()) {
-                BloomGeoModelRenderer.INSTANCE.unregisterGlobal(ctrl);
             }
         }
         alive.clear();

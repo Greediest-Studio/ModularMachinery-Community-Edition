@@ -5,9 +5,9 @@ import github.kasuminova.mmce.client.model.MachineControllerModel;
 import github.kasuminova.mmce.client.model.StaticModelBones;
 import github.kasuminova.mmce.client.util.BufferProvider;
 import github.kasuminova.mmce.client.util.MatrixStack;
-import github.kasuminova.mmce.common.concurrent.TaskExecutor;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.base.Mods;
+import hellfirepvp.modularmachinery.common.data.Config;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
@@ -126,21 +126,25 @@ public class MachineControllerRenderer extends TileEntitySpecialRenderer<TileMul
                        final TileMultiblockMachineController tile,
                        double x, double y, double z,
                        final float partialTicks) {
-        renderWithBuffer(tile);
+        renderWithBuffer(tile, modelProvider);
     }
 
     @Optional.Method(modid = "geckolib3")
-    private void renderWithBuffer(final TileMultiblockMachineController animatable) {
-        GeoModelRenderTask task = getTask(animatable);
+    private void renderWithBuffer(final TileMultiblockMachineController animatable, final MachineControllerModel modelProvider) {
+        ControllerModelRenderManager.INSTANCE.addToRender(animatable);
+        GeoModelRenderTask task = getTask(animatable, modelProvider);
+
+        if (task.shouldReRenderStatic(modelProvider)) {
+            task.handleStaticChange(modelProvider);
+        } else if (!Config.asyncControllerModelRender && task.hasDynamicCubes() && !task.isDynamicRendered()) {
+            task.computeSync(modelProvider);
+        }
 
         if (MachineControllerRenderer.shouldUseBloom() && !ShaderManager.isOptifineShaderPackLoaded()) {
-            task.renderDefault();
             task.setAvailable(true);
+            task.renderDefault(modelProvider, true);
         } else {
-            task.renderAll();
-        }
-        if (task.shouldReRenderStatic()) {
-            render(animatable, task, true);
+            task.renderAll(modelProvider);
         }
     }
 
@@ -165,37 +169,62 @@ public class MachineControllerRenderer extends TileEntitySpecialRenderer<TileMul
     public void render(TileMultiblockMachineController tile,
                        BufferProvider bufferProvider,
                        boolean renderStatic) {
-        MachineControllerModel modelProvider = tile.getCurrentModel();
+        render(tile, bufferProvider, renderStatic, tile.getCurrentModel());
+    }
+
+    @Optional.Method(modid = "geckolib3")
+    public void render(TileMultiblockMachineController tile,
+                       BufferProvider bufferProvider,
+                       boolean renderStatic,
+                       MachineControllerModel modelProvider) {
         if (modelProvider == null) {
             return;
         }
         MachineControllerModel renderInst = modelProvider.getRenderInstance();
         GeoModel model = renderInst.getModel();
-        STATIC_MODEL_BONES.set(renderInst.getStaticModelBones());
-        synchronized (model) {
-            renderInst.setLivingAnimations(tile, tile.hashCode());
-            bufferProvider.begin(renderStatic);
+        StaticModelBones staticModelBones = renderInst.getStaticModelBones();
+        STATIC_MODEL_BONES.set(staticModelBones);
+        try {
+            synchronized (model) {
+                renderInst.setLivingAnimations(tile, tile.hashCode());
+                bufferProvider.begin(renderStatic);
 
-            MatrixStack matrixStack = MATRIX_STACK.get();
-            BlockPos pos = tile.getPos();
-            matrixStack.push();
-            matrixStack.translate(pos.getX(), pos.getY(), pos.getZ());
-            matrixStack.translate(0, 0.01f, 0);
-            matrixStack.translate(0.5f, 0, 0.5f);
-            rotateBlockMatrix(tile.getControllerRotation());
+                MatrixStack matrixStack = MATRIX_STACK.get();
+                BlockPos pos = tile.getPos();
+                matrixStack.push();
+                matrixStack.translate(pos.getX(), pos.getY(), pos.getZ());
+                matrixStack.translate(0, 0.01f, 0);
+                matrixStack.translate(0.5f, 0, 0.5f);
+                rotateBlockMatrix(tile.getControllerRotation(), matrixStack);
 
-            // Render all top level bones
-            for (GeoBone group : model.topLevelBones) {
-                if (group.isHidden() && group.childBonesAreHiddenToo()) {
-                    continue;
+                // Render all top level bones
+                for (GeoBone group : model.topLevelBones) {
+                    if (group.isHidden() && group.childBonesAreHiddenToo()) {
+                        continue;
+                    }
+                    renderRecursively(bufferProvider, group, 1F, 1F, 1F, 1F, false, false, renderStatic, staticModelBones, matrixStack);
                 }
-                renderRecursively(bufferProvider, group, 1F, 1F, 1F, 1F, false, false, renderStatic);
+
+                matrixStack.pop();
+
+                bufferProvider.finishDrawing(renderStatic);
             }
-
-            matrixStack.pop();
-
-            bufferProvider.finishDrawing(renderStatic);
+        } finally {
             renderInst.returnRenderInst();
+        }
+    }
+
+    protected static void rotateBlockMatrix(EnumFacing facing, MatrixStack matrixStack) {
+        switch (facing) {
+            // 180
+            case SOUTH -> matrixStack.rotateY(3.141592653589793f);
+            // 90
+            case WEST -> matrixStack.rotateY(1.5707963267948966f);
+            /* There is no need to rotate by 0 */
+            case NORTH -> {
+            }
+            // 270
+            case EAST -> matrixStack.rotateY(4.71238898038469f);
         }
     }
 
@@ -263,10 +292,29 @@ public class MachineControllerRenderer extends TileEntitySpecialRenderer<TileMul
                                   GeoBone bone,
                                   float red, float green, float blue, float alpha,
                                   boolean bloom, boolean transparent, boolean isStatic) {
+        renderRecursively(bufferProvider, bone, red, green, blue, alpha, bloom, transparent, isStatic,
+            STATIC_MODEL_BONES.get(), MATRIX_STACK.get());
+    }
+
+    @Optional.Method(modid = "geckolib3")
+    private void renderRecursively(BufferProvider bufferProvider,
+                                   GeoBone bone,
+                                   float red, float green, float blue, float alpha,
+                                   boolean bloom, boolean transparent, boolean isStatic,
+                                   StaticModelBones staticModelBones,
+                                   MatrixStack matrixStack) {
+        boolean isBoneStatic = staticModelBones.isStaticBone(bone.name);
+        if (isStatic) {
+            if (!isBoneStatic) {
+                return;
+            }
+        } else if (staticModelBones.isStaticSubtree(bone.name)) {
+            return;
+        }
+
         bloom |= bone.name.startsWith("emissive") || bone.name.startsWith("bloom");
         transparent |= bone.name.startsWith("transparent") || bone.name.startsWith("emissive_transparent") || bone.name.startsWith("bloom_transparent");
 
-        MatrixStack matrixStack = MATRIX_STACK.get();
         matrixStack.push();
 
         matrixStack.translate(bone);
@@ -275,38 +323,61 @@ public class MachineControllerRenderer extends TileEntitySpecialRenderer<TileMul
         matrixStack.scale(bone);
         matrixStack.moveBackFromPivot(bone);
 
-        if (!bone.isHidden() && ((isStatic && STATIC_MODEL_BONES.get().isStaticBone(bone.name)) || (!isStatic && !STATIC_MODEL_BONES.get().isStaticBone(bone.name)))) {
+        if (!bone.isHidden() && !bone.childCubes.isEmpty() && isStatic == isBoneStatic) {
+            BufferBuilder buffer = bufferProvider.getBuffer(bloom, transparent, isStatic);
             for (GeoCube cube : bone.childCubes) {
-                matrixStack.push();
-                renderCube(bufferProvider.getBuffer(bloom, transparent, isStatic), cube, red, green, blue, alpha);
-                matrixStack.pop();
+                boolean rotated = hasCubeRotation(cube);
+                if (rotated) {
+                    matrixStack.push();
+                    renderCube(buffer, cube, red, green, blue, alpha, matrixStack, true);
+                    matrixStack.pop();
+                } else {
+                    renderCube(buffer, cube, red, green, blue, alpha, matrixStack, false);
+                }
             }
         }
         if (!bone.childBonesAreHiddenToo()) {
             for (GeoBone childBone : bone.childBones) {
-                renderRecursively(bufferProvider, childBone, red, green, blue, alpha, bloom, transparent, isStatic);
+                renderRecursively(bufferProvider, childBone, red, green, blue, alpha, bloom, transparent, isStatic, staticModelBones, matrixStack);
             }
         }
 
         matrixStack.pop();
     }
 
+    private static boolean hasCubeRotation(final GeoCube cube) {
+        Vector3f rotation = cube.rotation;
+        return rotation.x != 0.0F || rotation.y != 0.0F || rotation.z != 0.0F;
+    }
+
     @Optional.Method(modid = "geckolib3")
     public void renderCube(final BufferBuilder builder,
                            final GeoCube cube,
                            final float red, final float green, final float blue, final float alpha) {
-        MatrixStack matrixStack = MATRIX_STACK.get();
-        matrixStack.moveToPivot(cube);
-        matrixStack.rotate(cube);
-        matrixStack.moveBackFromPivot(cube);
+        renderCube(builder, cube, red, green, blue, alpha, MATRIX_STACK.get(), hasCubeRotation(cube));
+    }
+
+    @Optional.Method(modid = "geckolib3")
+    private void renderCube(final BufferBuilder builder,
+                            final GeoCube cube,
+                            final float red, final float green, final float blue, final float alpha,
+                            final MatrixStack matrixStack,
+                            final boolean rotated) {
+        if (rotated) {
+            matrixStack.moveToPivot(cube);
+            matrixStack.rotate(cube);
+            matrixStack.moveBackFromPivot(cube);
+        }
+
+        Vector3f normal = matrixStack.getTempRenderNormal();
+        Vector4f vector4f = matrixStack.getTempRenderVertex();
 
         for (GeoQuad quad : cube.quads) {
             if (quad == null) {
                 continue;
             }
 
-            Vector3f normal = new Vector3f(quad.normal.getX(), quad.normal.getY(), quad.normal.getZ());
-
+            normal.set(quad.normal.getX(), quad.normal.getY(), quad.normal.getZ());
             matrixStack.getNormalMatrix().transform(normal);
 
             if ((cube.size.y == 0 || cube.size.z == 0) && normal.getX() < 0) {
@@ -320,9 +391,7 @@ public class MachineControllerRenderer extends TileEntitySpecialRenderer<TileMul
             }
 
             for (GeoVertex vertex : quad.vertices) {
-                Vector4f vector4f = new Vector4f(vertex.position.getX(), vertex.position.getY(), vertex.position.getZ(),
-                    1.0F);
-
+                vector4f.set(vertex.position.getX(), vertex.position.getY(), vertex.position.getZ(), 1.0F);
                 matrixStack.getModelMatrix().transform(vector4f);
 
                 builder.pos(vector4f.getX(), vector4f.getY(), vector4f.getZ())
@@ -336,12 +405,19 @@ public class MachineControllerRenderer extends TileEntitySpecialRenderer<TileMul
 
     @Nonnull
     public GeoModelRenderTask getTask(final TileMultiblockMachineController animatable) {
+        return getTask(animatable, animatable.getCurrentModel());
+    }
+
+    @Nonnull
+    public GeoModelRenderTask getTask(final TileMultiblockMachineController animatable,
+                                      final MachineControllerModel modelProvider) {
         GeoModelRenderTask task = tasks.get(animatable);
         if (task == null) {
             task = new GeoModelRenderTask(this, animatable);
-            tasks.put(animatable, (GeoModelRenderTask) TaskExecutor.FORK_JOIN_POOL.submit(task));
+            tasks.put(animatable, task);
+            task.submitInitial(modelProvider);
         }
-        if (!task.isDone()) {
+        if (task.isSubmittedAsync() && !task.isDone()) {
             long current = System.currentTimeMillis();
             task.join();
             long after = System.currentTimeMillis();

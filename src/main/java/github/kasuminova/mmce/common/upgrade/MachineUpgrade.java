@@ -2,6 +2,7 @@ package github.kasuminova.mmce.common.upgrade;
 
 import crafttweaker.annotations.ZenRegister;
 import hellfirepvp.modularmachinery.common.integration.crafttweaker.helper.UpgradeEventHandlerCT;
+import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import hellfirepvp.modularmachinery.common.tiles.TileUpgradeBus;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -21,22 +22,94 @@ import java.util.Map;
 public abstract class MachineUpgrade {
 
     protected final UpgradeType                                type;
-    protected final Map<Class<?>, List<UpgradeEventHandlerCT>> eventProcessor = new HashMap<>();
+    protected final Map<Class<?>, List<UpgradeEventHandlerCT>> eventProcessor  = new HashMap<>();
+    protected final List<StaticUpgradeModifier>                staticModifiers = new ArrayList<>();
 
     protected TileUpgradeBus parentBus = null;
 
-    protected int stackSize = 1;
+    protected int            stackSize          = 1;
+    protected NBTTagCompound customDataSnapshot = null;
+    protected boolean        customDataReplaced = false;
 
     public MachineUpgrade(final UpgradeType type) {
         this.type = type;
     }
 
     public void readNBT(NBTTagCompound tag) {
-
+        customDataSnapshot = null;
+        customDataReplaced = false;
     }
 
     public NBTTagCompound writeNBT() {
         return new NBTTagCompound();
+    }
+
+    public boolean hasCustomDataModified() {
+        return true;
+    }
+
+    protected final NBTTagCompound captureCustomDataBeforeAccess(NBTTagCompound current) {
+        if (customDataSnapshot == null && !customDataReplaced) {
+            customDataSnapshot = current.copy();
+        }
+        return current;
+    }
+
+    protected final void markCustomDataReplaced(NBTTagCompound previous) {
+        if (customDataSnapshot == null && !customDataReplaced) {
+            customDataSnapshot = previous.copy();
+        }
+        customDataReplaced = true;
+    }
+
+    protected final boolean isCustomDataDirty(NBTTagCompound current) {
+        if (customDataSnapshot == null && !customDataReplaced) {
+            return false;
+        }
+        return !current.equals(customDataSnapshot);
+    }
+
+    public void addStaticModifier(final boolean stackable, final String key, final RecipeModifier modifier) {
+        if (modifier != null && key != null) {
+            staticModifiers.add(new StaticUpgradeModifier(stackable, key, modifier));
+        }
+    }
+
+    protected void copyStaticModifiers(final MachineUpgrade source) {
+        staticModifiers.addAll(source.staticModifiers);
+    }
+
+    public void collectStaticModifiers(final Map<String, RecipeModifier> target) {
+        if (staticModifiers.isEmpty()) {
+            return;
+        }
+        for (final StaticUpgradeModifier entry : staticModifiers) {
+            target.put(entry.key, entry.resolve(stackSize));
+        }
+    }
+
+    public static final class StaticUpgradeModifier {
+        private final boolean        stackable;
+        private final String         key;
+        private final RecipeModifier modifier;
+
+        public StaticUpgradeModifier(final boolean stackable, final String key, final RecipeModifier modifier) {
+            this.stackable = stackable;
+            this.key = key;
+            this.modifier = modifier;
+        }
+
+        public RecipeModifier resolve(final int stackSize) {
+            if (stackSize <= 1 || !stackable) {
+                return modifier;
+            }
+            RecipeModifier multiplied = modifier;
+            float factor = modifier.getModifier();
+            for (int i = 0; i < stackSize; i++) {
+                multiplied = multiplied.multiply(factor);
+            }
+            return multiplied;
+        }
     }
 
     public abstract MachineUpgrade copy(ItemStack owner);

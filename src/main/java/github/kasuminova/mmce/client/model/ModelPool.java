@@ -30,14 +30,14 @@ public class ModelPool {
         return original;
     }
 
-    public StaticModelBones getStaticModelBones() {
+    public synchronized StaticModelBones getStaticModelBones() {
         if (staticModelBones == null) {
             staticModelBones = StaticModelBones.compile(original.getModel(), GeoModelExternalLoader.INSTANCE.getAnimation(original.animationFileLocation));
         }
         return staticModelBones;
     }
 
-    public ModelBufferSize getModelBufferSize() {
+    public synchronized ModelBufferSize getModelBufferSize() {
         if (modelBufferSize == null) {
             modelBufferSize = ModelBufferSize.calculate(original.getModel(), getStaticModelBones());
         }

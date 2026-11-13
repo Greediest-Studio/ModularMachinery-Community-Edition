@@ -9,7 +9,6 @@ import hellfirepvp.modularmachinery.common.crafting.helper.CraftingStatus;
 import hellfirepvp.modularmachinery.common.crafting.helper.RecipeCraftingContext;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
-import hellfirepvp.modularmachinery.common.util.MiscUtils;
 import io.netty.util.internal.ThrowableUtil;
 import net.minecraft.nbt.NBTTagCompound;
 import stanhebben.zenscript.annotations.ZenClass;
@@ -98,9 +97,7 @@ public abstract class RecipeThread {
     public abstract void tryRestartRecipe();
 
     public RecipeCraftingContext createContext(ActiveMachineRecipe activeRecipe) {
-        RecipeCraftingContext context = ctrl.createContext(activeRecipe);
-        context.addModifier(semiPermanentModifiers.values());
-        context.addModifier(permanentModifiers.values());
+        RecipeCraftingContext context = ctrl.createContext(activeRecipe, semiPermanentModifiers.values(), permanentModifiers.values());
         if (activeRecipe != null && activeRecipe.isCrafting()) {
             context.restoreCraftingState();
         }
@@ -189,10 +186,13 @@ public abstract class RecipeThread {
     public void flushContextModifier() {
         if (context == null) return;
 
-        context.overrideModifier(MiscUtils.flatten(ctrl.getFoundModifiers().values()));
-        context.addModifier(ctrl.getCustomModifiers().values());
-        context.addModifier(semiPermanentModifiers.values());
-        context.addModifier(permanentModifiers.values());
+        context.overrideModifiers(
+            ctrl.getFoundModifiers().values(),
+            ctrl.getUpgradeModifiers().values(),
+            ctrl.getCustomModifiers().values(),
+            semiPermanentModifiers.values(),
+            permanentModifiers.values()
+        );
     }
 
     public RecipeCraftingContext getContext() {

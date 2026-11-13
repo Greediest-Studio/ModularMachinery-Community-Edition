@@ -292,7 +292,15 @@ public class TileUpgradeBus extends TileEntityRestrictedTick implements MachineC
         }
 
         public void setUpgradeCustomData(MachineUpgrade upgrade, NBTTagCompound tagCompound) {
-            upgradeCustomData.setTag(upgrade.getType().getName(), tagCompound);
+            String key = upgrade.getType().getName();
+            if (tagCompound.isEmpty()) {
+                if (upgradeCustomData.hasKey(key)) {
+                    upgradeCustomData.removeTag(key);
+                    markNoUpdateSync();
+                }
+                return;
+            }
+            upgradeCustomData.setTag(key, tagCompound);
             markNoUpdateSync();
         }
 

@@ -137,24 +137,7 @@ public class MachineUpgradeBuilder {
      */
     @ZenMethod
     public MachineUpgradeBuilder addModifier(boolean stackAble, String modifierKey, RecipeModifier modifier) {
-        addEventHandler(MachineTickEvent.class, (event, upgrade) -> {
-            if (((MachineTickEvent) event).phase != Phase.START) {
-                return;
-            }
-            TileMultiblockMachineController controller = event.getController();
-            if (controller.hasModifier(modifierKey)) {
-                return;
-            }
-            if (upgrade.getStackSize() <= 1 || !stackAble) {
-                controller.addModifier(modifierKey, modifier);
-                return;
-            }
-            RecipeModifier multiply = modifier;
-            for (int i = 0; i < upgrade.getStackSize(); i++) {
-                multiply = multiply.multiply(modifier.getModifier());
-            }
-            controller.addModifier(modifierKey, multiply);
-        });
+        machineUpgrade.addStaticModifier(stackAble, modifierKey, modifier);
         return this;
     }
 

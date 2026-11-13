@@ -7,14 +7,20 @@ import software.bernie.geckolib3.geo.render.built.GeoCube;
 import javax.vecmath.Matrix3f;
 import javax.vecmath.Matrix4f;
 import javax.vecmath.Vector3f;
+import javax.vecmath.Vector4f;
 import java.util.ArrayDeque;
 
 public class MatrixStack {
-    private final ArrayDeque<Matrix4f> model  = new ArrayDeque<>();
-    private final ArrayDeque<Matrix3f> normal = new ArrayDeque<>();
+    private final ArrayDeque<Matrix4f> model      = new ArrayDeque<>();
+    private final ArrayDeque<Matrix3f> normal     = new ArrayDeque<>();
+    private final ArrayDeque<Matrix4f> modelPool  = new ArrayDeque<>();
+    private final ArrayDeque<Matrix3f> normalPool = new ArrayDeque<>();
 
     private final Matrix4f tempModelMatrix  = new Matrix4f();
     private final Matrix3f tempNormalMatrix = new Matrix3f();
+    private final Vector3f tempTranslateVec = new Vector3f();
+    private final Vector3f tempRenderNormal = new Vector3f();
+    private final Vector4f tempRenderVertex = new Vector4f();
 
     public MatrixStack() {
         Matrix4f model = new Matrix4f();
@@ -52,9 +58,22 @@ public class MatrixStack {
         return this.normal.peek();
     }
 
+    public Vector3f getTempRenderNormal() {
+        return tempRenderNormal;
+    }
+
+    public Vector4f getTempRenderVertex() {
+        return tempRenderVertex;
+    }
+
     public void push() {
-        this.model.addFirst(new Matrix4f(getModelMatrix()));
-        this.normal.addFirst(new Matrix3f(getNormalMatrix()));
+        Matrix4f nextModel = modelPool.isEmpty() ? new Matrix4f() : modelPool.pop();
+        nextModel.set(getModelMatrix());
+        this.model.addFirst(nextModel);
+
+        Matrix3f nextNormal = normalPool.isEmpty() ? new Matrix3f() : normalPool.pop();
+        nextNormal.set(getNormalMatrix());
+        this.normal.addFirst(nextNormal);
     }
 
     /* Translate */
@@ -64,12 +83,16 @@ public class MatrixStack {
             throw new IllegalStateException("A one level stack can't be popped!");
         }
 
-        this.model.pop();
-        this.normal.pop();
+        this.modelPool.push(this.model.pop());
+        this.normalPool.push(this.normal.pop());
     }
 
     public void translate(float x, float y, float z) {
-        this.translate(new Vector3f(x, y, z));
+        if (x == 0.0F && y == 0.0F && z == 0.0F) {
+            return;
+        }
+        this.tempTranslateVec.set(x, y, z);
+        this.translate(this.tempTranslateVec);
     }
 
     public void translate(Vector3f vec) {
@@ -104,6 +127,9 @@ public class MatrixStack {
     }
 
     public void scale(float x, float y, float z) {
+        if (x == 1.0F && y == 1.0F && z == 1.0F) {
+            return;
+        }
         this.tempModelMatrix.setIdentity();
         this.tempModelMatrix.setM00(x);
         this.tempModelMatrix.setM11(y);
@@ -176,30 +202,20 @@ public class MatrixStack {
 
     public void rotate(GeoCube bone) {
         Vector3f rotation = bone.rotation;
-        Matrix4f matrix4f = new Matrix4f();
-        Matrix3f matrix3f = new Matrix3f();
-
-        this.tempModelMatrix.setIdentity();
-        matrix4f.rotZ(rotation.getZ());
-        this.tempModelMatrix.mul(matrix4f);
-
-        matrix4f.rotY(rotation.getY());
-        this.tempModelMatrix.mul(matrix4f);
-
-        matrix4f.rotX(rotation.getX());
-        this.tempModelMatrix.mul(matrix4f);
-
-        this.tempNormalMatrix.setIdentity();
-        matrix3f.rotZ(rotation.getZ());
-        this.tempNormalMatrix.mul(matrix3f);
-
-        matrix3f.rotY(rotation.getY());
-        this.tempNormalMatrix.mul(matrix3f);
-
-        matrix3f.rotX(rotation.getX());
-        this.tempNormalMatrix.mul(matrix3f);
-
-        getModelMatrix().mul(this.tempModelMatrix);
-        getNormalMatrix().mul(this.tempNormalMatrix);
+        float rz = rotation.getZ();
+        float ry = rotation.getY();
+        float rx = rotation.getX();
+        if (rz == 0.0F && ry == 0.0F && rx == 0.0F) {
+            return;
+        }
+        if (rz != 0.0F) {
+            this.rotateZ(rz);
+        }
+        if (ry != 0.0F) {
+            this.rotateY(ry);
+        }
+        if (rx != 0.0F) {
+            this.rotateX(rx);
+        }
     }
 }

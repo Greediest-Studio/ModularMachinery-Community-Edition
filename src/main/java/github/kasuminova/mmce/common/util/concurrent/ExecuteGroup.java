@@ -2,6 +2,7 @@ package github.kasuminova.mmce.common.util.concurrent;
 
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class ExecuteGroup {
@@ -10,7 +11,8 @@ public class ExecuteGroup {
     private final long                  groupId;
     private final Queue<ActionExecutor> executors = new ConcurrentLinkedQueue<>();
 
-    private volatile boolean submitted = false;
+    private final AtomicBoolean submitted = new AtomicBoolean(false);
+    private final AtomicBoolean pending   = new AtomicBoolean(false);
 
     public ExecuteGroup(final long groupId) {
         this.groupId = groupId;
@@ -34,11 +36,23 @@ public class ExecuteGroup {
     }
 
     public boolean isSubmitted() {
-        return submitted;
+        return submitted.get();
     }
 
     public void setSubmitted(final boolean submitted) {
-        this.submitted = submitted;
+        this.submitted.set(submitted);
+    }
+
+    public boolean tryClaimSubmit() {
+        return submitted.compareAndSet(false, true);
+    }
+
+    public boolean markPending() {
+        return pending.compareAndSet(false, true);
+    }
+
+    public void clearPending() {
+        pending.set(false);
     }
 
     public long getGroupId() {

@@ -7,6 +7,7 @@ import github.kasuminova.mmce.client.util.BufferProvider;
 import github.kasuminova.mmce.common.concurrent.TaskExecutor;
 import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.base.Mods;
+import hellfirepvp.modularmachinery.common.data.Config;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import io.netty.util.internal.ThrowableUtil;
 import net.minecraft.client.Minecraft;
@@ -45,13 +46,28 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
     protected int staticBloomTransparentBufferSize = 0;
 
     protected boolean available = true;
+    protected boolean bloomRegistered = false;
+    protected boolean hasDynamicCubes = false;
+    protected boolean hasStaticCubes  = false;
+    protected boolean hasBloomCubes   = false;
+    protected volatile boolean submittedAsync  = false;
+    protected volatile boolean dynamicRendered = false;
+    protected volatile boolean cancelled       = false;
 
     protected MachineControllerModel currentModel = null;
+    protected MachineControllerModel lastComputedModel = null;
     protected EnumFacing             renderedControllerRotation = null;
 
     public GeoModelRenderTask(final MachineControllerRenderer renderer, final TileMultiblockMachineController ctrl) {
         this.renderer = renderer;
         this.ctrl = ctrl;
+    }
+
+    private void registerBloomIfNeeded() {
+        if (bloomRegistered || !hasBloomCubes) {
+            return;
+        }
+        bloomRegistered = true;
         if (Mods.GREGTECHCEU.isPresent()) {
             registerBloomRenderer();
         } else if (Mods.LUMENIZED.isPresent()) {
@@ -71,11 +87,77 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
         BloomGeoModelRenderer.INSTANCE.registerGlobal(ctrl);
     }
 
+    public void submitInitial(final MachineControllerModel model) {
+        calculateBufferSize(model);
+        if (!hasDynamicCubes) {
+            dynamicRendered = true;
+            submittedAsync = false;
+            return;
+        }
+        if (Config.asyncControllerModelRender) {
+            submittedAsync = true;
+            TaskExecutor.FORK_JOIN_POOL.submit(this);
+        } else {
+            submittedAsync = false;
+            computeSync(model);
+        }
+    }
+
+    public boolean isSubmittedAsync() {
+        return submittedAsync;
+    }
+
+    public boolean hasDynamicCubes() {
+        return hasDynamicCubes;
+    }
+
+    public boolean hasStaticCubes() {
+        return hasStaticCubes;
+    }
+
+    public boolean hasBloomCubes() {
+        return hasBloomCubes;
+    }
+
+    public boolean isDynamicRendered() {
+        return dynamicRendered;
+    }
+
+    public synchronized void computeSync(final MachineControllerModel model) {
+        if (cancelled) {
+            return;
+        }
+        try {
+            if (lastComputedModel != model) {
+                calculateBufferSize(model);
+            }
+            if (hasDynamicCubes) {
+                renderer.render(ctrl, this, false, model);
+            }
+            dynamicRendered = true;
+        } catch (Throwable e) {
+            ModularMachinery.log.warn("[MMCE-Render] Failed to render controller model!");
+            ModularMachinery.log.warn(ThrowableUtil.stackTraceToString(e));
+        }
+    }
+
     @Override
     protected synchronized void compute() {
+        if (cancelled) {
+            return;
+        }
         try {
-            calculateBufferSize();
-            renderer.render(ctrl, this, false);
+            MachineControllerModel model = lastComputedModel != null ? lastComputedModel : ctrl.getCurrentModel();
+            if (model == null) {
+                return;
+            }
+            if (lastComputedModel != model) {
+                calculateBufferSize(model);
+            }
+            if (hasDynamicCubes) {
+                renderer.render(ctrl, this, false, model);
+            }
+            dynamicRendered = true;
         } catch (Throwable e) {
             ModularMachinery.log.warn("[MMCE-AsyncRender] Failed to render controller model!");
             ModularMachinery.log.warn(ThrowableUtil.stackTraceToString(e));
@@ -83,45 +165,75 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
     }
 
     public void renderAll() {
-        renderDefault();
-        renderBloom(true);
+        renderAll(ctrl.getCurrentModel());
+    }
+
+    public void renderAll(final MachineControllerModel model) {
+        if (model == null) {
+            return;
+        }
+        renderDefault(model, false);
+        renderBloom(true, model);
     }
 
     public void renderDefault() {
-        if (buffer == null && transparentBuffer == null && staticBuffer == null && staticTransparentBuffer == null) {
+        renderDefault(ctrl.getCurrentModel(), false);
+    }
+
+    public void renderDefault(final MachineControllerModel model) {
+        renderDefault(model, false);
+    }
+
+    public void renderDefault(final MachineControllerModel model, final boolean deferDynamicReinitToBloom) {
+        if (model == null) {
             return;
         }
-        MachineControllerModel currentModel = ctrl.getCurrentModel();
-        if (currentModel == null) {
-            return;
-        }
-        ResourceLocation texture = currentModel.getTextureLocation();
+        ResourceLocation texture = model.getTextureLocation();
+        if (buffer != null || transparentBuffer != null || staticBuffer != null || staticTransparentBuffer != null) {
+            int combinedLight = ctrl.getWorld().getCombinedLight(ctrl.getPos(), 0);
 
-        int combinedLight = ctrl.getWorld().getCombinedLight(ctrl.getPos(), 0);
+            if (buffer != null) {
+                ControllerModelRenderManager.INSTANCE.addBuffer(combinedLight, RenderType.DEFAULT, texture, buffer);
+            }
+            if (transparentBuffer != null) {
+                ControllerModelRenderManager.INSTANCE.addBuffer(combinedLight, RenderType.TRANSPARENT, texture, transparentBuffer);
+            }
+            if (staticBuffer != null) {
+                ControllerModelRenderManager.INSTANCE.addBuffer(combinedLight, RenderType.DEFAULT, texture, staticBuffer);
+            }
+            if (staticTransparentBuffer != null) {
+                ControllerModelRenderManager.INSTANCE.addBuffer(combinedLight, RenderType.TRANSPARENT, texture, staticTransparentBuffer);
+            }
+        }
 
-        if (buffer != null) {
-            ControllerModelRenderManager.INSTANCE.addBuffer(combinedLight, RenderType.DEFAULT, texture, buffer);
-        }
-        if (transparentBuffer != null) {
-            ControllerModelRenderManager.INSTANCE.addBuffer(combinedLight, RenderType.TRANSPARENT, texture, transparentBuffer);
-        }
-        if (staticBuffer != null) {
-            ControllerModelRenderManager.INSTANCE.addBuffer(combinedLight, RenderType.DEFAULT, texture, staticBuffer);
-        }
-        if (staticTransparentBuffer != null) {
-            ControllerModelRenderManager.INSTANCE.addBuffer(combinedLight, RenderType.TRANSPARENT, texture, staticTransparentBuffer);
+        // If this controller has no bloom geometry, bloom pass will never run reinitialize for it.
+        if (hasDynamicCubes && (!deferDynamicReinitToBloom || !hasAnyBloomBuffer())) {
+            ControllerModelRenderManager.INSTANCE.addReinitializeCallback(this, this::prepareNextDynamicFrame);
         }
     }
 
+    private boolean hasAnyBloomBuffer() {
+        return bloomBuffer != null || bloomTransparentBuffer != null || staticBloomBuffer != null || staticBloomTransparentBuffer != null;
+    }
+
     public void renderBloom(boolean postProcessing) {
-        if (bloomBuffer == null && bloomTransparentBuffer == null && staticBloomBuffer == null && staticBloomTransparentBuffer == null) {
+        renderBloom(postProcessing, ctrl.getCurrentModel());
+    }
+
+    public void renderBloom(boolean postProcessing, final MachineControllerModel model) {
+        if (!hasAnyBloomBuffer()) {
+            if (postProcessing) {
+                available = false;
+            }
             return;
         }
-        MachineControllerModel currentModel = ctrl.getCurrentModel();
-        if (currentModel == null) {
+        if (model == null) {
+            if (postProcessing) {
+                available = false;
+            }
             return;
         }
-        ResourceLocation texture = currentModel.getTextureLocation();
+        ResourceLocation texture = model.getTextureLocation();
 
         if (bloomBuffer != null) {
             ControllerModelRenderManager.INSTANCE.addBuffer(-1, RenderType.BLOOM, texture, bloomBuffer);
@@ -137,18 +249,38 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
         }
 
         if (postProcessing) {
-            ControllerModelRenderManager.INSTANCE.addReinitializeCallback(this, () -> {
-                reinitialize();
-                ControllerModelRenderManager.INSTANCE.addToRender(ctrl);
-                MachineControllerRenderer.INSTANCE.tasks.put(ctrl, (GeoModelRenderTask) TaskExecutor.FORK_JOIN_POOL.submit(this));
-            });
+            if (hasDynamicCubes) {
+                ControllerModelRenderManager.INSTANCE.addReinitializeCallback(this, this::prepareNextDynamicFrame);
+            } else {
+                available = false;
+            }
+        }
+    }
+
+    public void prepareNextDynamicFrame() {
+        clean();
+        available = false;
+        dynamicRendered = false;
+        if (cancelled || !hasDynamicCubes) {
+            return;
+        }
+        if (Config.asyncControllerModelRender) {
+            submittedAsync = true;
+            super.reinitialize();
+            TaskExecutor.FORK_JOIN_POOL.submit(this);
+        } else {
+            submittedAsync = false;
         }
     }
 
     private void calculateBufferSize() {
-        MachineControllerModel currentModel = ctrl.getCurrentModel();
-        if (currentModel != null) {
-            ModelBufferSize modelBufferSize = currentModel.getBufferSize();
+        calculateBufferSize(ctrl.getCurrentModel());
+    }
+
+    private void calculateBufferSize(final MachineControllerModel model) {
+        lastComputedModel = model;
+        if (model != null) {
+            ModelBufferSize modelBufferSize = model.getBufferSize();
             bufferSize = modelBufferSize.getBufferSize();
             bloomBufferSize = modelBufferSize.getBloomBufferSize();
             transparentBufferSize = modelBufferSize.getTransparentBufferSize();
@@ -157,6 +289,10 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
             staticBloomBufferSize = modelBufferSize.getStaticBloomBufferSize();
             staticTransparentBufferSize = modelBufferSize.getStaticTransparentBufferSize();
             staticBloomTransparentBufferSize = modelBufferSize.getStaticBloomTransparentBufferSize();
+            hasDynamicCubes = modelBufferSize.hasDynamicCubes();
+            hasStaticCubes = modelBufferSize.hasStaticCubes();
+            hasBloomCubes = modelBufferSize.hasBloomCubes();
+            registerBloomIfNeeded();
         } else {
             bufferSize = 0;
             bloomBufferSize = 0;
@@ -166,6 +302,9 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
             staticBloomBufferSize = 0;
             staticTransparentBufferSize = 0;
             staticBloomTransparentBufferSize = 0;
+            hasDynamicCubes = false;
+            hasStaticCubes = false;
+            hasBloomCubes = false;
         }
     }
 
@@ -173,7 +312,14 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
     public void reinitialize() {
         clean();
         available = false;
+        dynamicRendered = false;
         super.reinitialize();
+    }
+
+    public synchronized void cleanup() {
+        cancelled = true;
+        clean();
+        cleanStatic();
     }
 
     @Override
@@ -190,16 +336,34 @@ public class GeoModelRenderTask extends RecursiveAction implements BufferProvide
     }
 
     public boolean shouldReRenderStatic() {
-        MachineControllerModel nextModel = ctrl.getCurrentModel();
-        EnumFacing currentRotation = ctrl.getControllerRotation();
+        return shouldReRenderStatic(ctrl.getCurrentModel());
+    }
 
-        if (currentModel != nextModel
-            || renderedControllerRotation != currentRotation) {
-            currentModel = nextModel;
-            renderedControllerRotation = currentRotation;
-            return true;
+    public boolean shouldReRenderStatic(final MachineControllerModel nextModel) {
+        EnumFacing currentRotation = ctrl.getControllerRotation();
+        return currentModel != nextModel || renderedControllerRotation != currentRotation;
+    }
+
+    public void handleStaticChange(final MachineControllerModel nextModel) {
+        boolean initialStaticRender = currentModel == null && renderedControllerRotation == null;
+        boolean modelChanged = lastComputedModel != nextModel;
+        currentModel = nextModel;
+        renderedControllerRotation = ctrl.getControllerRotation();
+
+        if (!initialStaticRender) {
+            cleanStatic();
+            clean();
+            dynamicRendered = false;
         }
-        return false;
+        if (modelChanged) {
+            calculateBufferSize(nextModel);
+        }
+        if (hasStaticCubes) {
+            renderer.render(ctrl, this, true, nextModel);
+        }
+        if (hasDynamicCubes && !dynamicRendered) {
+            computeSync(nextModel);
+        }
     }
 
     @Override

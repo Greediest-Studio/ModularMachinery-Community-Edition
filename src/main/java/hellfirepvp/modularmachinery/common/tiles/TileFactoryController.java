@@ -571,6 +571,7 @@ public class TileFactoryController extends TileMultiblockMachineController {
 
     @Override
     public void flushContextModifier() {
+        coreRecipeThreads.values().forEach(FactoryRecipeThread::flushContextModifier);
         recipeThreadList.forEach(FactoryRecipeThread::flushContextModifier);
     }
 

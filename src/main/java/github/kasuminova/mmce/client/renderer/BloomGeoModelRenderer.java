@@ -56,25 +56,25 @@ public class BloomGeoModelRenderer implements IRenderSetup, IBloomEffect {
 
         Minecraft.getMinecraft().renderEngine.bindTexture(TextureMap.LOCATION_BLOCKS_TEXTURE);
         GlStateManager.popMatrix();
-        if (postProcessing) {
-            ControllerModelRenderManager.INSTANCE.checkControllerState();
-        }
         postProcessing = !postProcessing;
     }
 
     protected void renderModel(final TileMultiblockMachineController ctrl, @Nonnull final EffectRenderContext ctx) {
+        if (ctrl.isInvalid() || ctrl.getWorld() == null) {
+            return;
+        }
+        GeoModelRenderTask task = MachineControllerRenderer.INSTANCE.tasks.get(ctrl);
+        if (task == null || !task.isAvailable()) {
+            return;
+        }
         MachineControllerModel currentModel = ctrl.getCurrentModel();
         if (currentModel == null) {
             return;
         }
 
         Minecraft.getMinecraft().renderEngine.bindTexture(currentModel.getTextureLocation());
-        GeoModelRenderTask task = MachineControllerRenderer.INSTANCE.getTask(ctrl);
-        if (!task.isAvailable()) {
-            return;
-        }
         // BloomEffectUtil do twice render, prevent twice reinitialize, just do once.
-        task.renderBloom(postProcessing);
+        task.renderBloom(postProcessing, currentModel);
     }
 
     @Override

@@ -46,7 +46,6 @@ import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
@@ -194,7 +193,7 @@ public class RecipeCraftingContext {
 
     @Nonnull
     public List<RecipeModifier> getModifiers(RequirementType<?, ?> target) {
-        return modifiers.computeIfAbsent(target, t -> new CopyOnWriteArrayList<>());
+        return modifiers.computeIfAbsent(target, t -> new ObjectArrayList<>());
     }
 
     @Nonnull
@@ -799,6 +798,16 @@ public class RecipeCraftingContext {
         return false;
     }
 
+    private static final ThreadLocal<SearchComponentMatchCache> SEARCH_COMPONENT_MATCH_CACHE = new ThreadLocal<>();
+
+    public static void beginSearchComponentMatchCache(final TileMultiblockMachineController controller) {
+        SEARCH_COMPONENT_MATCH_CACHE.set(new SearchComponentMatchCache(controller));
+    }
+
+    public static void endSearchComponentMatchCache() {
+        SEARCH_COMPONENT_MATCH_CACHE.remove();
+    }
+
     public void updateComponents(Map<Long, Map<TileEntity, ProcessingComponent<?>>> components) {
         this.typeComponents.clear();
         components.forEach((groupId, map)
@@ -808,7 +817,11 @@ public class RecipeCraftingContext {
 
     public void updateRequirementComponents() {
         requirementComponents.clear();
-        Map<ComponentMatchCacheKey, Map<Long, List<ProcessingComponent<?>>>> componentMatchCache = null;
+        SearchComponentMatchCache searchCache = SEARCH_COMPONENT_MATCH_CACHE.get();
+        boolean usingSearchCache = searchCache != null && searchCache.controller == this.controller;
+        Map<ComponentMatchCacheKey, Map<Long, List<ProcessingComponent<?>>>> componentMatchCache =
+            usingSearchCache ? searchCache.cache : null;
+
         for (ComponentRequirement<?, ?> req : requirements) {
             Object matchKey = req.getComponentMatchCacheKey();
             Map<Long, List<ProcessingComponent<?>>> matchingComponents;
@@ -829,7 +842,7 @@ public class RecipeCraftingContext {
                 }
             }
 
-            final boolean copyLists = cached;
+            final boolean copyLists = cached || usingSearchCache;
             matchingComponents.forEach((groupId, list) ->
                 requirementComponents
                     .computeIfAbsent(groupId, i -> new ObjectArrayList<>())
@@ -848,13 +861,27 @@ public class RecipeCraftingContext {
             }
         }
 
-        groupKeys[0] = this.requirementComponents.keySet().stream().mapToLong(Long::longValue).toArray();
-        Arrays.sort(groupKeys[0]);
+        long[] sortedGroupKeys = new long[this.requirementComponents.size()];
+        int idx = 0;
+        for (Long key : this.requirementComponents.keySet()) {
+            sortedGroupKeys[idx++] = key;
+        }
+        Arrays.sort(sortedGroupKeys);
+        groupKeys[0] = sortedGroupKeys;
         if (groupKeys[1] == null) groupKeys[1] = new long[]{groupId};
         else if (groupKeys[1][0] != groupId) groupKeys[1][0] = groupId;
 
         if (activeRecipe.isCrafting() && !activeRecipe.getPersistentGroupKey().isEmpty()) {
             restoreCraftingState();
+        }
+    }
+
+    private static final class SearchComponentMatchCache {
+        private final TileMultiblockMachineController controller;
+        private final Map<ComponentMatchCacheKey, Map<Long, List<ProcessingComponent<?>>>> cache = new HashMap<>();
+
+        private SearchComponentMatchCache(final TileMultiblockMachineController controller) {
+            this.controller = controller;
         }
     }
 
@@ -888,30 +915,101 @@ public class RecipeCraftingContext {
         addModifier(replacement.getModifiers());
     }
 
+    private RequirementType<?, ?> addModifierEntry(final RecipeModifier modifier) {
+        if (modifier == null) {
+            return null;
+        }
+        RequirementType<?, ?> target = modifier.getTarget();
+        if (target == null) {
+            target = RequirementTypesMM.REQUIREMENT_DURATION;
+        }
+        this.modifiers.computeIfAbsent(target, t -> new ObjectArrayList<>()).add(modifier);
+        return target;
+    }
+
     public void addModifier(RecipeModifier modifier) {
-        if (modifier != null) {
-            RequirementType<?, ?> target = modifier.getTarget();
-            if (target == null) {
-                target = RequirementTypesMM.REQUIREMENT_DURATION;
-            }
-            this.modifiers.computeIfAbsent(target, t -> new CopyOnWriteArrayList<>()).add(modifier);
+        RequirementType<?, ?> target = addModifierEntry(modifier);
+        if (target != null) {
             updateModifierApplier(target);
         }
     }
 
     public void addModifier(Collection<RecipeModifier> modifiers) {
-        Set<RequirementType<?, ?>> changed = new HashSet<>();
-
+        if (modifiers == null || modifiers.isEmpty()) {
+            return;
+        }
+        ChangedTargets changed = new ChangedTargets();
         for (RecipeModifier modifier : modifiers) {
-            RequirementType<?, ?> target = modifier.getTarget();
-            if (target == null) {
-                target = RequirementTypesMM.REQUIREMENT_DURATION;
+            changed.record(addModifierEntry(modifier));
+        }
+        changed.apply(this);
+    }
+
+    public void addModifiers(@Nullable Iterable<? extends Collection<RecipeModifier>> groupedModifiers,
+                             @Nullable Collection<RecipeModifier> upgradeModifiers,
+                             @Nullable Collection<RecipeModifier> customModifiers,
+                             @Nullable Collection<RecipeModifier> semiPermanentModifiers,
+                             @Nullable Collection<RecipeModifier> permanentModifiers) {
+        addModifiers(groupedModifiers, upgradeModifiers, customModifiers, semiPermanentModifiers, permanentModifiers, null);
+    }
+
+    private void addModifiers(@Nullable Iterable<? extends Collection<RecipeModifier>> groupedModifiers,
+                              @Nullable Collection<RecipeModifier> upgradeModifiers,
+                              @Nullable Collection<RecipeModifier> customModifiers,
+                              @Nullable Collection<RecipeModifier> semiPermanentModifiers,
+                              @Nullable Collection<RecipeModifier> permanentModifiers,
+                              @Nullable Collection<RecipeModifier> contextPermanentModifiers) {
+        ChangedTargets changed = new ChangedTargets();
+        if (groupedModifiers != null) {
+            for (Collection<RecipeModifier> group : groupedModifiers) {
+                recordCollection(group, changed);
             }
-            this.modifiers.computeIfAbsent(target, t -> new CopyOnWriteArrayList<>()).add(modifier);
-            changed.add(target);
+        }
+        recordCollection(upgradeModifiers, changed);
+        recordCollection(customModifiers, changed);
+        recordCollection(semiPermanentModifiers, changed);
+        recordCollection(permanentModifiers, changed);
+        recordCollection(contextPermanentModifiers, changed);
+        changed.apply(this);
+    }
+
+    private void recordCollection(@Nullable Collection<RecipeModifier> src, ChangedTargets changed) {
+        if (src == null || src.isEmpty()) {
+            return;
+        }
+        for (RecipeModifier modifier : src) {
+            changed.record(addModifierEntry(modifier));
+        }
+    }
+
+    private static final class ChangedTargets {
+        private RequirementType<?, ?>      single;
+        private Set<RequirementType<?, ?>> multi;
+
+        private void record(@Nullable RequirementType<?, ?> target) {
+            if (target == null) {
+                return;
+            }
+            if (single == null) {
+                single = target;
+            } else if (multi != null) {
+                multi.add(target);
+            } else if (!single.equals(target)) {
+                multi = new HashSet<>();
+                multi.add(single);
+                multi.add(target);
+            }
         }
 
-        changed.forEach(this::updateModifierApplier);
+        private void apply(RecipeCraftingContext ctx) {
+            if (multi != null) {
+                for (RequirementType<?, ?> target : multi) {
+                    ctx.updateModifierApplier(target);
+                }
+            } else if (single != null) {
+                ctx.updateModifierApplier(single);
+            }
+        }
     }
 
     public void addModifier(List<RecipeModifier> modifiers) {
@@ -937,7 +1035,7 @@ public class RecipeCraftingContext {
         if (this.permanentModifierList.isEmpty()) {
             return;
         }
-        Set<RequirementType<?, ?>> changed = new HashSet<>();
+        ChangedTargets changed = new ChangedTargets();
         for (RecipeModifier modifier : this.permanentModifierList) {
             RequirementType<?, ?> target = modifier.getTarget();
             if (target == null) {
@@ -946,15 +1044,15 @@ public class RecipeCraftingContext {
             List<RecipeModifier> list = this.modifiers.get(target);
             if (list != null) {
                 list.remove(modifier);
-                changed.add(target);
+                changed.record(target);
             }
         }
         this.permanentModifierList.clear();
-        changed.forEach(this::updateModifierApplier);
+        changed.apply(this);
     }
 
     public void updateModifierApplier(RequirementType<?, ?> reqType) {
-        addModifierApplier(reqType, modifiers.computeIfAbsent(reqType, v -> new CopyOnWriteArrayList<>()));
+        addModifierApplier(reqType, modifiers.computeIfAbsent(reqType, v -> new ObjectArrayList<>()));
     }
 
     public void addModifierApplier(final RequirementType<?, ?> reqType, final List<RecipeModifier> recipeModifiers) {
@@ -976,11 +1074,18 @@ public class RecipeCraftingContext {
     }
 
     public void overrideModifier(Collection<RecipeModifier> modifiers) {
+        overrideModifiers(null, null, modifiers, null, null);
+    }
+
+    public void overrideModifiers(@Nullable Iterable<? extends Collection<RecipeModifier>> groupedModifiers,
+                                  @Nullable Collection<RecipeModifier> upgradeModifiers,
+                                  @Nullable Collection<RecipeModifier> customModifiers,
+                                  @Nullable Collection<RecipeModifier> semiPermanentModifiers,
+                                  @Nullable Collection<RecipeModifier> permanentModifiers) {
         this.modifiers.clear();
         this.modifierAppliers.clear();
         this.chanceModifierAppliers.clear();
-        addModifier(modifiers);
-        addModifier(permanentModifierList);
+        addModifiers(groupedModifiers, upgradeModifiers, customModifiers, semiPermanentModifiers, permanentModifiers, this.permanentModifierList);
     }
 
     public static class CraftingCheckResult {

@@ -35,19 +35,21 @@ public class UpgradeMachineEventHandler {
                     continue;
                 }
 
-                TileUpgradeBus.UpgradeBusProvider provider = parentBus.provideComponent();
-                upgrade.readNBT(provider.getUpgradeCustomData(upgrade));
-
                 synchronized (parentBus) {
+                    TileUpgradeBus.UpgradeBusProvider provider = parentBus.provideComponent();
+                    upgrade.readNBT(provider.getUpgradeCustomData(upgrade));
+
                     for (final UpgradeEventHandlerCT handler : processors) {
                         handler.handle(event, upgrade);
                         if (event.isCanceled()) {
                             break;
                         }
                     }
-                }
 
-                provider.setUpgradeCustomData(upgrade, upgrade.writeNBT());
+                    if (upgrade.hasCustomDataModified()) {
+                        provider.setUpgradeCustomData(upgrade, upgrade.writeNBT());
+                    }
+                }
 
                 if (event.isCanceled()) {
                     return;
