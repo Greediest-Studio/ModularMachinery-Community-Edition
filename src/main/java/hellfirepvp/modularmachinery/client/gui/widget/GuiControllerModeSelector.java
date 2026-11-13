@@ -4,6 +4,7 @@ import hellfirepvp.modularmachinery.ModularMachinery;
 import hellfirepvp.modularmachinery.common.container.ContainerBase;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.network.PktControllerModeSelect;
+import hellfirepvp.modularmachinery.common.network.PktControllerStructureRefresh;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
 import hellfirepvp.modularmachinery.common.util.ControllerMode;
 import net.minecraft.client.Minecraft;
@@ -21,20 +22,23 @@ import org.lwjgl.input.Keyboard;
 import org.lwjgl.opengl.GL11;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-/** 普通控制器与工厂控制器共用的齿轮按钮和模式列表。坐标均为屏幕坐标。 */
+/** 普通控制器与工厂控制器共用的模式按钮、结构刷新按钮和模式列表。坐标均为屏幕坐标。 */
 public class GuiControllerModeSelector {
     private static final int BUTTON_SIZE = 18;
     private static final int BUTTON_STEP = 20;
-    private static final int MAX_BUTTONS = 5;
+    // 刷新按钮占据最下方一格，其余四格显示模式按钮，顶部保留蓝图槽。
+    private static final int MAX_BUTTONS = 4;
     private static final int ROW_HEIGHT = 18;
     private static final int HEADER_HEIGHT = 20;
     private static final int MAX_ROWS = 6;
 
     private final ContainerBase<? extends TileMultiblockMachineController> container;
     private final GuiButton button = new GuiButton(0, 0, 0, BUTTON_SIZE, BUTTON_SIZE, "");
+    private final GuiButton refreshButton = new GuiButton(1, 0, 0, BUTTON_SIZE, BUTTON_SIZE, "");
     private final List<ControllerMode> types = new ArrayList<>();
     private ControllerMode openedType;
     private int buttonX;
@@ -54,13 +58,19 @@ public class GuiControllerModeSelector {
     public void draw(int guiLeft, int guiTop, int guiWidth, int screenWidth, int screenHeight,
                      int mouseX, int mouseY) {
         buttonX = guiLeft + guiWidth - 26;
-        buttonBottomY = guiTop + 106;
+        refreshButton.x = buttonX;
+        refreshButton.y = guiTop + 106;
+        buttonBottomY = refreshButton.y - BUTTON_STEP;
         refreshTypes();
         Minecraft mc = Minecraft.getMinecraft();
         FontRenderer font = mc.fontRenderer;
 
+        // 容器绘制物品后会开启光照，二维按钮和弹窗须关闭光照以保持原色。
+        GlStateManager.disableLighting();
         GlStateManager.pushMatrix();
         GlStateManager.translate(0, 0, 300);
+        refreshButton.drawButton(mc, mouseX, mouseY, 0);
+        drawRefreshArrow(refreshButton.x + 9, refreshButton.y + 9, 0xFFE0E3E6);
         for (int i = buttonScroll; i < Math.min(types.size(), buttonScroll + MAX_BUTTONS); i++) {
             ControllerMode type = types.get(i);
             button.x = buttonX;
@@ -83,10 +93,14 @@ public class GuiControllerModeSelector {
         }
         GlStateManager.color(1, 1, 1, 1);
         GlStateManager.popMatrix();
+        GlStateManager.enableLighting();
 
         if (!isOpen()) {
             int hovered = hoveredButton(mouseX, mouseY);
-            if (hovered >= 0) {
+            if (isMouseOverRefreshButton(mouseX, mouseY)) {
+                GuiUtils.drawHoveringText(Collections.singletonList(I18n.format("gui.controller.structure.refresh")),
+                    mouseX, mouseY, screenWidth, screenHeight, -1, font);
+            } else if (hovered >= 0) {
                 GuiUtils.drawHoveringText(tooltip(types.get(hovered)), mouseX, mouseY,
                     screenWidth, screenHeight, -1, font);
             }
@@ -179,6 +193,14 @@ public class GuiControllerModeSelector {
 
     public boolean mouseClicked(int mouseX, int mouseY, int mouseButton) {
         refreshTypes();
+        if (isMouseOverRefreshButton(mouseX, mouseY)) {
+            if (mouseButton == 0) {
+                ModularMachinery.NET_CHANNEL.sendToServer(new PktControllerStructureRefresh(container.windowId));
+                refreshButton.playPressSound(Minecraft.getMinecraft().getSoundHandler());
+                close();
+            }
+            return true;
+        }
         int hovered = hoveredButton(mouseX, mouseY);
         if (hovered >= 0) {
             if (mouseButton == 0 && canSelect(types.get(hovered))) {
@@ -217,7 +239,7 @@ public class GuiControllerModeSelector {
             modeScroll = MathHelper.clamp(modeScroll + step, 0, Math.max(0, openedType.getModes().size() - visibleRows));
             return true;
         }
-        if (isMouseOverButtons(mouseX, mouseY)) {
+        if (isMouseOverModeButtons(mouseX, mouseY)) {
             buttonScroll = MathHelper.clamp(buttonScroll + step, 0, Math.max(0, types.size() - MAX_BUTTONS));
             return true;
         }
@@ -244,6 +266,14 @@ public class GuiControllerModeSelector {
     }
 
     public boolean isMouseOverButtons(int mouseX, int mouseY) {
+        return isMouseOverRefreshButton(mouseX, mouseY) || isMouseOverModeButtons(mouseX, mouseY);
+    }
+
+    private boolean isMouseOverRefreshButton(int mouseX, int mouseY) {
+        return contains(mouseX, mouseY, refreshButton.x, refreshButton.y, BUTTON_SIZE, BUTTON_SIZE);
+    }
+
+    private boolean isMouseOverModeButtons(int mouseX, int mouseY) {
         int count = Math.min(MAX_BUTTONS, types.size());
         return count > 0 && contains(mouseX, mouseY, buttonX, buttonBottomY - (count - 1) * BUTTON_STEP,
             BUTTON_SIZE, (count - 1) * BUTTON_STEP + BUTTON_SIZE);
@@ -279,17 +309,46 @@ public class GuiControllerModeSelector {
             double nextAngle = Math.PI * (i + 0.5) / 16;
             double radius = i % 4 < 2 ? 6 : 4.5;
             double nextRadius = (i + 1) % 4 < 2 ? 6 : 4.5;
-            gearVertex(buffer, x, y, angle, 2.2, color);
-            gearVertex(buffer, x, y, nextAngle, 2.2, color);
-            gearVertex(buffer, x, y, nextAngle, nextRadius, color);
-            gearVertex(buffer, x, y, angle, radius, color);
+            radialVertex(buffer, x, y, angle, 2.2, color);
+            radialVertex(buffer, x, y, nextAngle, 2.2, color);
+            radialVertex(buffer, x, y, nextAngle, nextRadius, color);
+            radialVertex(buffer, x, y, angle, radius, color);
         }
         Tessellator.getInstance().draw();
         GlStateManager.enableTexture2D();
     }
 
-    private static void gearVertex(BufferBuilder buffer, int x, int y, double angle, double radius, int color) {
-        buffer.pos(x + Math.cos(angle) * radius, y + Math.sin(angle) * radius, 0)
+    /** 直接画循环箭头，避免依赖字体中的刷新符号。 */
+    private static void drawRefreshArrow(int x, int y, int color) {
+        GlStateManager.disableTexture2D();
+        GlStateManager.enableBlend();
+        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
+        BufferBuilder buffer = Tessellator.getInstance().getBuffer();
+        buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+        for (int i = 0; i < 24; i++) {
+            double angle = Math.PI * (i + 4) / 16;
+            double nextAngle = Math.PI * (i + 5) / 16;
+            radialVertex(buffer, x, y, angle, 3.5, color);
+            radialVertex(buffer, x, y, nextAngle, 3.5, color);
+            radialVertex(buffer, x, y, nextAngle, 5.5, color);
+            radialVertex(buffer, x, y, angle, 5.5, color);
+        }
+        Tessellator.getInstance().draw();
+        buffer.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_COLOR);
+        // 三角箭头沿圆弧末端的顺时针切线指向右下方。
+        iconVertex(buffer, x + 5.6, y - 1.2, color);
+        iconVertex(buffer, x + 4.4, y - 5.2, color);
+        iconVertex(buffer, x + 1.6, y - 2.4, color);
+        Tessellator.getInstance().draw();
+        GlStateManager.enableTexture2D();
+    }
+
+    private static void radialVertex(BufferBuilder buffer, int x, int y, double angle, double radius, int color) {
+        iconVertex(buffer, x + Math.cos(angle) * radius, y + Math.sin(angle) * radius, color);
+    }
+
+    private static void iconVertex(BufferBuilder buffer, double x, double y, int color) {
+        buffer.pos(x, y, 0)
             .color((color >> 16) & 255, (color >> 8) & 255, color & 255, (color >>> 24) & 255).endVertex();
     }
 }

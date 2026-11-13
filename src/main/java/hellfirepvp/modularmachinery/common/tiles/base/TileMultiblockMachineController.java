@@ -140,6 +140,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     protected final Map<String, RecipeModifier>       customModifiers  = new ConcurrentHashMap<>();
 
     private final ControllerModeData controllerModes = new ControllerModeData();
+    private boolean forceStructureCheck;
 
     protected final Map<TileSmartInterface.SmartInterfaceProvider, String>  foundSmartInterfaces     = new ConcurrentHashMap<>();
     private final ThreadLocal<Long> smartInterfaceRecipeGroup = new ThreadLocal<>();
@@ -523,6 +524,9 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     }
 
     protected boolean canCheckStructure() {
+        if (forceStructureCheck) {
+            return true;
+        }
         if (lastStructureCheckTick == -1 || (isStructureFormed() && foundComponents.isEmpty())) {
             return true;
         }
@@ -737,6 +741,25 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         this.structureCheckCounter = 0;
     }
 
+    /** 在服务端主线程重新匹配完整结构和动态长度，再重建组件；整个过程均绕过检测间隔。 */
+    public void refreshStructure() {
+        forceStructureCheck = true;
+        try {
+            syncControllerRotationTick();
+            if (!doStructureCheck()) {
+                updateComponents();
+            } else {
+                flushContextModifier();
+            }
+            updateStatedMachineComponentSync(isStructureFormed() && isWorking());
+            resetRecipeSearchRetryCount();
+            setSearchRecipeImmediately(true);
+            markForUpdateSync();
+        } finally {
+            forceStructureCheck = false;
+        }
+    }
+
     protected void checkRotation() {
     }
 
@@ -884,7 +907,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
         lastStructureCheckTick = ticksExisted;
 
-        if (isStructureFormed()) {
+        if (isStructureFormed() && !forceStructureCheck) {
             BlockPos ctrlPos = getPos();
             //Is chunk area loaded? Prevention of unanticipated consumption of something.
             if (!isMachineAllowedByController(foundMachine)) {
@@ -902,7 +925,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
             }
         }
 
-        if (this.foundMachine != null && this.foundPattern != null && this.controllerRotation != null && this.foundReplacements != null) {
+        if (!forceStructureCheck && this.foundMachine != null && this.foundPattern != null && this.controllerRotation != null && this.foundReplacements != null) {
             return true;
         }
 
