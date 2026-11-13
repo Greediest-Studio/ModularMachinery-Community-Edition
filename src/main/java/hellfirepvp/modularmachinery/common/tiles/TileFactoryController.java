@@ -358,11 +358,7 @@ public class TileFactoryController extends TileMultiblockMachineController {
 
             boolean shouldContinueSearch = false;
             if (context != null) {
-                if (context.canStartCrafting().isSuccess()) {
-                    shouldContinueSearch = offerRecipe(context) && hasIdleThread();
-                } else {
-                    RecipeCraftingContextPool.returnCtx(context);
-                }
+                shouldContinueSearch = offerRecipe(context) && hasIdleThread();
             } else {
                 incrementRecipeSearchRetryCount();
                 CraftingStatus status = task.getStatus();
@@ -541,26 +537,24 @@ public class TileFactoryController extends TileMultiblockMachineController {
             return false;
         }
 
-        for (FactoryRecipeThread thread : recipeThreadList) {
-            if (thread.getActiveRecipe() == null && !thread.hasRecipeSearchTask()) {
-                thread.setContext(context)
-                      .setActiveRecipe(context.getActiveRecipe())
-                      .setStatus(CraftingStatus.SUCCESS);
-                onThreadRecipeStart(thread);
-                return true;
-            }
-        }
-
-        if (recipeThreadList.size() >= maxThreads) {
+        FactoryRecipeThread thread = getNextIdleThread();
+        if (thread == null) {
             RecipeCraftingContextPool.returnCtx(context);
             return false;
         }
 
-        FactoryRecipeThread thread = new FactoryRecipeThread(this);
+        // 搜索后升级或目标线程的覆盖可能变化，先刷新并校验，再消耗输入。
+        thread.flushContextModifier(context);
+        if (!context.getActiveRecipe().canStartCrafting(context).isSuccess()) {
+            RecipeCraftingContextPool.returnCtx(context);
+            return false;
+        }
         thread.setContext(context)
               .setActiveRecipe(context.getActiveRecipe())
               .setStatus(CraftingStatus.SUCCESS);
-        recipeThreadList.add(thread);
+        if (!recipeThreadList.contains(thread)) {
+            recipeThreadList.add(thread);
+        }
         onThreadRecipeStart(thread);
         return true;
     }
@@ -874,6 +868,33 @@ public class TileFactoryController extends TileMultiblockMachineController {
     public void removeModifier(final String key) {
         coreRecipeThreads.values().forEach(thread -> thread.removeModifier(key));
         recipeThreadList.forEach(thread -> thread.removeModifier(key));
+    }
+
+    @Override
+    public boolean hasModifier(String key) {
+        if (customModifiers.containsKey(key)) {
+            return true;
+        }
+        if (coreRecipeThreads.isEmpty() && recipeThreadList.isEmpty()) {
+            return upgradeModifiers.containsKey(key);
+        }
+        for (FactoryRecipeThread thread : coreRecipeThreads.values()) {
+            if (thread.hasModifier(key)) {
+                return true;
+            }
+        }
+        for (FactoryRecipeThread thread : recipeThreadList) {
+            if (thread.hasModifier(key)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Override
+    protected void resetUpgradeModifierOverrides() {
+        coreRecipeThreads.values().forEach(FactoryRecipeThread::resetUpgradeModifierOverrides);
+        recipeThreadList.forEach(FactoryRecipeThread::resetUpgradeModifierOverrides);
     }
 
     @Override

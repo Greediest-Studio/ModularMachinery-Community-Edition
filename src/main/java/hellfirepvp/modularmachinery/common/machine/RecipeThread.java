@@ -15,7 +15,9 @@ import stanhebben.zenscript.annotations.ZenClass;
 import stanhebben.zenscript.annotations.ZenGetter;
 import stanhebben.zenscript.annotations.ZenMethod;
 
+import java.util.Collection;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -26,6 +28,8 @@ public abstract class RecipeThread {
     protected final TileMultiblockMachineController ctrl;
     protected final Map<String, RecipeModifier>     permanentModifiers     = new ConcurrentHashMap<>();
     protected final Map<String, RecipeModifier>     semiPermanentModifiers = new ConcurrentHashMap<>();
+    // 升级键的覆盖或移除只持续当前 Tick；普通半永久修饰器仍随配方结束清理。
+    private final Set<String> overriddenUpgradeModifiers = ConcurrentHashMap.newKeySet();
 
     protected ActiveMachineRecipe   activeRecipe  = null;
     protected CraftingStatus        status        = CraftingStatus.IDLE;
@@ -97,7 +101,8 @@ public abstract class RecipeThread {
     public abstract void tryRestartRecipe();
 
     public RecipeCraftingContext createContext(ActiveMachineRecipe activeRecipe) {
-        RecipeCraftingContext context = ctrl.createContext(activeRecipe, semiPermanentModifiers.values(), permanentModifiers.values());
+        RecipeCraftingContext context = ctrl.createContext(activeRecipe, getContextUpgradeModifiers(),
+            semiPermanentModifiers.values(), permanentModifiers.values());
         if (activeRecipe != null && activeRecipe.isCrafting()) {
             context.restoreCraftingState();
         }
@@ -136,7 +141,8 @@ public abstract class RecipeThread {
                 return;
             }
 
-            if (context.canStartCrafting().isSuccess()) {
+            flushContextModifier(context);
+            if (context.getActiveRecipe().canStartCrafting(context).isSuccess()) {
                 setContext(context);
                 this.activeRecipe = context.getActiveRecipe();
                 this.status = CraftingStatus.SUCCESS;
@@ -162,6 +168,7 @@ public abstract class RecipeThread {
         setActiveRecipe(null).setContext(null);
         permanentModifiers.clear();
         semiPermanentModifiers.clear();
+        overriddenUpgradeModifiers.clear();
 
         if (searchTask == null || searchTask.isDone()) {
             return;
@@ -186,13 +193,35 @@ public abstract class RecipeThread {
     public void flushContextModifier() {
         if (context == null) return;
 
+        flushContextModifier(context);
+    }
+
+    public void flushContextModifier(RecipeCraftingContext context) {
         context.overrideModifiers(
             ctrl.getFoundModifiers().values(),
-            ctrl.getUpgradeModifiers().values(),
+            getContextUpgradeModifiers(),
             ctrl.getCustomModifiers().values(),
             semiPermanentModifiers.values(),
             permanentModifiers.values()
         );
+    }
+
+    private Collection<RecipeModifier> getContextUpgradeModifiers() {
+        // 迁移旧存档中的升级默认值，保留本 Tick 经脚本显式覆盖的键。
+        if (!semiPermanentModifiers.isEmpty()) {
+            semiPermanentModifiers.keySet().removeIf(key -> ctrl.getUpgradeModifiers().containsKey(key)
+                && !overriddenUpgradeModifiers.contains(key));
+        }
+        return ctrl.resolveUpgradeModifiers(overriddenUpgradeModifiers);
+    }
+
+    public void resetUpgradeModifierOverrides() {
+        if (overriddenUpgradeModifiers.isEmpty()) {
+            return;
+        }
+        overriddenUpgradeModifiers.forEach(semiPermanentModifiers::remove);
+        overriddenUpgradeModifiers.clear();
+        flushContextModifier();
     }
 
     public RecipeCraftingContext getContext() {
@@ -246,6 +275,9 @@ public abstract class RecipeThread {
      */
     @ZenMethod
     public void addModifier(String name, RecipeModifier modifier) {
+        if (ctrl != null && ctrl.getUpgradeModifiers().containsKey(name)) {
+            overriddenUpgradeModifiers.add(name);
+        }
         semiPermanentModifiers.put(name, modifier);
         flushContextModifier();
     }
@@ -257,8 +289,12 @@ public abstract class RecipeThread {
      */
     @ZenMethod
     public void removeModifier(String name) {
+        boolean removesUpgrade = ctrl != null && ctrl.getUpgradeModifiers().containsKey(name);
+        if (removesUpgrade) {
+            overriddenUpgradeModifiers.add(name);
+        }
         RecipeModifier removed = semiPermanentModifiers.remove(name);
-        if (removed != null) {
+        if (removed != null || removesUpgrade) {
             flushContextModifier();
         }
     }
@@ -270,7 +306,9 @@ public abstract class RecipeThread {
      */
     @ZenMethod
     public boolean hasModifier(String name) {
-        return semiPermanentModifiers.containsKey(name);
+        return semiPermanentModifiers.containsKey(name)
+            || (ctrl != null && ctrl.getUpgradeModifiers().containsKey(name)
+                && !ctrl.getCustomModifiers().containsKey(name) && !overriddenUpgradeModifiers.contains(name));
     }
 
     /**

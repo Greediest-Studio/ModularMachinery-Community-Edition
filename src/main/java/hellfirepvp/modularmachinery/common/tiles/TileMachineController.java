@@ -382,6 +382,16 @@ public class TileMachineController extends TileMultiblockMachineController {
     }
 
     @Override
+    public boolean hasModifier(String key) {
+        return customModifiers.containsKey(key) || recipeThread.hasModifier(key);
+    }
+
+    @Override
+    protected void resetUpgradeModifierOverrides() {
+        recipeThread.resetUpgradeModifierOverrides();
+    }
+
+    @Override
     public void overrideStatusInfo(String newInfo) {
         this.getControllerStatus().overrideStatusMessage(newInfo);
     }

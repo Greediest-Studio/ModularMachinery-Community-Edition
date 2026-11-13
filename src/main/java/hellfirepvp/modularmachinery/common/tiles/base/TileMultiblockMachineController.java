@@ -51,6 +51,7 @@ import hellfirepvp.modularmachinery.common.item.ItemBlueprint;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
 import hellfirepvp.modularmachinery.common.machine.MachineComponent;
 import hellfirepvp.modularmachinery.common.machine.MachineRegistry;
+import hellfirepvp.modularmachinery.common.machine.RecipeThread;
 import hellfirepvp.modularmachinery.common.machine.TaggedPositionBlockArray;
 import hellfirepvp.modularmachinery.common.modifier.MultiBlockModifierReplacement;
 import hellfirepvp.modularmachinery.common.modifier.RecipeModifier;
@@ -814,10 +815,18 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     public RecipeCraftingContext createContext(ActiveMachineRecipe activeRecipe,
                                                java.util.Collection<RecipeModifier> semiPermanentModifiers,
                                                java.util.Collection<RecipeModifier> permanentModifiers) {
+        return createContext(activeRecipe, resolveUpgradeModifiers(java.util.Collections.emptySet()),
+            semiPermanentModifiers, permanentModifiers);
+    }
+
+    public RecipeCraftingContext createContext(ActiveMachineRecipe activeRecipe,
+                                               java.util.Collection<RecipeModifier> effectiveUpgradeModifiers,
+                                               java.util.Collection<RecipeModifier> semiPermanentModifiers,
+                                               java.util.Collection<RecipeModifier> permanentModifiers) {
         RecipeCraftingContext context = foundMachine.createContext(activeRecipe, this);
         context.addModifiers(
             this.foundModifiers.values(),
-            upgradeModifiers.values(),
+            effectiveUpgradeModifiers,
             customModifiers.values(),
             semiPermanentModifiers,
             permanentModifiers
@@ -1115,6 +1124,19 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         return upgradeModifiers;
     }
 
+    public java.util.Collection<RecipeModifier> resolveUpgradeModifiers(Set<String> overriddenKeys) {
+        if (overriddenKeys.isEmpty() && customModifiers.isEmpty()) {
+            return upgradeModifiers.values();
+        }
+        List<RecipeModifier> resolved = new ObjectArrayList<>(upgradeModifiers.size());
+        upgradeModifiers.forEach((key, modifier) -> {
+            if (!overriddenKeys.contains(key) && !customModifiers.containsKey(key)) {
+                resolved.add(modifier);
+            }
+        });
+        return resolved;
+    }
+
     protected void addMachineUpgrades(final Map<UpgradeType, List<MachineUpgrade>> found) {
         found.forEach((type, newUpgrades) -> {
             List<MachineUpgrade> upgrades = foundUpgrades.computeIfAbsent(type.getName(), v -> new ArrayList<>());
@@ -1337,7 +1359,16 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
      * <p>机器开始执行逻辑。</p>
      */
     public void onMachineTick(Phase phase) {
+        if (phase == Phase.START) {
+            resetUpgradeModifierOverrides();
+        }
         new MachineTickEvent(this, phase).postEvent();
+    }
+
+    protected void resetUpgradeModifierOverrides() {
+        for (RecipeThread thread : getRecipeThreadList()) {
+            thread.resetUpgradeModifierOverrides();
+        }
     }
 
     @Override
