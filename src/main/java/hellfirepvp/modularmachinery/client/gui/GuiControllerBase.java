@@ -114,9 +114,10 @@ public abstract class GuiControllerBase<T extends ContainerBase<? extends TileMu
     }
 
     protected void addPerformanceInfo() {
-        statusPanel.addLine(String.format("Avg: %sμs/t (Search: %sms), WorkMode: %s",
+        statusPanel.addLine(String.format("CPU Usage: ~%sμs, Recipe Search: ~%sms",
             TileMultiblockMachineController.usedTimeCache,
-            MiscUtils.formatFloat(TileMultiblockMachineController.searchUsedTimeCache / 1000F, 2),
+            MiscUtils.formatFloat(TileMultiblockMachineController.searchUsedTimeCache / 1000F, 2)));
+        statusPanel.addLine(String.format("WorkMode: %s",
             TileMultiblockMachineController.workModeCache.getDisplayName()));
     }
 
