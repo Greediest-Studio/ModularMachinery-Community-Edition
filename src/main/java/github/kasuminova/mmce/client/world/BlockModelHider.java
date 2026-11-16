@@ -53,7 +53,7 @@ public class BlockModelHider {
     private static void hideOrShowBlocksMBD(TileMultiblockMachineController ctrl) {
         DynamicMachine foundMachine = ctrl.getFoundMachine();
         BlockPos pos = ctrl.getPos();
-        if (ctrl.isInvalid() || foundMachine == null || DynamicMachineModelRegistry.INSTANCE.getMachineDefaultModel(foundMachine) == null) {
+        if (ctrl.isInvalid() || !ctrl.isGeoModelEnabled() || foundMachine == null || DynamicMachineModelRegistry.INSTANCE.getMachineDefaultModel(foundMachine) == null) {
             MultiblockWorldSavedData.removeDisableModel(pos);
             return;
         }
@@ -79,7 +79,7 @@ public class BlockModelHider {
     private static void hideOrShowBlocksPlugin(TileMultiblockMachineController ctrl) {
         DynamicMachine foundMachine = ctrl.getFoundMachine();
         BlockPos pos = ctrl.getPos();
-        if (ctrl.isInvalid() || foundMachine == null || DynamicMachineModelRegistry.INSTANCE.getMachineDefaultModel(foundMachine) == null) {
+        if (ctrl.isInvalid() || !ctrl.isGeoModelEnabled() || foundMachine == null || DynamicMachineModelRegistry.INSTANCE.getMachineDefaultModel(foundMachine) == null) {
             MultiblockWorldSavedData.removeDisableModel(pos);
             return;
         }

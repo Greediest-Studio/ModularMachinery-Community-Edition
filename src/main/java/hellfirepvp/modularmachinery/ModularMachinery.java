@@ -26,6 +26,7 @@ import hellfirepvp.modularmachinery.common.command.CommandSyntax;
 import hellfirepvp.modularmachinery.common.integration.crafttweaker.command.CommandCTReload;
 import hellfirepvp.modularmachinery.common.network.PktAssemblyReport;
 import hellfirepvp.modularmachinery.common.network.PktCopyToClipboard;
+import hellfirepvp.modularmachinery.common.network.PktControllerGeoModelToggle;
 import hellfirepvp.modularmachinery.common.network.PktControllerModeSelect;
 import hellfirepvp.modularmachinery.common.network.PktControllerStructureRefresh;
 import hellfirepvp.modularmachinery.common.network.PktGroupInputConfig;
@@ -126,6 +127,7 @@ public class ModularMachinery {
         NET_CHANNEL.registerMessage(PktParallelControllerUpdate.class, PktParallelControllerUpdate.class, 102, Side.SERVER);
         NET_CHANNEL.registerMessage(PktControllerModeSelect.class, PktControllerModeSelect.class, 109, Side.SERVER);
         NET_CHANNEL.registerMessage(PktControllerStructureRefresh.class, PktControllerStructureRefresh.class, 110, Side.SERVER);
+        NET_CHANNEL.registerMessage(PktControllerGeoModelToggle.class, PktControllerGeoModelToggle.class, 111, Side.SERVER);
         if (Mods.AE2.isPresent()) {
             NET_CHANNEL.registerMessage(PktMEInputBusInvAction.class, PktMEInputBusInvAction.class, 103, Side.SERVER);
             NET_CHANNEL.registerMessage(PktMEInputBusRecipeTransfer.class, PktMEInputBusRecipeTransfer.class, 107, Side.SERVER);

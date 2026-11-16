@@ -141,6 +141,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
 
     private final ControllerModeData controllerModes = new ControllerModeData();
     private boolean forceStructureCheck;
+    private volatile boolean geoModelEnabled = true;
 
     protected final Map<TileSmartInterface.SmartInterfaceProvider, String>  foundSmartInterfaces     = new ConcurrentHashMap<>();
     private final ThreadLocal<Long> smartInterfaceRecipeGroup = new ThreadLocal<>();
@@ -1824,6 +1825,8 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
     public void readCustomNBT(NBTTagCompound compound) {
         super.readCustomNBT(compound);
         controllerModes.deserialize(compound.getCompoundTag("controllerModes"));
+        // 旧存档没有这个字段，保持原有的 GEO 模型显示行为。
+        geoModelEnabled = !compound.hasKey("geoModelEnabled") || compound.getBoolean("geoModelEnabled");
         this.inventory = IOInventory.deserialize(this, compound.getCompoundTag("items"));
         this.inventory.setStackLimit(1, BLUEPRINT_SLOT);
 
@@ -1875,6 +1878,7 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         compound.setTag("items", this.inventory.writeNBT());
         // 结构未成型时也保存，避免临时拆除结构后丢失模式。
         compound.setTag("controllerModes", controllerModes.serialize());
+        compound.setBoolean("geoModelEnabled", geoModelEnabled);
 
         if (this.owner != null) {
             compound.setString("owner", this.owner.toString());
@@ -2088,8 +2092,33 @@ public abstract class TileMultiblockMachineController extends TileEntityRestrict
         };
     }
 
+    public boolean isGeoModelEnabled() {
+        return geoModelEnabled;
+    }
+
+    /** 服务端修改后复用控制器 NBT 同步，客户端据此刷新模型与结构方块显示。 */
+    public void setGeoModelEnabled(boolean enabled) {
+        if (geoModelEnabled == enabled) {
+            return;
+        }
+        geoModelEnabled = enabled;
+        markForUpdate();
+    }
+
     @Method(modid = "geckolib3")
     public MachineControllerModel getCurrentModel() {
+        return geoModelEnabled ? getConfiguredModel() : null;
+    }
+
+    /** 判断模型配置时不受显示开关影响，未成型的专用控制器和蓝图也可提供默认模型。 */
+    @Method(modid = "geckolib3")
+    public boolean hasGeoModel() {
+        return getConfiguredModel() != null
+            || DynamicMachineModelRegistry.INSTANCE.getMachineDefaultModel(getControllerModeMachine()) != null;
+    }
+
+    @Method(modid = "geckolib3")
+    public MachineControllerModel getConfiguredModel() {
         String modelName = getCurrentModelName();
         if (modelName != null && !modelName.isEmpty()) {
             MachineControllerModel model = DynamicMachineModelRegistry.INSTANCE.getMachineModel(modelName);

@@ -1,8 +1,10 @@
 package hellfirepvp.modularmachinery.client.gui.widget;
 
 import hellfirepvp.modularmachinery.ModularMachinery;
+import hellfirepvp.modularmachinery.common.base.Mods;
 import hellfirepvp.modularmachinery.common.container.ContainerBase;
 import hellfirepvp.modularmachinery.common.machine.DynamicMachine;
+import hellfirepvp.modularmachinery.common.network.PktControllerGeoModelToggle;
 import hellfirepvp.modularmachinery.common.network.PktControllerModeSelect;
 import hellfirepvp.modularmachinery.common.network.PktControllerStructureRefresh;
 import hellfirepvp.modularmachinery.common.tiles.base.TileMultiblockMachineController;
@@ -26,11 +28,11 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-/** 普通控制器与工厂控制器共用的模式按钮、结构刷新按钮和模式列表。坐标均为屏幕坐标。 */
+/** 普通控制器与工厂控制器共用的模式按钮、设置按钮和弹出列表。坐标均为屏幕坐标。 */
 public class GuiControllerModeSelector {
     private static final int BUTTON_SIZE = 18;
     private static final int BUTTON_STEP = 20;
-    // 刷新按钮占据最下方一格，其余四格显示模式按钮，顶部保留蓝图槽。
+    // 设置按钮占据最下方一格，其余四格显示模式按钮，顶部保留蓝图槽。
     private static final int MAX_BUTTONS = 4;
     private static final int ROW_HEIGHT = 18;
     private static final int HEADER_HEIGHT = 20;
@@ -38,9 +40,10 @@ public class GuiControllerModeSelector {
 
     private final ContainerBase<? extends TileMultiblockMachineController> container;
     private final GuiButton button = new GuiButton(0, 0, 0, BUTTON_SIZE, BUTTON_SIZE, "");
-    private final GuiButton refreshButton = new GuiButton(1, 0, 0, BUTTON_SIZE, BUTTON_SIZE, "");
+    private final GuiButton settingsButton = new GuiButton(1, 0, 0, BUTTON_SIZE, BUTTON_SIZE, "");
     private final List<ControllerMode> types = new ArrayList<>();
     private ControllerMode openedType;
+    private boolean settingsOpen;
     private int buttonX;
     private int buttonBottomY;
     private int buttonScroll;
@@ -58,9 +61,9 @@ public class GuiControllerModeSelector {
     public void draw(int guiLeft, int guiTop, int guiWidth, int screenWidth, int screenHeight,
                      int mouseX, int mouseY) {
         buttonX = guiLeft + guiWidth - 26;
-        refreshButton.x = buttonX;
-        refreshButton.y = guiTop + 106;
-        buttonBottomY = refreshButton.y - BUTTON_STEP;
+        settingsButton.x = buttonX;
+        settingsButton.y = guiTop + 106;
+        buttonBottomY = settingsButton.y - BUTTON_STEP;
         refreshTypes();
         Minecraft mc = Minecraft.getMinecraft();
         FontRenderer font = mc.fontRenderer;
@@ -69,15 +72,15 @@ public class GuiControllerModeSelector {
         GlStateManager.disableLighting();
         GlStateManager.pushMatrix();
         GlStateManager.translate(0, 0, 300);
-        refreshButton.drawButton(mc, mouseX, mouseY, 0);
-        drawRefreshArrow(refreshButton.x + 9, refreshButton.y + 9, 0xFFE0E3E6);
+        settingsButton.drawButton(mc, mouseX, mouseY, 0);
+        drawGear(settingsButton.x + 9, settingsButton.y + 9, 0xFFE0E3E6);
         for (int i = buttonScroll; i < Math.min(types.size(), buttonScroll + MAX_BUTTONS); i++) {
             ControllerMode type = types.get(i);
             button.x = buttonX;
             button.y = buttonY(i);
             button.enabled = canSelect(type);
             button.drawButton(mc, mouseX, mouseY, 0);
-            drawGear(button.x + 9, button.y + 9, button.enabled ? 0xFFE0E3E6 : 0xFF777777);
+            drawModeSwitch(button.x + 9, button.y + 9, button.enabled ? 0xFFE0E3E6 : 0xFF777777);
             // 一个可见按钮时不编号；多个按钮按脚本注册顺序显示角标。
             if (types.size() > 1) {
                 String number = Integer.toString(i + 1);
@@ -88,7 +91,9 @@ public class GuiControllerModeSelector {
                 GlStateManager.popMatrix();
             }
         }
-        if (isOpen()) {
+        if (settingsOpen) {
+            drawSettingsPopup(font, screenWidth, screenHeight, mouseX, mouseY);
+        } else if (openedType != null) {
             drawPopup(font, screenWidth, screenHeight, mouseX, mouseY);
         }
         GlStateManager.color(1, 1, 1, 1);
@@ -97,8 +102,8 @@ public class GuiControllerModeSelector {
 
         if (!isOpen()) {
             int hovered = hoveredButton(mouseX, mouseY);
-            if (isMouseOverRefreshButton(mouseX, mouseY)) {
-                GuiUtils.drawHoveringText(Collections.singletonList(I18n.format("gui.controller.structure.refresh")),
+            if (isMouseOverSettingsButton(mouseX, mouseY)) {
+                GuiUtils.drawHoveringText(Collections.singletonList(I18n.format("gui.controller.settings")),
                     mouseX, mouseY, screenWidth, screenHeight, -1, font);
             } else if (hovered >= 0) {
                 GuiUtils.drawHoveringText(tooltip(types.get(hovered)), mouseX, mouseY,
@@ -163,26 +168,11 @@ public class GuiControllerModeSelector {
         modeScroll = MathHelper.clamp(modeScroll, 0, modes.size() - visibleRows);
         boolean scrolling = modes.size() > visibleRows;
         popupHeight = HEADER_HEIGHT + visibleRows * ROW_HEIGHT + (scrolling ? 15 : 4);
-        popupX = Math.max(4, buttonX - popupWidth - 4);
-        popupY = MathHelper.clamp(buttonY(types.indexOf(openedType)) + BUTTON_SIZE - popupHeight,
-            4, Math.max(4, screenHeight - popupHeight - 4));
-
-        Gui.drawRect(popupX - 1, popupY - 1, popupX + popupWidth + 1, popupY + popupHeight + 1, 0xFF92979F);
-        Gui.drawRect(popupX, popupY, popupX + popupWidth, popupY + popupHeight, 0xFF171A20);
-        font.drawStringWithShadow(font.trimStringToWidth(title, popupWidth - 10), popupX + 5, popupY + 6, 0xFFFFFF);
+        drawPopupBackground(font, title, buttonY(types.indexOf(openedType)), screenHeight);
         int selectedValue = container.getOwner().getControllerMode(openedType.getName());
         for (int row = 0; row < visibleRows; row++) {
             Map.Entry<Integer, String> mode = modes.get(modeScroll + row);
-            int y = popupY + HEADER_HEIGHT + row * ROW_HEIGHT;
-            boolean selected = selectedValue == mode.getKey();
-            boolean hovered = contains(mouseX, mouseY, popupX + 3, y, popupWidth - 6, ROW_HEIGHT - 1);
-            int color = hovered ? 0xFF454D5A : selected ? 0xFF304C3E : 0xFF252A32;
-            Gui.drawRect(popupX + 3, y, popupX + popupWidth - 3, y + ROW_HEIGHT - 1, color);
-            if (selected) {
-                font.drawStringWithShadow(">", popupX + 6, y + 5, 0x80FFAA);
-            }
-            font.drawStringWithShadow(font.trimStringToWidth(mode.getValue(), popupWidth - 24),
-                popupX + 16, y + 5, selected ? 0xA5FFC0 : 0xFFFFFF);
+            drawPopupRow(font, row, mode.getValue(), selectedValue == mode.getKey(), mouseX, mouseY);
         }
         if (scrolling) {
             String page = (modeScroll + 1) + "-" + (modeScroll + visibleRows) + " / " + modes.size();
@@ -191,13 +181,60 @@ public class GuiControllerModeSelector {
         }
     }
 
+    private boolean hasGeoModel() {
+        return Mods.GECKOLIB.isPresent() && container.getOwner().hasGeoModel();
+    }
+
+    private void drawSettingsPopup(FontRenderer font, int screenWidth, int screenHeight, int mouseX, int mouseY) {
+        String title = I18n.format("gui.controller.settings");
+        String refresh = I18n.format("gui.controller.settings.refresh");
+        boolean enabled = container.getOwner().isGeoModelEnabled();
+        String geoModel = I18n.format("gui.controller.settings.geo_model",
+            I18n.format(enabled ? "gui.controller.settings.enabled" : "gui.controller.settings.disabled"));
+        boolean showGeoModel = hasGeoModel();
+        popupWidth = Math.max(112, Math.max(font.getStringWidth(title) + 12, font.getStringWidth(refresh) + 26));
+        if (showGeoModel) {
+            popupWidth = Math.max(popupWidth, font.getStringWidth(geoModel) + 26);
+        }
+        popupWidth = Math.min(popupWidth, Math.min(180, screenWidth - 8));
+        visibleRows = showGeoModel ? 2 : 1;
+        popupHeight = HEADER_HEIGHT + visibleRows * ROW_HEIGHT + 4;
+        drawPopupBackground(font, title, settingsButton.y, screenHeight);
+        drawPopupRow(font, 0, refresh, false, mouseX, mouseY);
+        if (showGeoModel) {
+            drawPopupRow(font, 1, geoModel, enabled, mouseX, mouseY);
+        }
+    }
+
+    private void drawPopupBackground(FontRenderer font, String title, int anchorY, int screenHeight) {
+        popupX = Math.max(4, buttonX - popupWidth - 4);
+        popupY = MathHelper.clamp(anchorY + BUTTON_SIZE - popupHeight,
+            4, Math.max(4, screenHeight - popupHeight - 4));
+        Gui.drawRect(popupX - 1, popupY - 1, popupX + popupWidth + 1, popupY + popupHeight + 1, 0xFF92979F);
+        Gui.drawRect(popupX, popupY, popupX + popupWidth, popupY + popupHeight, 0xFF171A20);
+        font.drawStringWithShadow(font.trimStringToWidth(title, popupWidth - 10), popupX + 5, popupY + 6, 0xFFFFFF);
+    }
+
+    private void drawPopupRow(FontRenderer font, int row, String text, boolean selected, int mouseX, int mouseY) {
+        int y = popupY + HEADER_HEIGHT + row * ROW_HEIGHT;
+        boolean hovered = contains(mouseX, mouseY, popupX + 3, y, popupWidth - 6, ROW_HEIGHT - 1);
+        int color = hovered ? 0xFF454D5A : selected ? 0xFF304C3E : 0xFF252A32;
+        Gui.drawRect(popupX + 3, y, popupX + popupWidth - 3, y + ROW_HEIGHT - 1, color);
+        if (selected) {
+            font.drawStringWithShadow(">", popupX + 6, y + 5, 0x80FFAA);
+        }
+        font.drawStringWithShadow(font.trimStringToWidth(text, popupWidth - 24),
+            popupX + 16, y + 5, selected ? 0xA5FFC0 : 0xFFFFFF);
+    }
+
     public boolean mouseClicked(int mouseX, int mouseY, int mouseButton) {
         refreshTypes();
-        if (isMouseOverRefreshButton(mouseX, mouseY)) {
+        if (isMouseOverSettingsButton(mouseX, mouseY)) {
             if (mouseButton == 0) {
-                ModularMachinery.NET_CHANNEL.sendToServer(new PktControllerStructureRefresh(container.windowId));
-                refreshButton.playPressSound(Minecraft.getMinecraft().getSoundHandler());
+                boolean open = !settingsOpen;
                 close();
+                settingsOpen = open;
+                settingsButton.playPressSound(Minecraft.getMinecraft().getSoundHandler());
             }
             return true;
         }
@@ -205,8 +242,9 @@ public class GuiControllerModeSelector {
         if (hovered >= 0) {
             if (mouseButton == 0 && canSelect(types.get(hovered))) {
                 ControllerMode type = types.get(hovered);
-                openedType = type == openedType ? null : type;
-                modeScroll = 0;
+                boolean open = type != openedType;
+                close();
+                openedType = open ? type : null;
                 button.playPressSound(Minecraft.getMinecraft().getSoundHandler());
             }
             return true;
@@ -221,9 +259,18 @@ public class GuiControllerModeSelector {
         if (mouseButton == 0 && contains(mouseX, mouseY, popupX + 3, popupY + HEADER_HEIGHT,
             popupWidth - 6, visibleRows * ROW_HEIGHT)) {
             int index = modeScroll + (mouseY - popupY - HEADER_HEIGHT) / ROW_HEIGHT;
-            List<Integer> values = new ArrayList<>(openedType.getModes().keySet());
-            ModularMachinery.NET_CHANNEL.sendToServer(new PktControllerModeSelect(
-                container.windowId, openedType.getName(), values.get(index)));
+            if (settingsOpen) {
+                if (index == 0) {
+                    ModularMachinery.NET_CHANNEL.sendToServer(new PktControllerStructureRefresh(container.windowId));
+                } else if (index == 1 && hasGeoModel()) {
+                    ModularMachinery.NET_CHANNEL.sendToServer(new PktControllerGeoModelToggle(
+                        container.windowId, !container.getOwner().isGeoModelEnabled()));
+                }
+            } else {
+                List<Integer> values = new ArrayList<>(openedType.getModes().keySet());
+                ModularMachinery.NET_CHANNEL.sendToServer(new PktControllerModeSelect(
+                    container.windowId, openedType.getName(), values.get(index)));
+            }
             button.playPressSound(Minecraft.getMinecraft().getSoundHandler());
             close();
         }
@@ -235,6 +282,9 @@ public class GuiControllerModeSelector {
             return false;
         }
         int step = wheel > 0 ? -1 : 1;
+        if (settingsOpen) {
+            return true;
+        }
         if (isOpen()) {
             modeScroll = MathHelper.clamp(modeScroll + step, 0, Math.max(0, openedType.getModes().size() - visibleRows));
             return true;
@@ -257,20 +307,21 @@ public class GuiControllerModeSelector {
     }
 
     public boolean isOpen() {
-        return openedType != null;
+        return settingsOpen || openedType != null;
     }
 
     public void close() {
+        settingsOpen = false;
         openedType = null;
         modeScroll = 0;
     }
 
     public boolean isMouseOverButtons(int mouseX, int mouseY) {
-        return isMouseOverRefreshButton(mouseX, mouseY) || isMouseOverModeButtons(mouseX, mouseY);
+        return isMouseOverSettingsButton(mouseX, mouseY) || isMouseOverModeButtons(mouseX, mouseY);
     }
 
-    private boolean isMouseOverRefreshButton(int mouseX, int mouseY) {
-        return contains(mouseX, mouseY, refreshButton.x, refreshButton.y, BUTTON_SIZE, BUTTON_SIZE);
+    private boolean isMouseOverSettingsButton(int mouseX, int mouseY) {
+        return contains(mouseX, mouseY, settingsButton.x, settingsButton.y, BUTTON_SIZE, BUTTON_SIZE);
     }
 
     private boolean isMouseOverModeButtons(int mouseX, int mouseY) {
@@ -318,29 +369,15 @@ public class GuiControllerModeSelector {
         GlStateManager.enableTexture2D();
     }
 
-    /** 直接画循环箭头，避免依赖字体中的刷新符号。 */
-    private static void drawRefreshArrow(int x, int y, int color) {
-        GlStateManager.disableTexture2D();
-        GlStateManager.enableBlend();
-        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA, GL11.GL_ONE, GL11.GL_ZERO);
-        BufferBuilder buffer = Tessellator.getInstance().getBuffer();
-        buffer.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
-        for (int i = 0; i < 24; i++) {
-            double angle = Math.PI * (i + 4) / 16;
-            double nextAngle = Math.PI * (i + 5) / 16;
-            radialVertex(buffer, x, y, angle, 3.5, color);
-            radialVertex(buffer, x, y, nextAngle, 3.5, color);
-            radialVertex(buffer, x, y, nextAngle, 5.5, color);
-            radialVertex(buffer, x, y, angle, 5.5, color);
+    /** 三行滑轨与不同档位，和设置按钮的齿轮图标区分。 */
+    private static void drawModeSwitch(int x, int y, int color) {
+        for (int row = 0; row < 3; row++) {
+            int lineY = y - 5 + row * 4;
+            Gui.drawRect(x - 5, lineY, x + 6, lineY + 1, color);
         }
-        Tessellator.getInstance().draw();
-        buffer.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_COLOR);
-        // 三角箭头沿圆弧末端的顺时针切线指向右下方。
-        iconVertex(buffer, x + 5.6, y - 1.2, color);
-        iconVertex(buffer, x + 4.4, y - 5.2, color);
-        iconVertex(buffer, x + 1.6, y - 2.4, color);
-        Tessellator.getInstance().draw();
-        GlStateManager.enableTexture2D();
+        Gui.drawRect(x - 4, y - 6, x - 1, y - 3, color);
+        Gui.drawRect(x + 2, y - 2, x + 5, y + 1, color);
+        Gui.drawRect(x - 1, y + 2, x + 2, y + 5, color);
     }
 
     private static void radialVertex(BufferBuilder buffer, int x, int y, double angle, double radius, int color) {
