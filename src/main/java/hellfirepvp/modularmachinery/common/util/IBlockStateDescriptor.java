@@ -3,7 +3,6 @@ package hellfirepvp.modularmachinery.common.util;
 import hellfirepvp.modularmachinery.common.block.BlockStatedMachineComponent;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet;
 import it.unimi.dsi.fastutil.objects.ReferenceArrayList;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockLiquid;
@@ -13,12 +12,13 @@ import net.minecraftforge.fluids.BlockFluidBase;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 public class IBlockStateDescriptor {
 
-    // TODO It may not be necessary to use.
-    private static final ObjectOpenHashSet<IBlockStateDescriptor> POOL = new ObjectOpenHashSet<>();
+    private static final ConcurrentMap<IBlockStateDescriptor, IBlockStateDescriptor> POOL = new ConcurrentHashMap<>();
 
     private final List<IBlockState> applicable;
 
@@ -104,9 +104,13 @@ public class IBlockStateDescriptor {
     }
 
     public IBlockStateDescriptor canonicalize() {
-        synchronized (POOL) {
-            return POOL.addOrGet(this);
+        // 结构旋转会反复查找相同描述符，命中时只读取，避免争抢对象池的写锁。
+        IBlockStateDescriptor canonical = POOL.get(this);
+        if (canonical != null) {
+            return canonical;
         }
+        canonical = POOL.putIfAbsent(this, this);
+        return canonical == null ? this : canonical;
     }
 
     @Override
